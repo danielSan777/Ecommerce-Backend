@@ -47,6 +47,25 @@ return [
             'report' => false,
         ],
 
+        // Zona pública: fotos y videos ya procesados (WebP, MP4). Se sirven directo desde public/media con caché permanente.
+        'media' => [
+            'driver' => 'local',
+            'root' => public_path('media'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/media',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Zona privada: originales, fotos de clientes y comprobantes. Nunca en public; se entregan por un controlador con permisos.
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
