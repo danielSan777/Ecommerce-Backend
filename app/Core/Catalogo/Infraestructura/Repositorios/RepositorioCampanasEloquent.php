@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Catalogo\Infraestructura\Repositorios;
+
+use App\Core\Catalogo\Dominio\Entidades\Campana;
+use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
+use App\Core\Catalogo\Dominio\Repositorios\RepositorioCampanas;
+use App\Core\Catalogo\Dominio\Repositorios\RepositorioCatalogo;
+use App\Core\Catalogo\Dominio\Servicios\TemporadaDeCampana;
+use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
+
+final class RepositorioCampanasEloquent implements RepositorioCampanas
+{
+    public function __construct(private readonly RepositorioCatalogo $catalogo, private readonly TemporadaDeCampana $temporada) {}
+
+    public function campana(string $slug, string $hoy): Campana
+    {
+        $modelo = CampanaModelo::query()->where('is_active', true)->where('slug', $slug)->with('categoriaRelacionada')->first()
+            ?? throw CatalogoNoEncontrado::campana($slug);
+
+        $t = $this->temporada->calcular($modelo->start_md, $modelo->end_md, $modelo->event_md, $hoy);
+
+        // En temporada: los productos que eligió Josué, en su orden. Fuera de temporada: los de la categoría relacionada.
+        $productos = $t['estado'] === 'active'
+            ? $modelo->productos()->where('is_active', true)->pluck('slug')->map(fn (string $s) => $this->catalogo->producto($s))->all()
+            : $this->catalogo->categoria($modelo->categoriaRelacionada->slug)->productos;
+
+        return new Campana(
+            slug: $modelo->slug,
+            nombre: $modelo->name,
+            estado: $t['estado'],
+            anioTemporada: $t['anio'],
+            fechaEvento: $t['fechaEvento'],
+            categoriaRelacionadaSlug: $modelo->categoriaRelacionada->slug,
+            lema: $modelo->tagline,
+            eslogan: $modelo->slogan,
+            productos: array_values($productos),
+            seoTitulo: $modelo->seo_title,
+            seoDescripcion: $modelo->seo_description,
+        );
+    }
+}

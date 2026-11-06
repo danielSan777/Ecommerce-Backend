@@ -18,6 +18,11 @@ final class CatalogoNoEncontrado extends RuntimeException
         return new self("Subcategory '{$slug}' not found.");
     }
 
+    public static function campana(string $slug): self
+    {
+        return new self("Campaign '{$slug}' not found.");
+    }
+
     public static function producto(string $slug): self
     {
         return new self("Product '{$slug}' not found.");
