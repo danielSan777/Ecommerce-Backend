@@ -142,3 +142,11 @@ Con tu "aprobado" empiezo la **Etapa 3**: crear la estructura DDD y `/api/v1` en
 - Las respuestas se entregan tal cual, en inglés y snake_case, con los nombres del contrato del Paso 0; **no se traducen al español** (`APP_LOCALE=en`).
 - Errores: `{"code": "not_found", "message": "..."}` con el código HTTP correspondiente.
 - Los textos para el cliente (nombres, descripciones) salen en español porque son datos del negocio, no mensajes del sistema.
+
+## 10. Administración desde Angular (API)
+
+El panel del administrador es Angular y consume rutas `/api/v1/admin/*`. No hay pantallas en Laravel.
+
+- Todo el grupo `admin` pasa por el middleware `admin` (`RequiereAdministrador`): sin usuario autenticado responde `401 {"code":"unauthenticated"}`. Falla cerrado: mientras no exista el login (Sanctum + 2FA, pendiente) esas rutas no son utilizables en producción.
+- `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
+  `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204`. No existe: `404 not_found`.

@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Core\Catalogo\Dominio\Repositorios\RepositorioAdministracionCatalogo;
 use App\Core\Catalogo\Dominio\Repositorios\RepositorioCampanas;
 use App\Core\Catalogo\Dominio\Repositorios\RepositorioCatalogo;
+use App\Core\Catalogo\Infraestructura\Repositorios\RepositorioAdministracionCatalogoEloquent;
 use App\Core\Catalogo\Infraestructura\Repositorios\RepositorioCampanasEloquent;
 use App\Core\Catalogo\Infraestructura\Repositorios\RepositorioCatalogoEloquent;
 use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
@@ -20,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(RepositorioAdministracionCatalogo::class, RepositorioAdministracionCatalogoEloquent::class);
         $this->app->bind(RepositorioCampanas::class, RepositorioCampanasEloquent::class);
         $this->app->bind(RepositorioCatalogo::class, RepositorioCatalogoEloquent::class);
         $this->app->bind(RepositorioConfiguracion::class, RepositorioConfiguracionEloquent::class);

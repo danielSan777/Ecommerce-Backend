@@ -1,7 +1,9 @@
 <?php
 
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
+use App\Core\Catalogo\Dominio\Excepciones\CategoriaConProductos;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
+use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,10 +19,18 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Primero: la IP real del visitante detrás de Cloudflare
         $middleware->prepend(IpRealDeCloudflare::class);
+        $middleware->alias(['admin' => RequiereAdministrador::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Lo que no existe en el catálogo responde 404 con JSON estable (mensajes en inglés, tal cual)
         $exceptions->render(fn (CatalogoNoEncontrado $e) => response()->json(['code' => 'not_found', 'message' => $e->getMessage()], 404));
+        // Categoría con productos: 409 con la lista, para que Angular muestre cuáles son
+        $exceptions->render(fn (CategoriaConProductos $e) => response()->json([
+            'code' => 'category_has_products',
+            'message' => $e->getMessage(),
+            'products_count' => $e->total,
+            'products' => $e->productos,
+        ], 409));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
