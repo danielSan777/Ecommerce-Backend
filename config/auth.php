@@ -42,6 +42,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Panel del administrador (Angular): token Bearer opaco, ver AppServiceProvider
+        'admin' => [
+            'driver' => 'admin-token',
+            'provider' => 'users',
+        ],
     ],
 
     /*
@@ -111,6 +117,9 @@ return [
     | confirmation screen. By default, the timeout lasts for three hours.
     |
     */
+
+    // Horas que dura una sesión del panel antes de pedir login otra vez
+    'admin_token_hours' => (int) env('ADMIN_TOKEN_HOURS', 12),
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 

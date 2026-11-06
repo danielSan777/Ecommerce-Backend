@@ -147,6 +147,12 @@ Con tu "aprobado" empiezo la **Etapa 3**: crear la estructura DDD y `/api/v1` en
 
 El panel del administrador es Angular y consume rutas `/api/v1/admin/*`. No hay pantallas en Laravel.
 
-- Todo el grupo `admin` pasa por el middleware `admin` (`RequiereAdministrador`): sin usuario autenticado responde `401 {"code":"unauthenticated"}`. Falla cerrado: mientras no exista el login (Sanctum + 2FA, pendiente) esas rutas no son utilizables en producción.
+- **Login sin paquetes extra** (Sanctum no se pudo instalar): token Bearer opaco de 64 caracteres, en la tabla `admin_tokens` solo se guarda su SHA-256, vence a las `ADMIN_TOKEN_HOURS` (12 por defecto) y `last_used_at` se actualiza cada 5 min.
+  - `POST /api/v1/admin/login` `{email, password, device?}` → `{token, token_type, expires_at, user}`. Errores: `422 validation_error`, `401 invalid_credentials` (misma respuesta exista o no el correo), `429` tras 5 intentos por minuto.
+  - `GET /api/v1/admin/me`, `POST /api/v1/admin/logout` (esta sesión) y `POST /api/v1/admin/logout-all` (todas las sesiones). Header: `Authorization: Bearer <token>`.
+  - Crear administrador: `php artisan admin:crear correo@dominio.com --nombre="Sele"` (pide la contraseña por consola, mínimo 12 caracteres).
+  - Pendiente: doble factor (2FA) con recordar dispositivo.
+- CORS: solo los orígenes de `FRONTEND_URL` (varios separados por coma).
+- Todo grupo bajo `admin` (salvo el login) pasa por el middleware `admin` (`RequiereAdministrador`): sin usuario autenticado responde `401 {"code":"unauthenticated"}`. Falla cerrado: mientras no exista el login (Sanctum + 2FA, pendiente) esas rutas no son utilizables en producción.
 - `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
   `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204`. No existe: `404 not_found`.

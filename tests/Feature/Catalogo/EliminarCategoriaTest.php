@@ -23,7 +23,7 @@ final class EliminarCategoriaTest extends TestCase
 
     private function admin(): static
     {
-        return $this->actingAs(User::factory()->create());
+        return $this->actingAs(User::factory()->create(), 'admin');
     }
 
     public function test_sin_sesion_de_administrador_responde_401_y_no_borra_nada(): void

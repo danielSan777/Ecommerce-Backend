@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Administracion\Presentacion\Controladores\ControladorSesionAdministrador;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCategorias;
@@ -14,7 +15,11 @@ Route::prefix('v1')->group(function () {
     Route::get('products/{slug}', [ControladorProductos::class, 'show'])->name('api.v1.products.show');
     Route::get('campaigns/{slug}', [ControladorCampanas::class, 'show'])->name('api.v1.campaigns.show');
     // Administración (Angular del administrador). Todo grupo bajo `admin` exige un administrador autenticado.
+    Route::post('admin/login', [ControladorSesionAdministrador::class, 'login'])->middleware('throttle:login')->name('api.v1.admin.login');
     Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('me', [ControladorSesionAdministrador::class, 'me'])->name('api.v1.admin.me');
+        Route::post('logout', [ControladorSesionAdministrador::class, 'logout'])->name('api.v1.admin.logout');
+        Route::post('logout-all', [ControladorSesionAdministrador::class, 'logoutAll'])->name('api.v1.admin.logout-all');
         Route::delete('categories/{slug}', [ControladorAdministracionCategorias::class, 'destroy'])->name('api.v1.admin.categories.destroy');
     });
 

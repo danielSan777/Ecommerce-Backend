@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Administracion\Infraestructura\Consola\CrearAdministrador;
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Excepciones\CategoriaConProductos;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([CrearAdministrador::class])
     ->withMiddleware(function (Middleware $middleware): void {
         // Primero: la IP real del visitante detrás de Cloudflare
         $middleware->prepend(IpRealDeCloudflare::class);
