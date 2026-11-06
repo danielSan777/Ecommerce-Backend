@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -43,8 +43,8 @@ class ProductoModelo extends Model
         return $this->belongsTo(SubcategoriaModelo::class, 'subcategory_id');
     }
 
-    public function medios(): MorphMany
+    public function medios(): HasMany
     {
-        return $this->morphMany(MedioModelo::class, 'mediable')->orderBy('sort_order');
+        return $this->hasMany(MedioModelo::class, 'product_id')->orderBy('sort_order');
     }
 }

@@ -9,8 +9,8 @@ categories 1─┬─* subcategories
              ├─* products *─┬─1 subcategories (opcional)
              └─* campaigns (related_category_id)
 campaigns *─*  products   (tabla campaign_products, con orden)
-media ── mediable (products o categories): relación polimórfica (mediable_type + mediable_id); MySQL no permite
-         llave foránea en ese caso, por eso la integridad la cuida la aplicación.
+media: cada foto o video pertenece a un producto (product_id) o a una categoría (category_id), ambos con llave foránea;
+       si se borra el producto o la categoría, se borran sus registros de medios (los archivos se limpian aparte).
 settings: parámetros del negocio (clave única).
 ```
 

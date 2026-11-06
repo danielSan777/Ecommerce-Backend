@@ -23,6 +23,7 @@ final class EsquemaTest extends TestCase
             'products' => ['category_id', 'subcategory_id'],
             'campaigns' => ['related_category_id'],
             'campaign_products' => ['campaign_id', 'product_id'],
+            'media' => ['product_id', 'category_id'],
         ];
     }
 

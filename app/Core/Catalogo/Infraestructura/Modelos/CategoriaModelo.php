@@ -7,7 +7,6 @@ namespace App\Core\Catalogo\Infraestructura\Modelos;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['slug', 'name', 'headline', 'intro_html', 'sort_order', 'is_active', 'seo_title', 'seo_description'])]
@@ -32,8 +31,8 @@ class CategoriaModelo extends Model
         return $this->hasMany(ProductoModelo::class, 'category_id');
     }
 
-    public function medios(): MorphMany
+    public function medios(): HasMany
     {
-        return $this->morphMany(MedioModelo::class, 'mediable')->orderBy('sort_order');
+        return $this->hasMany(MedioModelo::class, 'category_id')->orderBy('sort_order');
     }
 }

@@ -6,9 +6,9 @@ namespace App\Core\Catalogo\Infraestructura\Modelos;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['type', 'role', 'disk', 'variants', 'original_path', 'width', 'height', 'duration_s', 'alt', 'sort_order'])]
+#[Fillable(['product_id', 'category_id', 'type', 'role', 'disk', 'variants', 'original_path', 'width', 'height', 'duration_s', 'alt', 'sort_order'])]
 class MedioModelo extends Model
 {
     protected $table = 'media';
@@ -18,8 +18,13 @@ class MedioModelo extends Model
         return ['variants' => 'array'];
     }
 
-    public function mediable(): MorphTo
+    public function producto(): BelongsTo
     {
-        return $this->morphTo();
+        return $this->belongsTo(ProductoModelo::class, 'product_id');
+    }
+
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(CategoriaModelo::class, 'category_id');
     }
 }
