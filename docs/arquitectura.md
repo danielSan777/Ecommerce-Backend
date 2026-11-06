@@ -153,6 +153,6 @@ El panel del administrador es Angular y consume rutas `/api/v1/admin/*`. No hay 
   - Crear administrador: `php artisan admin:crear correo@dominio.com --nombre="Sele"` (pide la contraseña por consola, mínimo 12 caracteres).
   - Pendiente: doble factor (2FA) con recordar dispositivo.
 - CORS: solo los orígenes de `FRONTEND_URL` (varios separados por coma).
-- Todo grupo bajo `admin` (salvo el login) pasa por el middleware `admin` (`RequiereAdministrador`): sin usuario autenticado responde `401 {"code":"unauthenticated"}`. Falla cerrado: mientras no exista el login (Sanctum + 2FA, pendiente) esas rutas no son utilizables en producción.
+- Todo grupo bajo `admin` (salvo el login) pasa por el middleware `admin` (`RequiereAdministrador`): sin usuario autenticado responde `401 {"code":"unauthenticated"}`. Falla cerrado.
 - `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
   `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204`. No existe: `404 not_found`.
