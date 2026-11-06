@@ -65,6 +65,9 @@ return [
     |
     */
 
+    // Dominio público de Angular: se usa para armar los `canonical` del contrato SEO.
+    'frontend_url' => env('FRONTEND_URL', 'https://jardindesele.com'),
+
     'timezone' => 'UTC',   // instantes siempre en UTC; las fechas de negocio las resuelve App\Shared\Dominio\BusinessCalendar
 
     /*
@@ -78,9 +81,9 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'es'),
+    'locale' => env('APP_LOCALE', 'en'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'es'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 

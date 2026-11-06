@@ -107,7 +107,7 @@ storage/app/private/
 - Las fotos de clientes y los comprobantes nunca están en `public`; se entregan por un controlador que verifica permisos.
 - Validación de tipo real (no solo extensión), peso máximo y límite de intentos.
 - En la base de datos se guarda la **ruta relativa**, nunca la URL completa ni el archivo. La API arma la URL; así se puede cambiar de dominio o de servidor.
-- La tabla `media` guarda: disco, ruta, variante (`original`, `600`, `1080`, `160`, `large`), ancho, alto, peso, tipo, `alt` y rol (`front`, `video`, `angle`, `detail`, `scale`, `social`), ligada al producto, accesorio o categoría.
+- La tabla `media` guarda un registro por archivo subido, con todas sus variantes en un campo JSON (por ejemplo `{"600": ruta, "1080": ruta}`), la ruta del original privado, ancho, alto, tipo, `alt` y rol (`front`, `video`, `angle`, `detail`, `scale`, `social`), ligada al producto, accesorio o categoría.
 - Si algún día se pasa a Cloudflare R2 o S3, solo cambia el disco.
 - Backups: la carpeta privada se copia fuera de Hostinger cada semana (Paso 25).
 
@@ -136,3 +136,9 @@ storage/app/private/
 4. La forma de guardar imágenes de la sección 5.
 
 Con tu "aprobado" empiezo la **Etapa 3**: crear la estructura DDD y `/api/v1` en una rama nueva del repositorio `Ecommerce-Backend` (sin tocar tu base de datos real), con pruebas.
+
+## 9. Convenciones de la API
+
+- Las respuestas se entregan tal cual, en inglés y snake_case, con los nombres del contrato del Paso 0; **no se traducen al español** (`APP_LOCALE=en`).
+- Errores: `{"code": "not_found", "message": "..."}` con el código HTTP correspondiente.
+- Los textos para el cliente (nombres, descripciones) salen en español porque son datos del negocio, no mensajes del sistema.

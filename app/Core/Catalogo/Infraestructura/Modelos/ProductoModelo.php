@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Catalogo\Infraestructura\Modelos;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
+
+#[Fillable(['sku', 'slug', 'type', 'name', 'category_id', 'subcategory_id', 'base_price_cents', 'cost_cents', 'size_text',
+    'material_text', 'includes', 'description_html', 'is_available', 'is_active', 'search_synonyms', 'seo_title', 'seo_description'])]
+#[Hidden(['cost_cents'])]
+class ProductoModelo extends Model
+{
+    use SoftDeletes;
+
+    protected $table = 'products';
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $producto): void {
+            $producto->uuid ??= (string) Str::uuid();
+        });
+    }
+
+    protected function casts(): array
+    {
+        return ['includes' => 'array', 'search_synonyms' => 'array', 'is_available' => 'boolean', 'is_active' => 'boolean'];
+    }
+
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(CategoriaModelo::class, 'category_id');
+    }
+
+    public function subcategoria(): BelongsTo
+    {
+        return $this->belongsTo(SubcategoriaModelo::class, 'subcategory_id');
+    }
+
+    public function medios(): MorphMany
+    {
+        return $this->morphMany(MedioModelo::class, 'mediable')->orderBy('sort_order');
+    }
+}

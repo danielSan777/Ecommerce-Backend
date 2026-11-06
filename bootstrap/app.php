@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(IpRealDeCloudflare::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Lo que no existe en el catálogo responde 404 con JSON estable (mensajes en inglés, tal cual)
+        $exceptions->render(fn (CatalogoNoEncontrado $e) => response()->json(['code' => 'not_found', 'message' => $e->getMessage()], 404));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
