@@ -38,7 +38,7 @@ final class EliminarCategoriaTest extends TestCase
         $respuesta = $this->admin()->deleteJson('/api/v1/admin/categories/profesiones-y-hobbies')->assertStatus(409);
 
         $respuesta->assertJsonPath('code', 'category_has_products')->assertJsonPath('products_count', 4)
-            ->assertJsonPath('message', "Category 'profesiones-y-hobbies' has 4 product(s) and cannot be deleted. Move or delete them first.");
+            ->assertJsonPath('message', "No se puede eliminar la categoría 'profesiones-y-hobbies' porque tiene 4 producto(s). Muévelos a otra categoría o elimínalos primero.");
         $this->assertEqualsCanonicalizing(['abogada', 'abogado', 'doctor', 'enfermera'], array_column($respuesta->json('products'), 'slug'));
         $respuesta->assertJsonStructure(['products' => [['sku', 'slug', 'name']]]);
     }

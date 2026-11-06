@@ -139,7 +139,7 @@ Con tu "aprobado" empiezo la **Etapa 3**: crear la estructura DDD y `/api/v1` en
 
 ## 9. Convenciones de la API
 
-- Las respuestas se entregan tal cual, en inglés y snake_case, con los nombres del contrato del Paso 0; **no se traducen al español** (`APP_LOCALE=en`).
+- Los textos de los mensajes de la API (`message`) van **en español**, para que Angular los muestre directamente. Los nombres de campos (snake_case) y los `code` estables (`not_found`, `category_has_products`, ...) siguen en inglés porque son el contrato del Paso 0: Angular decide por `code`, nunca por el texto.
 - Errores: `{"code": "not_found", "message": "..."}` con el código HTTP correspondiente.
 - Los textos para el cliente (nombres, descripciones) salen en español porque son datos del negocio, no mensajes del sistema.
 

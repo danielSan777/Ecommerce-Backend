@@ -17,7 +17,7 @@ final class RequiereAdministrador
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->user() === null) {
-            return response()->json(['code' => 'unauthenticated', 'message' => 'Authentication required.'], 401);
+            return response()->json(['code' => 'unauthenticated', 'message' => 'Debes iniciar sesión como administrador.'], 401);
         }
 
         return $next($request);

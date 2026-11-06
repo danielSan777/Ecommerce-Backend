@@ -59,8 +59,8 @@ final class CatalogoApiTest extends TestCase
     public function test_lo_que_no_existe_responde_404_con_json_en_ingles(): void
     {
         $this->getJson('/api/v1/categories/no-existe')->assertNotFound()
-            ->assertExactJson(['code' => 'not_found', 'message' => "Category 'no-existe' not found."]);
-        $this->getJson('/api/v1/categories/amor?subcategory=x')->assertNotFound()->assertJsonPath('message', "Subcategory 'x' not found.");
+            ->assertExactJson(['code' => 'not_found', 'message' => "La categoría 'no-existe' no existe."]);
+        $this->getJson('/api/v1/categories/amor?subcategory=x')->assertNotFound()->assertJsonPath('message', "La subcategoría 'x' no existe.");
         $this->getJson('/api/v1/products/no-existe')->assertNotFound()->assertJsonPath('code', 'not_found');
     }
 

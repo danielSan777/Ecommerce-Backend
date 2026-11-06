@@ -85,7 +85,7 @@ final class CampanasApiTest extends TestCase
 
     public function test_una_campana_que_no_existe_responde_404_en_ingles(): void
     {
-        $this->getJson('/api/v1/campaigns/navidad')->assertNotFound()->assertExactJson(['code' => 'not_found', 'message' => "Campaign 'navidad' not found."]);
+        $this->getJson('/api/v1/campaigns/navidad')->assertNotFound()->assertExactJson(['code' => 'not_found', 'message' => "La campaña 'navidad' no existe."]);
     }
 
     public function test_una_campana_inactiva_no_responde(): void

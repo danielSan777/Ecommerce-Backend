@@ -10,21 +10,21 @@ final class CatalogoNoEncontrado extends RuntimeException
 {
     public static function categoria(string $slug): self
     {
-        return new self("Category '{$slug}' not found.");
+        return new self("La categoría '{$slug}' no existe.");
     }
 
     public static function subcategoria(string $slug): self
     {
-        return new self("Subcategory '{$slug}' not found.");
+        return new self("La subcategoría '{$slug}' no existe.");
     }
 
     public static function campana(string $slug): self
     {
-        return new self("Campaign '{$slug}' not found.");
+        return new self("La campaña '{$slug}' no existe.");
     }
 
     public static function producto(string $slug): self
     {
-        return new self("Product '{$slug}' not found.");
+        return new self("El producto '{$slug}' no existe.");
     }
 }
