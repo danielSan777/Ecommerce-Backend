@@ -6,6 +6,7 @@ use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\RequiereSesion;
+use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'products_count' => $e->total,
             'products' => $e->productos,
         ], 409));
+        $exceptions->render(fn (ValidacionFallida $e) => response()->json(['code' => 'validation_error', 'message' => $e->getMessage(), 'errors' => $e->errores], 422));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

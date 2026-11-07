@@ -158,6 +158,12 @@ Un solo login para clientes y administradores (módulo `Cuentas`). La respuesta 
 - CORS: solo los orígenes de `FRONTEND_URL` (varios separados por coma).
 - Documento maestro: las "cuentas de cliente" figuran en "solo con mucho volumen"; se adelantan por decisión del desarrollador (2026-11-07).
 
-### Rutas de administración
+### Rutas de administración (solo rol `admin`)
+Errores comunes: `401 unauthenticated`, `403 forbidden` (cliente), `422 validation_error` con `errors` por campo en español, `404 not_found`.
+
+- `GET /api/v1/admin/categories` → `{data:[{slug,name,headline,intro_html,sort_order,is_active,seo_title,seo_description,products_count,subcategories_count,updated_at}]}` (incluye las inactivas).
+- `POST /api/v1/admin/categories` `{name, slug?, headline?, intro_html?, sort_order?, is_active?, seo_title?, seo_description?}` → `201`. Sin `slug` se genera del nombre.
+- `PUT /api/v1/admin/categories/{slug}`: edita; el `slug` no se puede cambiar (rompería los enlaces publicados). Una categoría inactiva desaparece de la tienda pública.
 - `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
-  `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204`. No existe: `404 not_found`.
+  `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204` (borrado lógico).
+- Pendiente: subcategorías, productos y subida de imágenes (la ruta relativa va en la tabla `media`).

@@ -27,6 +27,9 @@ Route::prefix('v1')->group(function () {
 
     // Administración (Angular del administrador): solo rol administrador.
     Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('categories', [ControladorAdministracionCategorias::class, 'index'])->name('api.v1.admin.categories.index');
+        Route::post('categories', [ControladorAdministracionCategorias::class, 'store'])->name('api.v1.admin.categories.store');
+        Route::put('categories/{slug}', [ControladorAdministracionCategorias::class, 'update'])->name('api.v1.admin.categories.update');
         Route::delete('categories/{slug}', [ControladorAdministracionCategorias::class, 'destroy'])->name('api.v1.admin.categories.destroy');
     });
 
