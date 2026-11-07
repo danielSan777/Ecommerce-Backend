@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionProductos;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionSubcategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCategorias;
@@ -31,6 +32,11 @@ Route::prefix('v1')->group(function () {
         Route::get('categories', [ControladorAdministracionCategorias::class, 'index'])->name('api.v1.admin.categories.index');
         Route::post('categories', [ControladorAdministracionCategorias::class, 'store'])->name('api.v1.admin.categories.store');
         Route::put('categories/{slug}', [ControladorAdministracionCategorias::class, 'update'])->name('api.v1.admin.categories.update');
+        Route::get('products', [ControladorAdministracionProductos::class, 'index'])->name('api.v1.admin.products.index');
+        Route::post('products', [ControladorAdministracionProductos::class, 'store'])->name('api.v1.admin.products.store');
+        Route::get('products/{sku}', [ControladorAdministracionProductos::class, 'show'])->name('api.v1.admin.products.show');
+        Route::put('products/{sku}', [ControladorAdministracionProductos::class, 'update'])->name('api.v1.admin.products.update');
+        Route::delete('products/{sku}', [ControladorAdministracionProductos::class, 'destroy'])->name('api.v1.admin.products.destroy');
         Route::get('categories/{categoria}/subcategories', [ControladorAdministracionSubcategorias::class, 'index'])->name('api.v1.admin.subcategories.index');
         Route::post('categories/{categoria}/subcategories', [ControladorAdministracionSubcategorias::class, 'store'])->name('api.v1.admin.subcategories.store');
         Route::put('categories/{categoria}/subcategories/{slug}', [ControladorAdministracionSubcategorias::class, 'update'])->name('api.v1.admin.subcategories.update');
