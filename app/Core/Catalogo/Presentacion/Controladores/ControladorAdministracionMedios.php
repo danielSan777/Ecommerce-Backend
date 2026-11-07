@@ -53,7 +53,11 @@ final class ControladorAdministracionMedios extends Controller
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65000'],
         ], self::MENSAJES);
 
-        return response()->json($medios->actualizar($id, $validos));
+        try {
+            return response()->json($medios->actualizar($id, $validos));
+        } catch (ImagenInvalida $e) {
+            throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
+        }
     }
 
     public function destroy(int $id, AdministrarMedios $medios): Response
@@ -77,7 +81,7 @@ final class ControladorAdministracionMedios extends Controller
         try {
             return response()->json($medios->subir($tipo, $clave, $contenido, $validos['role'] ?? 'front', $validos['alt']), 201);
         } catch (ImagenInvalida $e) {
-            throw new ValidacionFallida(['image' => [$e->getMessage()]]);
+            throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
         }
     }
 }

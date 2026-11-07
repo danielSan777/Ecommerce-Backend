@@ -93,8 +93,8 @@ final class AdministrarMediosTest extends TestCase
     public function test_acepta_jpeg_y_webp(): void
     {
         $this->admin();
-        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('jpeg', 700, 700, 'a.jpg')], ['Accept' => 'application/json'])->assertCreated();
-        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('webp', 700, 700, 'a.webp')], ['Accept' => 'application/json'])->assertCreated();
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('jpeg', 700, 700, 'a.jpg'), 'role' => 'detail'], ['Accept' => 'application/json'])->assertCreated();
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('webp', 700, 700, 'a.webp'), 'role' => 'detail'], ['Accept' => 'application/json'])->assertCreated();
         $this->assertSame(2, MedioModelo::query()->count());
     }
 
@@ -155,9 +155,9 @@ final class AdministrarMediosTest extends TestCase
     {
         $this->admin();
         for ($i = 0; $i < 12; $i++) {
-            $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 320, 320)], ['Accept' => 'application/json'])->assertCreated();
+            $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 320, 320), 'role' => 'detail'], ['Accept' => 'application/json'])->assertCreated();
         }
-        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 320, 320)], ['Accept' => 'application/json'])
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 320, 320), 'role' => 'detail'], ['Accept' => 'application/json'])
             ->assertStatus(422)->assertJsonPath('errors.image.0', 'Ya hay 12 imágenes. Elimina alguna antes de subir otra.');
     }
 
@@ -190,22 +190,31 @@ final class AdministrarMediosTest extends TestCase
         $this->assertStringContainsString($ruta, json_encode($publico, JSON_UNESCAPED_SLASHES));
     }
 
-    public function test_solo_una_imagen_puede_ser_la_principal(): void
+    public function test_solo_una_imagen_puede_ser_la_principal_y_hay_que_liberar_la_actual(): void
     {
         $this->admin();
-        $subir = fn (string $rol) => $this->post(self::PRODUCTO, ['image' => $this->imagen(), 'alt' => 'Homero', 'role' => $rol], ['Accept' => 'application/json'])->json('id');
+        $subir = fn (string $rol) => $this->post(self::PRODUCTO, ['image' => $this->imagen(), 'alt' => 'Homero', 'role' => $rol], ['Accept' => 'application/json']);
+        $mensaje = 'Ya hay una imagen principal. Cambia primero su tipo (por ejemplo a "Otro ángulo") para marcar otra.';
 
-        $a = $subir('front');
-        $b = $subir('front');
-        $this->assertSame('angle', MedioModelo::query()->findOrFail($a)->role);
-        $this->assertSame('front', MedioModelo::query()->findOrFail($b)->role);
+        $a = $subir('front')->assertCreated()->json('id');
+        $subir('front')->assertStatus(422)->assertJsonPath('errors.role.0', $mensaje);
+        $this->assertSame(1, MedioModelo::query()->count());
+        $this->assertCount(2, Storage::disk('media')->allFiles(), 'el rechazo no deja archivos sueltos');
 
-        $c = $subir('detail');
+        $c = $subir('detail')->assertCreated()->json('id');
+        $this->putJson("/api/v1/admin/media/{$c}", ['role' => 'front'])->assertStatus(422)->assertJsonPath('errors.role.0', $mensaje);
+        $this->assertSame('detail', MedioModelo::query()->findOrFail($c)->role);
+
+        // Editar la propia principal (por ejemplo su descripción) no se bloquea a sí misma
+        $this->putJson("/api/v1/admin/media/{$a}", ['role' => 'front', 'alt' => 'Nueva'])->assertOk();
+
+        // Liberando la actual, otra puede ser la principal
+        $this->putJson("/api/v1/admin/media/{$a}", ['role' => 'angle'])->assertOk();
         $this->putJson("/api/v1/admin/media/{$c}", ['role' => 'front'])->assertOk()->assertJsonPath('role', 'front');
-        $this->assertSame(['angle', 'angle', 'front'], MedioModelo::query()->orderBy('id')->pluck('role')->all());
-        $this->assertSame(1, MedioModelo::query()->where('role', 'front')->count());
-
-        // En la API pública la principal sale primera aunque se haya subido después
         $this->assertSame($c, ProductoModelo::query()->where('sku', 'PRO-HOMERO')->firstOrFail()->medios->first()->id);
+
+        // Al eliminar la principal, el tipo queda libre
+        $this->deleteJson("/api/v1/admin/media/{$c}")->assertNoContent();
+        $subir('front')->assertCreated();
     }
 }

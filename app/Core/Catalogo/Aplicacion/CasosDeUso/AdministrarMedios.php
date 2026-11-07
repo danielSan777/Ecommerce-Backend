@@ -40,6 +40,9 @@ final class AdministrarMedios
             throw new ImagenInvalida('Ya hay '.self::MAX_POR_DUENO.' imágenes. Elimina alguna antes de subir otra.');
         }
 
+        // Antes de procesar o guardar nada: un rechazo no debe dejar archivos sueltos
+        $this->verificarPrincipal($dueno, $rol, null);
+
         $resultado = $this->procesador->procesar($contenido);
 
         // Nombre propio, nunca el del archivo subido
@@ -53,8 +56,6 @@ final class AdministrarMedios
         }
         $original = "originals/{$carpeta}/{$nombre}.{$resultado['extension']}";
         Storage::disk('private')->put($original, $contenido);
-
-        $this->dejarUnaPrincipal($dueno, $rol, null);
 
         $medio = $dueno->medios()->create([
             'type' => 'image', 'role' => $rol, 'disk' => 'media', 'variants' => $variantes, 'original_path' => $original,
@@ -74,7 +75,7 @@ final class AdministrarMedios
         $medio = $this->medio($id);
         $dueno = $medio->product_id ? $medio->producto : $medio->categoria;
         if (isset($datos['role'])) {
-            $this->dejarUnaPrincipal($dueno, $datos['role'], $medio->id);
+            $this->verificarPrincipal($dueno, $datos['role'], $medio->id);
         }
         $medio->update($datos);
 
@@ -93,13 +94,16 @@ final class AdministrarMedios
         $medio->delete();
     }
 
-    /** Solo una imagen puede ser la principal: al marcar una nueva, la anterior pasa a "Otro ángulo". */
-    private function dejarUnaPrincipal(Model $dueno, string $rol, ?int $excepto): void
+    /** Solo una imagen puede ser la principal: si ya hay una, hay que cambiarle el tipo antes de marcar otra. */
+    private function verificarPrincipal(Model $dueno, string $rol, ?int $excepto): void
     {
         if ($rol !== 'front') {
             return;
         }
-        $dueno->medios()->where('role', 'front')->when($excepto, fn ($q) => $q->where('id', '!=', $excepto))->update(['role' => 'angle']);
+        $hayOtra = $dueno->medios()->where('role', 'front')->when($excepto, fn ($q) => $q->where('id', '!=', $excepto))->exists();
+        if ($hayOtra) {
+            throw new ImagenInvalida('Ya hay una imagen principal. Cambia primero su tipo (por ejemplo a "Otro ángulo") para marcar otra.', 'role');
+        }
     }
 
     private function medio(int $id): MedioModelo
