@@ -2,6 +2,7 @@
 
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Excepciones\CategoriaConProductos;
+use App\Core\Catalogo\Dominio\Excepciones\SubcategoriaConProductos;
 use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
@@ -31,6 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Categoría con productos: 409 con la lista, para que Angular muestre cuáles son
         $exceptions->render(fn (CategoriaConProductos $e) => response()->json([
             'code' => 'category_has_products',
+            'message' => $e->getMessage(),
+            'products_count' => $e->total,
+            'products' => $e->productos,
+        ], 409));
+        $exceptions->render(fn (SubcategoriaConProductos $e) => response()->json([
+            'code' => 'subcategory_has_products',
             'message' => $e->getMessage(),
             'products_count' => $e->total,
             'products' => $e->productos,

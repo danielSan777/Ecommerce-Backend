@@ -166,4 +166,7 @@ Errores comunes: `401 unauthenticated`, `403 forbidden` (cliente), `422 validati
 - `PUT /api/v1/admin/categories/{slug}`: edita; el `slug` no se puede cambiar (rompería los enlaces publicados). Una categoría inactiva desaparece de la tienda pública.
 - `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
   `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204` (borrado lógico).
-- Pendiente: subcategorías, productos y subida de imágenes (la ruta relativa va en la tabla `media`).
+- `GET|POST /api/v1/admin/categories/{categoria}/subcategories`, `PUT|DELETE .../subcategories/{slug}`: igual que las categorías. El `slug` se genera del nombre (con guiones, único dentro de la categoría) y no cambia. `DELETE` con productos responde `409`:
+  `{"code":"subcategory_has_products","message":"...","products_count":2,"products":[{"sku","slug","name"}]}`; los productos ya eliminados no bloquean.
+- Pendiente: productos y subida de imágenes (la ruta relativa va en la tabla `media`).
+- **Pendiente de avisar:** campos de Google (`seo_title`, `seo_description`, `intro_html`) en el formulario de categorías y productos del panel; ya existen en la base de datos.
