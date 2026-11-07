@@ -20,6 +20,7 @@ final class ControladorAdministracionMedios extends Controller
         'image.file' => 'Elige una imagen.',
         'image.uploaded' => 'No se pudo subir la imagen. Revisa que pese menos de 2 MB o pide aumentar el límite del servidor.',
         'role.in' => 'El tipo de imagen no es válido.',
+        'alt.required' => 'Escribe la descripción de la imagen.',
         'alt.max' => 'La descripción de la imagen no puede pasar de 200 caracteres.',
         'sort_order.integer' => 'El orden no es válido.',
     ];
@@ -47,7 +48,7 @@ final class ControladorAdministracionMedios extends Controller
     public function update(int $id, Request $request, AdministrarMedios $medios): JsonResponse
     {
         $validos = ValidacionFallida::validar($request->all(), [
-            'alt' => ['nullable', 'string', 'max:200'],
+            'alt' => ['sometimes', 'required', 'string', 'max:200'],
             'role' => ['sometimes', Rule::in(AdministrarMedios::ROLES)],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65000'],
         ], self::MENSAJES);
@@ -68,13 +69,13 @@ final class ControladorAdministracionMedios extends Controller
         $validos = ValidacionFallida::validar($request->all(), [
             'image' => ['required', 'file'],
             'role' => ['sometimes', Rule::in(AdministrarMedios::ROLES)],
-            'alt' => ['nullable', 'string', 'max:200'],
+            'alt' => ['required', 'string', 'max:200'],
         ], self::MENSAJES);
 
         $contenido = (string) file_get_contents($request->file('image')->getRealPath());
 
         try {
-            return response()->json($medios->subir($tipo, $clave, $contenido, $validos['role'] ?? 'front', $validos['alt'] ?? null), 201);
+            return response()->json($medios->subir($tipo, $clave, $contenido, $validos['role'] ?? 'front', $validos['alt']), 201);
         } catch (ImagenInvalida $e) {
             throw new ValidacionFallida(['image' => [$e->getMessage()]]);
         }

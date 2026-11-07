@@ -48,9 +48,9 @@ final class AdministrarMediosTest extends TestCase
 
     public function test_solo_el_administrador_sube_imagenes(): void
     {
-        $this->postJson(self::PRODUCTO, ['image' => $this->imagen()])->assertUnauthorized();
+        $this->postJson(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen()])->assertUnauthorized();
         $this->actingAs(User::factory()->create(), 'api');
-        $this->postJson(self::PRODUCTO, ['image' => $this->imagen()])->assertForbidden();
+        $this->postJson(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen()])->assertForbidden();
         $this->deleteJson('/api/v1/admin/media/1')->assertForbidden();
         $this->assertSame(0, MedioModelo::query()->count());
     }
@@ -82,7 +82,7 @@ final class AdministrarMediosTest extends TestCase
 
     public function test_no_agranda_imagenes_pequenas(): void
     {
-        $r = $this->admin()->post(self::PRODUCTO, ['image' => $this->imagen('jpeg', 800, 600, 'a.jpg')], ['Accept' => 'application/json'])->assertCreated()->json();
+        $r = $this->admin()->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('jpeg', 800, 600, 'a.jpg')], ['Accept' => 'application/json'])->assertCreated()->json();
         $medio = MedioModelo::query()->findOrFail($r['id']);
 
         $this->assertSame(600, getimagesizefromstring(Storage::disk('media')->get($medio->variants['600']))[0]);
@@ -92,8 +92,8 @@ final class AdministrarMediosTest extends TestCase
     public function test_acepta_jpeg_y_webp(): void
     {
         $this->admin();
-        $this->post(self::PRODUCTO, ['image' => $this->imagen('jpeg', 700, 700, 'a.jpg')], ['Accept' => 'application/json'])->assertCreated();
-        $this->post(self::PRODUCTO, ['image' => $this->imagen('webp', 700, 700, 'a.webp')], ['Accept' => 'application/json'])->assertCreated();
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('jpeg', 700, 700, 'a.jpg')], ['Accept' => 'application/json'])->assertCreated();
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('webp', 700, 700, 'a.webp')], ['Accept' => 'application/json'])->assertCreated();
         $this->assertSame(2, MedioModelo::query()->count());
     }
 
@@ -101,7 +101,7 @@ final class AdministrarMediosTest extends TestCase
     {
         $falso = UploadedFile::fake()->createWithContent('truco.png', '<?php echo "hola"; ?>');
 
-        $this->admin()->post(self::PRODUCTO, ['image' => $falso], ['Accept' => 'application/json'])
+        $this->admin()->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $falso], ['Accept' => 'application/json'])
             ->assertStatus(422)->assertJsonPath('code', 'validation_error')
             ->assertJsonPath('errors.image.0', 'El archivo no es una imagen válida. Usa JPG, PNG o WebP.');
         $this->assertSame(0, MedioModelo::query()->count());
@@ -112,28 +112,41 @@ final class AdministrarMediosTest extends TestCase
     {
         $this->admin();
         $svg = UploadedFile::fake()->createWithContent('a.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><script>alert(1)</script></svg>');
-        $this->post(self::PRODUCTO, ['image' => $svg], ['Accept' => 'application/json'])->assertStatus(422);
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $svg], ['Accept' => 'application/json'])->assertStatus(422);
 
         $gif = UploadedFile::fake()->createWithContent('a.gif', base64_decode('R0lGODlhAQABAAAAACw=', true));
-        $this->post(self::PRODUCTO, ['image' => $gif], ['Accept' => 'application/json'])->assertStatus(422);
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $gif], ['Accept' => 'application/json'])->assertStatus(422);
     }
 
     public function test_rechaza_imagenes_muy_pequenas(): void
     {
-        $this->admin()->post(self::PRODUCTO, ['image' => $this->imagen('png', 100, 100)], ['Accept' => 'application/json'])
+        $this->admin()->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 100, 100)], ['Accept' => 'application/json'])
             ->assertStatus(422)->assertJsonPath('errors.image.0', 'La imagen es muy pequeña. Debe medir al menos 300 × 300 píxeles.');
+    }
+
+    public function test_la_descripcion_es_obligatoria_al_subir_y_al_editar(): void
+    {
+        $this->admin()->post(self::PRODUCTO, ['image' => $this->imagen()], ['Accept' => 'application/json'])
+            ->assertStatus(422)->assertJsonPath('errors.alt.0', 'Escribe la descripción de la imagen.');
+        $this->post(self::PRODUCTO, ['image' => $this->imagen(), 'alt' => '   '], ['Accept' => 'application/json'])->assertStatus(422)->assertJsonValidationErrorFor('alt', 'errors');
+        $this->assertSame(0, MedioModelo::query()->count());
+        $this->assertSame([], Storage::disk('media')->allFiles());
+
+        $id = $this->post(self::PRODUCTO, ['image' => $this->imagen(), 'alt' => 'Homero'], ['Accept' => 'application/json'])->json('id');
+        $this->putJson("/api/v1/admin/media/{$id}", ['alt' => ''])->assertStatus(422)->assertJsonPath('errors.alt.0', 'Escribe la descripción de la imagen.');
+        $this->assertSame('Homero', MedioModelo::query()->findOrFail($id)->alt);
     }
 
     public function test_pide_la_imagen_y_valida_el_tipo_de_foto(): void
     {
         $this->admin()->postJson(self::PRODUCTO, [])->assertStatus(422)->assertJsonPath('errors.image.0', 'Elige una imagen.');
-        $this->post(self::PRODUCTO, ['image' => $this->imagen(), 'role' => 'otra'], ['Accept' => 'application/json'])
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen(), 'role' => 'otra'], ['Accept' => 'application/json'])
             ->assertStatus(422)->assertJsonPath('errors.role.0', 'El tipo de imagen no es válido.');
     }
 
     public function test_producto_inexistente_responde_404(): void
     {
-        $this->admin()->post('/api/v1/admin/products/NO-EXISTE/media', ['image' => $this->imagen()], ['Accept' => 'application/json'])
+        $this->admin()->post('/api/v1/admin/products/NO-EXISTE/media', ['alt' => 'Descripción de prueba', 'image' => $this->imagen()], ['Accept' => 'application/json'])
             ->assertNotFound()->assertJsonPath('code', 'not_found');
     }
 
@@ -141,16 +154,16 @@ final class AdministrarMediosTest extends TestCase
     {
         $this->admin();
         for ($i = 0; $i < 12; $i++) {
-            $this->post(self::PRODUCTO, ['image' => $this->imagen('png', 320, 320)], ['Accept' => 'application/json'])->assertCreated();
+            $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 320, 320)], ['Accept' => 'application/json'])->assertCreated();
         }
-        $this->post(self::PRODUCTO, ['image' => $this->imagen('png', 320, 320)], ['Accept' => 'application/json'])
+        $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen('png', 320, 320)], ['Accept' => 'application/json'])
             ->assertStatus(422)->assertJsonPath('errors.image.0', 'Ya hay 12 imágenes. Elimina alguna antes de subir otra.');
     }
 
     public function test_lista_edita_y_elimina_borrando_los_archivos(): void
     {
         $this->admin();
-        $id = $this->post(self::PRODUCTO, ['image' => $this->imagen()], ['Accept' => 'application/json'])->json('id');
+        $id = $this->post(self::PRODUCTO, ['alt' => 'Descripción de prueba', 'image' => $this->imagen()], ['Accept' => 'application/json'])->json('id');
         $medio = MedioModelo::query()->findOrFail($id);
         $rutas = [...array_values($medio->variants), $medio->original_path];
 
@@ -168,7 +181,7 @@ final class AdministrarMediosTest extends TestCase
 
     public function test_sube_imagen_de_categoria_y_aparece_en_la_api_publica(): void
     {
-        $this->admin()->post('/api/v1/admin/categories/familia/media', ['image' => $this->imagen(), 'role' => 'hero'], ['Accept' => 'application/json'])->assertCreated();
+        $this->admin()->post('/api/v1/admin/categories/familia/media', ['alt' => 'Descripción de prueba', 'image' => $this->imagen(), 'role' => 'hero'], ['Accept' => 'application/json'])->assertCreated();
 
         $ruta = MedioModelo::query()->firstOrFail()->variants['600'];
         $this->assertStringStartsWith('categories/familia/', $ruta);
