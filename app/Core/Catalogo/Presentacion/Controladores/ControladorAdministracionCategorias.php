@@ -19,8 +19,8 @@ final class ControladorAdministracionCategorias extends Controller
     private const MENSAJES = [
         'name.required' => 'Escribe el nombre de la categoría.',
         'name.max' => 'El nombre no puede pasar de 150 caracteres.',
-        'slug.regex' => 'El identificador solo admite minúsculas, números y guiones (ejemplo: profesiones-y-hobbies).',
-        'slug.unique' => 'Ya existe una categoría con ese identificador (puede ser una eliminada).',
+        'slug.required' => 'El nombre debe tener al menos una letra o un número.',
+        'slug.unique' => 'Ya existe una categoría con un nombre igual o muy parecido (puede ser una eliminada).',
         'sort_order.integer' => 'El orden debe ser un número.',
         'is_active.boolean' => 'Indica si la categoría está activa o no.',
         'seo_description.max' => 'La descripción para buscadores no puede pasar de 320 caracteres.',
@@ -33,15 +33,15 @@ final class ControladorAdministracionCategorias extends Controller
 
     public function store(Request $request, AdministrarCategorias $categorias): JsonResponse
     {
-        $datos = $request->all();
-        // Sin identificador enviado se genera del nombre; se valida el resultado como cualquier otro.
-        if (blank($datos['slug'] ?? null) && is_string($datos['name'] ?? null)) {
-            $datos['slug'] = Str::slug($datos['name']);
+        // El identificador (slug) NO lo elige el usuario: siempre se genera del nombre (minúsculas, sin tildes, espacios como "_").
+        $datos = $request->except('slug');
+        if (is_string($datos['name'] ?? null)) {
+            $datos['slug'] = Str::slug($datos['name'], '_');
         }
 
         $validos = ValidacionFallida::validar($datos, [
             'name' => ['required', 'string', 'max:150'],
-            'slug' => ['required', 'string', 'max:120', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('categories', 'slug')],
+            'slug' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('categories', 'slug')],
             ...$this->reglasComunes(),
         ], self::MENSAJES);
 

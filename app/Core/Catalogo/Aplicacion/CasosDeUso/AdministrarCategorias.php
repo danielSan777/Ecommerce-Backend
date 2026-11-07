@@ -19,14 +19,14 @@ final class AdministrarCategorias
     }
 
     /**
-     * El identificador (slug) de la URL se genera del nombre si no se envía, y nunca cambia después.
+     * El identificador (slug) de la URL se genera del nombre (espacios como "_") y nunca cambia después.
      *
      * @param  array<string, mixed>  $datos
      * @return array<string, mixed>
      */
     public function crear(array $datos): array
     {
-        $datos['slug'] = $datos['slug'] ?? Str::slug((string) $datos['name']);
+        $datos['slug'] = $datos['slug'] ?? Str::slug((string) $datos['name'], '_');
 
         return $this->catalogo->crearCategoria($datos);
     }

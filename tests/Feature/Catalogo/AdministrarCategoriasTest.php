@@ -49,25 +49,33 @@ final class AdministrarCategoriasTest extends TestCase
         $r->assertJsonStructure(['data' => [['slug', 'name', 'headline', 'intro_html', 'sort_order', 'is_active', 'seo_title', 'seo_description', 'products_count', 'subcategories_count', 'updated_at']]]);
     }
 
-    public function test_crear_genera_el_identificador_del_nombre_y_se_ve_en_la_api_publica(): void
+    public function test_crear_genera_el_identificador_del_nombre_con_guion_bajo_y_sin_tildes(): void
     {
         $this->admin()->postJson('/api/v1/admin/categories', ['name' => 'Día de la Madre', 'headline' => 'Para mamá', 'sort_order' => 9])
-            ->assertCreated()->assertJsonPath('slug', 'dia-de-la-madre')->assertJsonPath('is_active', true)->assertJsonPath('products_count', 0);
+            ->assertCreated()->assertJsonPath('slug', 'dia_de_la_madre')->assertJsonPath('is_active', true)->assertJsonPath('products_count', 0);
 
-        $this->assertDatabaseHas('categories', ['slug' => 'dia-de-la-madre', 'name' => 'Día de la Madre']);
-        $this->assertContains('dia-de-la-madre', array_column($this->getJson('/api/v1/categories')->json('data') ?? [], 'slug'));
+        $this->assertDatabaseHas('categories', ['slug' => 'dia_de_la_madre', 'name' => 'Día de la Madre']);
+        $this->assertContains('dia_de_la_madre', array_column($this->getJson('/api/v1/categories')->json('data') ?? [], 'slug'));
     }
 
-    public function test_crear_valida_en_espanol_nombre_y_identificador(): void
+    public function test_el_identificador_no_se_puede_elegir_siempre_sale_del_nombre(): void
+    {
+        $this->admin()->postJson('/api/v1/admin/categories', ['name' => 'Nueva Colección', 'slug' => 'otro-cualquiera'])
+            ->assertCreated()->assertJsonPath('slug', 'nueva_coleccion');
+
+        $this->assertDatabaseMissing('categories', ['slug' => 'otro-cualquiera']);
+    }
+
+    public function test_crear_valida_en_espanol_nombre_vacio_nombre_sin_letras_y_nombre_repetido(): void
     {
         $this->admin()->postJson('/api/v1/admin/categories', [])->assertStatus(422)->assertJsonPath('code', 'validation_error')
-            ->assertJsonPath('errors.name.0', 'Escribe el nombre de la categoría.');
+            ->assertJsonPath('errors.name.0', 'Escribe el nombre de la categoría.')->assertJsonMissingPath('errors.slug');
 
-        $this->postJson('/api/v1/admin/categories', ['name' => 'Otra', 'slug' => 'Con Espacios'])->assertStatus(422)
-            ->assertJsonPath('errors.slug.0', 'El identificador solo admite minúsculas, números y guiones (ejemplo: profesiones-y-hobbies).');
+        $this->postJson('/api/v1/admin/categories', ['name' => '!!!'])->assertStatus(422)
+            ->assertJsonPath('errors.slug.0', 'El nombre debe tener al menos una letra o un número.');
 
-        $this->postJson('/api/v1/admin/categories', ['name' => 'Amor', 'slug' => 'amor'])->assertStatus(422)
-            ->assertJsonPath('errors.slug.0', 'Ya existe una categoría con ese identificador (puede ser una eliminada).');
+        $this->postJson('/api/v1/admin/categories', ['name' => 'AMOR'])->assertStatus(422)
+            ->assertJsonPath('errors.slug.0', 'Ya existe una categoría con un nombre igual o muy parecido (puede ser una eliminada).');
     }
 
     public function test_editar_cambia_los_datos_pero_nunca_el_identificador(): void
