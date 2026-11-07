@@ -54,6 +54,8 @@ final class AdministrarMedios
         $original = "originals/{$carpeta}/{$nombre}.{$resultado['extension']}";
         Storage::disk('private')->put($original, $contenido);
 
+        $this->dejarUnaPrincipal($dueno, $rol, null);
+
         $medio = $dueno->medios()->create([
             'type' => 'image', 'role' => $rol, 'disk' => 'media', 'variants' => $variantes, 'original_path' => $original,
             'width' => $resultado['ancho'], 'height' => $resultado['alto'], 'alt' => $alt,
@@ -70,6 +72,10 @@ final class AdministrarMedios
     public function actualizar(int $id, array $datos): array
     {
         $medio = $this->medio($id);
+        $dueno = $medio->product_id ? $medio->producto : $medio->categoria;
+        if (isset($datos['role'])) {
+            $this->dejarUnaPrincipal($dueno, $datos['role'], $medio->id);
+        }
         $medio->update($datos);
 
         return $this->formato($medio->refresh());
@@ -85,6 +91,15 @@ final class AdministrarMedios
             Storage::disk('private')->delete($medio->original_path);
         }
         $medio->delete();
+    }
+
+    /** Solo una imagen puede ser la principal: al marcar una nueva, la anterior pasa a "Otro ángulo". */
+    private function dejarUnaPrincipal(Model $dueno, string $rol, ?int $excepto): void
+    {
+        if ($rol !== 'front') {
+            return;
+        }
+        $dueno->medios()->where('role', 'front')->when($excepto, fn ($q) => $q->where('id', '!=', $excepto))->update(['role' => 'angle']);
     }
 
     private function medio(int $id): MedioModelo

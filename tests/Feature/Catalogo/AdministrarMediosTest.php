@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Catalogo;
 
 use App\Core\Catalogo\Infraestructura\Modelos\MedioModelo;
+use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Models\User;
 use Database\Seeders\ProductosDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -187,5 +188,24 @@ final class AdministrarMediosTest extends TestCase
         $this->assertStringStartsWith('categories/familia/', $ruta);
         $publico = $this->getJson('/api/v1/categories/familia')->assertOk()->json();
         $this->assertStringContainsString($ruta, json_encode($publico, JSON_UNESCAPED_SLASHES));
+    }
+
+    public function test_solo_una_imagen_puede_ser_la_principal(): void
+    {
+        $this->admin();
+        $subir = fn (string $rol) => $this->post(self::PRODUCTO, ['image' => $this->imagen(), 'alt' => 'Homero', 'role' => $rol], ['Accept' => 'application/json'])->json('id');
+
+        $a = $subir('front');
+        $b = $subir('front');
+        $this->assertSame('angle', MedioModelo::query()->findOrFail($a)->role);
+        $this->assertSame('front', MedioModelo::query()->findOrFail($b)->role);
+
+        $c = $subir('detail');
+        $this->putJson("/api/v1/admin/media/{$c}", ['role' => 'front'])->assertOk()->assertJsonPath('role', 'front');
+        $this->assertSame(['angle', 'angle', 'front'], MedioModelo::query()->orderBy('id')->pluck('role')->all());
+        $this->assertSame(1, MedioModelo::query()->where('role', 'front')->count());
+
+        // En la API pública la principal sale primera aunque se haya subido después
+        $this->assertSame($c, ProductoModelo::query()->where('sku', 'PRO-HOMERO')->firstOrFail()->medios->first()->id);
     }
 }

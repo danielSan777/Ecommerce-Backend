@@ -45,6 +45,6 @@ class ProductoModelo extends Model
 
     public function medios(): HasMany
     {
-        return $this->hasMany(MedioModelo::class, 'product_id')->orderBy('sort_order');
+        return $this->hasMany(MedioModelo::class, 'product_id')->orderByRaw("role = 'front' desc")->orderBy('sort_order');
     }
 }
