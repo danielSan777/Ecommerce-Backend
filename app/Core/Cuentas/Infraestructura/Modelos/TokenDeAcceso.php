@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Core\Administracion\Infraestructura\Modelos;
+namespace App\Core\Cuentas\Infraestructura\Modelos;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['user_id', 'token_hash', 'device', 'last_used_at', 'expires_at'])]
-final class TokenAdministrador extends Model
+final class TokenDeAcceso extends Model
 {
-    protected $table = 'admin_tokens';
+    protected $table = 'api_tokens';
 
     protected function casts(): array
     {

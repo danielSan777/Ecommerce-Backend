@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Core\Administracion\Infraestructura\Consola;
+namespace App\Core\Cuentas\Infraestructura\Consola;
 
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
@@ -39,7 +39,7 @@ final class CrearAdministrador extends Command
         $usuario = User::query()->firstOrNew(['email' => $correo]);
         $usuario->name = $this->option('nombre') ?: ($usuario->name ?: 'Administrador');
         $usuario->password = $clave;
-        $usuario->save();
+        $usuario->forceFill(['role' => User::ROL_ADMINISTRADOR])->save();
 
         $this->info("Administrador {$correo} listo.");
 

@@ -10,17 +10,20 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Protege las rutas de administración. Falla cerrado: sin un usuario autenticado responde 401.
- * (Tokens Bearer del módulo Administración; el doble factor se agrega después.)
+ * Protege las rutas de administración. Falla cerrado: sin sesión responde 401 y con sesión de cliente, 403.
+ * El rol se lee de la base de datos en cada petición, nunca del navegador.
  */
 final class RequiereAdministrador
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $usuario = Auth::guard('admin')->user();
+        $usuario = Auth::guard('api')->user();
 
         if ($usuario === null) {
             return response()->json(['code' => 'unauthenticated', 'message' => 'Debes iniciar sesión como administrador.'], 401);
+        }
+        if (! $usuario->esAdministrador()) {
+            return response()->json(['code' => 'forbidden', 'message' => 'No tienes permiso para esta acción.'], 403);
         }
 
         $request->setUserResolver(fn () => $usuario);

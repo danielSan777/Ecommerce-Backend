@@ -2,18 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Core\Administracion\Aplicacion;
+namespace App\Core\Cuentas\Aplicacion;
 
-use App\Core\Administracion\Infraestructura\Modelos\TokenAdministrador;
+use App\Core\Cuentas\Infraestructura\Modelos\TokenDeAcceso;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/** Inicia y cierra sesiones del administrador con tokens opacos (solo se guarda su hash). */
-final class SesionesAdministrador
+/** Registra, inicia y cierra sesiones de clientes y administradores con tokens opacos (solo se guarda su hash). */
+final class SesionesDeAcceso
 {
     private static ?string $hashRelleno = null;
+
+    public function registrar(string $nombre, string $correo, string $clave): User
+    {
+        // El rol nunca viene de la petición: toda cuenta pública nace como cliente.
+        $usuario = new User(['name' => $nombre, 'email' => mb_strtolower($correo), 'password' => $clave]);
+        $usuario->forceFill(['role' => User::ROL_CLIENTE])->save();
+
+        return $usuario;
+    }
 
     /** @return array{token: string, expires_at: CarbonInterface, user: User}|null */
     public function iniciar(string $correo, string $clave, ?string $dispositivo): ?array
@@ -26,10 +35,16 @@ final class SesionesAdministrador
             return null;
         }
 
-        $token = Str::random(64);
-        $expira = now()->addHours((int) config('auth.admin_token_hours'));
+        return $this->abrir($usuario, $dispositivo);
+    }
 
-        TokenAdministrador::query()->create([
+    /** @return array{token: string, expires_at: CarbonInterface, user: User} */
+    public function abrir(User $usuario, ?string $dispositivo): array
+    {
+        $token = Str::random(64);
+        $expira = now()->addHours((int) config('auth.token_hours'));
+
+        TokenDeAcceso::query()->create([
             'user_id' => $usuario->id,
             'token_hash' => self::hash($token),
             'device' => $dispositivo !== null ? Str::limit($dispositivo, 120, '') : null,
@@ -41,7 +56,7 @@ final class SesionesAdministrador
 
     public function usuarioDelToken(string $token): ?User
     {
-        $registro = TokenAdministrador::query()->with('usuario')->where('token_hash', self::hash($token))->first();
+        $registro = TokenDeAcceso::query()->with('usuario')->where('token_hash', self::hash($token))->first();
 
         if ($registro === null) {
             return null;
@@ -60,12 +75,12 @@ final class SesionesAdministrador
 
     public function cerrar(string $token): void
     {
-        TokenAdministrador::query()->where('token_hash', self::hash($token))->delete();
+        TokenDeAcceso::query()->where('token_hash', self::hash($token))->delete();
     }
 
     public function cerrarTodas(User $usuario): void
     {
-        TokenAdministrador::query()->where('user_id', $usuario->id)->delete();
+        TokenDeAcceso::query()->where('user_id', $usuario->id)->delete();
     }
 
     private static function hash(string $token): string

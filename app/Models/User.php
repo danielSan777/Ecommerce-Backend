@@ -14,8 +14,17 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    public const ROL_ADMINISTRADOR = 'admin';
+
+    public const ROL_CLIENTE = 'customer';
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public function esAdministrador(): bool
+    {
+        return $this->role === self::ROL_ADMINISTRADOR;
+    }
 
     /**
      * Get the attributes that should be cast.

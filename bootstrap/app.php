@@ -1,10 +1,11 @@
 <?php
 
-use App\Core\Administracion\Infraestructura\Consola\CrearAdministrador;
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Excepciones\CategoriaConProductos;
+use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
+use App\Shared\Infraestructura\Http\Middleware\RequiereSesion;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Primero: la IP real del visitante detrás de Cloudflare
         $middleware->prepend(IpRealDeCloudflare::class);
-        $middleware->alias(['admin' => RequiereAdministrador::class]);
+        $middleware->alias(['auth.token' => RequiereSesion::class, 'admin' => RequiereAdministrador::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Lo que no existe en el catálogo responde 404 con JSON estable (mensajes en inglés, tal cual)

@@ -143,16 +143,21 @@ Con tu "aprobado" empiezo la **Etapa 3**: crear la estructura DDD y `/api/v1` en
 - Errores: `{"code": "not_found", "message": "..."}` con el código HTTP correspondiente.
 - Los textos para el cliente (nombres, descripciones) salen en español porque son datos del negocio, no mensajes del sistema.
 
-## 10. Administración desde Angular (API)
+## 10. Cuentas y administración desde Angular (API)
 
-El panel del administrador es Angular y consume rutas `/api/v1/admin/*`. No hay pantallas en Laravel.
+Un solo login para clientes y administradores (módulo `Cuentas`). La respuesta trae el `role` (`customer` o `admin`) y Angular decide a dónde llevar al usuario: el cliente a su cuenta, el administrador al panel. Laravel nunca confía en el rol que diga el navegador: lo lee de la base de datos en cada petición. El panel es Angular y consume `/api/v1/admin/*`; no hay pantallas en Laravel.
 
-- **Login sin paquetes extra** (Sanctum no se pudo instalar): token Bearer opaco de 64 caracteres, en la tabla `admin_tokens` solo se guarda su SHA-256, vence a las `ADMIN_TOKEN_HOURS` (12 por defecto) y `last_used_at` se actualiza cada 5 min.
-  - `POST /api/v1/admin/login` `{email, password, device?}` → `{token, token_type, expires_at, user}`. Errores: `422 validation_error`, `401 invalid_credentials` (misma respuesta exista o no el correo), `429` tras 5 intentos por minuto.
-  - `GET /api/v1/admin/me`, `POST /api/v1/admin/logout` (esta sesión) y `POST /api/v1/admin/logout-all` (todas las sesiones). Header: `Authorization: Bearer <token>`.
-  - Crear administrador: `php artisan admin:crear correo@dominio.com --nombre="Sele"` (pide la contraseña por consola, mínimo 12 caracteres).
-  - Pendiente: doble factor (2FA) con recordar dispositivo.
+- **Tokens sin paquetes extra** (Sanctum no se pudo instalar): token Bearer opaco de 64 caracteres; la tabla `api_tokens` solo guarda su SHA-256; vence a las `ACCESS_TOKEN_HOURS` (12 por defecto); `last_used_at` se actualiza cada 5 min.
+- `users.role`: `customer` (por defecto) o `admin`. La migración marca como `admin` a los usuarios que ya existían.
+- `POST /api/v1/auth/register` `{name, email, password, password_confirmation, device?}` → 201 con la sesión. Siempre crea un **cliente**; mandar `role` no sirve. Límite: 5 por minuto por IP.
+- `POST /api/v1/auth/login` `{email, password, device?}` → `{token, token_type, expires_at, user:{name,email,role}}`. Errores: `422 validation_error`, `401 invalid_credentials` (misma respuesta exista o no el correo), `429` tras 5 intentos por minuto.
+- `GET /api/v1/auth/me`, `POST /api/v1/auth/logout` (esta sesión), `POST /api/v1/auth/logout-all` (todas). Header: `Authorization: Bearer <token>`. Sin sesión: `401 unauthenticated`.
+- Middleware `auth.token` (cualquier sesión) y `admin` (solo administrador: `401` sin sesión, `403 forbidden` si es cliente). Fallan cerrado.
+- Crear administrador: `php artisan admin:crear correo@dominio.com --nombre="Sele"` (pide la contraseña por consola, mínimo 12 caracteres; si el correo ya existe, lo convierte en administrador y cambia su clave).
+- Pendiente: doble factor (2FA) para el administrador, con recordar dispositivo.
 - CORS: solo los orígenes de `FRONTEND_URL` (varios separados por coma).
-- Todo grupo bajo `admin` (salvo el login) pasa por el middleware `admin` (`RequiereAdministrador`): sin usuario autenticado responde `401 {"code":"unauthenticated"}`. Falla cerrado.
+- Documento maestro: las "cuentas de cliente" figuran en "solo con mucho volumen"; se adelantan por decisión del desarrollador (2026-11-07).
+
+### Rutas de administración
 - `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
   `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204`. No existe: `404 not_found`.

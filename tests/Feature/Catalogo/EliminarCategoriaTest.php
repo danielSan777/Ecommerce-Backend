@@ -23,12 +23,19 @@ final class EliminarCategoriaTest extends TestCase
 
     private function admin(): static
     {
-        return $this->actingAs(User::factory()->create(), 'admin');
+        return $this->actingAs(User::factory()->administrador()->create(), 'api');
     }
 
     public function test_sin_sesion_de_administrador_responde_401_y_no_borra_nada(): void
     {
         $this->deleteJson('/api/v1/admin/categories/familia')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
+
+        $this->assertNotNull(CategoriaModelo::query()->where('slug', 'familia')->first());
+    }
+
+    public function test_un_cliente_no_puede_usar_la_administracion_responde_403(): void
+    {
+        $this->actingAs(User::factory()->create(), 'api')->deleteJson('/api/v1/admin/categories/familia')->assertForbidden()->assertJsonPath('code', 'forbidden');
 
         $this->assertNotNull(CategoriaModelo::query()->where('slug', 'familia')->first());
     }

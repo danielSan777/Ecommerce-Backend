@@ -43,9 +43,9 @@ return [
             'provider' => 'users',
         ],
 
-        // Panel del administrador (Angular): token Bearer opaco, ver AppServiceProvider
-        'admin' => [
-            'driver' => 'admin-token',
+        // Clientes y administradores (Angular): token Bearer opaco, ver AppServiceProvider
+        'api' => [
+            'driver' => 'api-token',
             'provider' => 'users',
         ],
     ],
@@ -118,8 +118,8 @@ return [
     |
     */
 
-    // Horas que dura una sesión del panel antes de pedir login otra vez
-    'admin_token_hours' => (int) env('ADMIN_TOKEN_HOURS', 12),
+    // Horas que dura una sesión (cliente o administrador) antes de pedir login otra vez
+    'token_hours' => (int) env('ACCESS_TOKEN_HOURS', 12),
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
