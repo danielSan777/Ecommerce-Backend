@@ -33,10 +33,10 @@ final class ControladorAdministracionCategorias extends Controller
 
     public function store(Request $request, AdministrarCategorias $categorias): JsonResponse
     {
-        // El identificador (slug) NO lo elige el usuario: siempre se genera del nombre (minúsculas, sin tildes, espacios como "_").
+        // El identificador (slug) NO lo elige el usuario: siempre se genera del nombre (minúsculas, sin tildes, espacios como "-").
         $datos = $request->except('slug');
         if (is_string($datos['name'] ?? null)) {
-            $datos['slug'] = Str::slug($datos['name'], '_');
+            $datos['slug'] = Str::slug($datos['name']);
         }
 
         $validos = ValidacionFallida::validar($datos, [

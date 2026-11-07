@@ -162,7 +162,7 @@ Un solo login para clientes y administradores (módulo `Cuentas`). La respuesta 
 Errores comunes: `401 unauthenticated`, `403 forbidden` (cliente), `422 validation_error` con `errors` por campo en español, `404 not_found`.
 
 - `GET /api/v1/admin/categories` → `{data:[{slug,name,headline,intro_html,sort_order,is_active,seo_title,seo_description,products_count,subcategories_count,updated_at}]}` (incluye las inactivas).
-- `POST /api/v1/admin/categories` `{name, headline?, intro_html?, sort_order?, is_active?, seo_title?, seo_description?}` → `201`. El `slug` **siempre** se genera del nombre (minúsculas, sin tildes, espacios como `_`: "Día de la Madre" → `dia_de_la_madre`); si se envía, se ignora. Nombre repetido o parecido: `422`.
+- `POST /api/v1/admin/categories` `{name, headline?, intro_html?, sort_order?, is_active?, seo_title?, seo_description?}` → `201`. El `slug` **siempre** se genera del nombre (minúsculas, sin tildes, espacios como `-`: "Día de la Madre" → `dia-de-la-madre`); si se envía, se ignora. Nombre repetido o parecido: `422`.
 - `PUT /api/v1/admin/categories/{slug}`: edita; el `slug` no se puede cambiar (rompería los enlaces publicados). Una categoría inactiva desaparece de la tienda pública.
 - `DELETE /api/v1/admin/categories/{slug}`: nunca borra productos. Si la categoría tiene productos (activos o no) responde `409`:
   `{"code":"category_has_products","message":"...","products_count":4,"products":[{"sku","slug","name"}]}` para que Angular muestre cuáles son. Sin productos: `204` (borrado lógico).
