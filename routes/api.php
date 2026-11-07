@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionMedios;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionProductos;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionSubcategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCampanas;
@@ -42,6 +43,13 @@ Route::prefix('v1')->group(function () {
         Route::put('categories/{categoria}/subcategories/{slug}', [ControladorAdministracionSubcategorias::class, 'update'])->name('api.v1.admin.subcategories.update');
         Route::delete('categories/{categoria}/subcategories/{slug}', [ControladorAdministracionSubcategorias::class, 'destroy'])->name('api.v1.admin.subcategories.destroy');
         Route::delete('categories/{slug}', [ControladorAdministracionCategorias::class, 'destroy'])->name('api.v1.admin.categories.destroy');
+        // Imágenes: se suben una por una (multipart, campo `image`); Laravel genera las versiones WebP.
+        Route::get('products/{sku}/media', [ControladorAdministracionMedios::class, 'indexProducto'])->name('api.v1.admin.products.media.index');
+        Route::post('products/{sku}/media', [ControladorAdministracionMedios::class, 'storeProducto'])->name('api.v1.admin.products.media.store');
+        Route::get('categories/{slug}/media', [ControladorAdministracionMedios::class, 'indexCategoria'])->name('api.v1.admin.categories.media.index');
+        Route::post('categories/{slug}/media', [ControladorAdministracionMedios::class, 'storeCategoria'])->name('api.v1.admin.categories.media.store');
+        Route::put('media/{id}', [ControladorAdministracionMedios::class, 'update'])->whereNumber('id')->name('api.v1.admin.media.update');
+        Route::delete('media/{id}', [ControladorAdministracionMedios::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.media.destroy');
     });
 
     Route::get('health', ControladorSalud::class)->name('api.v1.health');

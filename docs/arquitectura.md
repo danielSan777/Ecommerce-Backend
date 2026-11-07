@@ -171,5 +171,10 @@ Errores comunes: `401 unauthenticated`, `403 forbidden` (cliente), `422 validati
 - Productos: `GET /api/v1/admin/products?category=&q=` (todos, activos o no, con `cost_cents`; `q` busca en nombre y SKU), `GET .../products/{sku}`, `POST .../products`, `PUT .../products/{sku}`, `DELETE .../products/{sku}` (borrado lógico).
   Campos: `name`, `category` (slug), `subcategory` (slug, debe pertenecer a la categoría), `type` (`personalizable`|`complemento`), `base_price_cents`, `cost_cents?`, `size_text?`, `material_text?`, `includes[]?`, `description_html?`, `is_available?`, `is_active?`, `search_synonyms[]?`, `sku?`.
   El `slug` siempre sale del nombre (guiones) y el `sku` no cambia nunca ni se reutiliza (ni el de un producto eliminado); sin `sku` se genera `JDS-XXXXXX`. Cambiar de categoría sin indicar subcategoría deja la subcategoría vacía. Dinero siempre en centavos enteros.
-- Pendiente: subida de imágenes (la ruta relativa va en la tabla `media`).
+- Imágenes (hecho, solo administrador): `GET/POST /admin/products/{sku}/media` y `GET/POST /admin/categories/{slug}/media` (multipart, campo `image`, opcionales `role` y `alt`); `PUT/DELETE /admin/media/{id}`.
+  - Laravel valida por el **contenido real** (JPG, PNG o WebP; no GIF ni SVG), máximo 8 MB, entre 300 × 300 y 40 megapíxeles, y hasta 12 imágenes por producto o categoría. Corrige la orientación de las fotos de celular.
+  - Genera WebP de 600 y 1080 px de ancho (nunca agranda). Las versiones van al disco público `media` (`products/{sku}/{nombre-aleatorio}-{ancho}.webp`) y el original al disco privado (`originals/...`). En la base de datos solo quedan rutas relativas. El nombre del archivo subido nunca se usa.
+  - Al eliminar una imagen se borran sus archivos. La API pública arma las URL con el disco `media`.
+  - Servidor: el límite de PHP `upload_max_filesize` (2 MB por defecto) y `post_max_size` deben subirse a 10 MB y 12 MB en hPanel (Avanzado → Configuración de PHP).
+- Pendiente (cuando termine la subida en el panel): campos de Google (`seo_title`, `seo_description`, `intro_html`) en categorías y productos.
 - **Pendiente de avisar:** campos de Google (`seo_title`, `seo_description`, `intro_html`) en el formulario de categorías y productos del panel; ya existen en la base de datos.
