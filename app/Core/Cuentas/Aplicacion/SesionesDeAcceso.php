@@ -42,7 +42,9 @@ final class SesionesDeAcceso
     public function abrir(User $usuario, ?string $dispositivo): array
     {
         $token = Str::random(64);
-        $expira = now()->addHours((int) config('auth.token_hours'));
+        // Si la configuración falta o vale 0 (por ejemplo, config en caché antigua) se usan 12 horas: nunca un token ya vencido.
+        $horas = (int) config('auth.token_hours', 12);
+        $expira = now()->addHours($horas >= 1 ? $horas : 12);
 
         TokenDeAcceso::query()->create([
             'user_id' => $usuario->id,

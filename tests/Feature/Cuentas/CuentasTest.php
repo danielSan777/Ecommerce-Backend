@@ -107,6 +107,17 @@ final class CuentasTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['email' => 'x@x.com', 'password' => 'mala'])->assertStatus(429);
     }
 
+    public function test_sin_configuracion_de_horas_el_token_dura_12_horas_y_no_nace_vencido(): void
+    {
+        $this->usuario();
+        config(['auth.token_hours' => 0]);
+
+        $r = $this->postJson('/api/v1/auth/login', ['email' => 'sele@jardindesele.com', 'password' => self::CLAVE])->assertOk();
+
+        $this->assertEqualsWithDelta(12 * 3600, $r->json('expires_in'), 5);
+        $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer '.$r->json('token')])->assertOk();
+    }
+
     public function test_el_login_de_un_cliente_devuelve_rol_customer(): void
     {
         User::factory()->create(['email' => 'ana@correo.com', 'password' => self::CLAVE]);
