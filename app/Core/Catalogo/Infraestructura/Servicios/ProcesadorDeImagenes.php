@@ -27,6 +27,11 @@ final class ProcesadorDeImagenes
      */
     public function procesar(string $contenido): array
     {
+        // PHP necesita la extensión GD con soporte WebP; si falta, se explica en lugar de fallar con un error genérico
+        if (! extension_loaded('gd') || ! function_exists('imagewebp')) {
+            throw new ImagenInvalida('Este servidor no tiene activada la extensión GD de PHP con soporte WebP. Actívala en php.ini (extension=gd) y reinicia el servidor.');
+        }
+
         if ($contenido === '' || strlen($contenido) > self::MAX_BYTES) {
             throw new ImagenInvalida('La imagen debe pesar menos de 8 MB.');
         }
