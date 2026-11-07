@@ -150,7 +150,7 @@ Un solo login para clientes y administradores (módulo `Cuentas`). La respuesta 
 - **Tokens sin paquetes extra** (Sanctum no se pudo instalar): token Bearer opaco de 64 caracteres; la tabla `api_tokens` solo guarda su SHA-256; vence a las `ACCESS_TOKEN_HOURS` (12 por defecto); `last_used_at` se actualiza cada 5 min.
 - `users.role`: `customer` (por defecto) o `admin`. La migración marca como `admin` a los usuarios que ya existían.
 - `POST /api/v1/auth/register` `{name, email, password, password_confirmation, device?}` → 201 con la sesión. Siempre crea un **cliente**; mandar `role` no sirve. Límite: 5 por minuto por IP.
-- `POST /api/v1/auth/login` `{email, password, device?}` → `{token, token_type, expires_at, user:{name,email,role}}`. Errores: `422 validation_error`, `401 invalid_credentials` (misma respuesta exista o no el correo), `429` tras 5 intentos por minuto.
+- `POST /api/v1/auth/login` `{email, password, device?}` → `{token, token_type, expires_at, expires_in, user:{name,email,role}}` (`expires_in` en segundos: Angular calcula el vencimiento con su propio reloj). Errores: `422 validation_error`, `401 invalid_credentials` (misma respuesta exista o no el correo), `429` tras 5 intentos por minuto.
 - `GET /api/v1/auth/me`, `POST /api/v1/auth/logout` (esta sesión), `POST /api/v1/auth/logout-all` (todas). Header: `Authorization: Bearer <token>`. Sin sesión: `401 unauthenticated`.
 - Middleware `auth.token` (cualquier sesión) y `admin` (solo administrador: `401` sin sesión, `403 forbidden` si es cliente). Fallan cerrado.
 - Crear administrador: `php artisan admin:crear correo@dominio.com --nombre="Sele"` (pide la contraseña por consola, mínimo 12 caracteres; si el correo ya existe, lo convierte en administrador y cambia su clave).

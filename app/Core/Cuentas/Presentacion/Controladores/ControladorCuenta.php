@@ -95,6 +95,8 @@ final class ControladorCuenta extends Controller
             'token' => $sesion['token'],
             'token_type' => 'Bearer',
             'expires_at' => $sesion['expires_at']->toIso8601String(),
+            // Segundos de vida: Angular calcula el vencimiento con su propio reloj y no depende de que el del servidor coincida.
+            'expires_in' => max(0, (int) now()->diffInSeconds($sesion['expires_at'], false)),
             'user' => self::usuario($sesion['user']),
         ], $estado);
     }

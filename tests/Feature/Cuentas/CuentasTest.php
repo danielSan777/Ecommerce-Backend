@@ -40,8 +40,9 @@ final class CuentasTest extends TestCase
         $this->usuario();
 
         $r = $this->postJson('/api/v1/auth/login', ['email' => 'Sele@JardindeSele.com', 'password' => self::CLAVE, 'device' => 'Chrome'])->assertOk()
-            ->assertJsonStructure(['token', 'token_type', 'expires_at', 'user' => ['name', 'email', 'role']])->assertJsonPath('user.role', 'admin')->assertJsonPath('token_type', 'Bearer');
+            ->assertJsonStructure(['token', 'token_type', 'expires_at', 'expires_in', 'user' => ['name', 'email', 'role']])->assertJsonPath('user.role', 'admin')->assertJsonPath('token_type', 'Bearer');
 
+        $this->assertEqualsWithDelta(12 * 3600, $r->json('expires_in'), 5);
         $this->assertDatabaseMissing('api_tokens', ['token_hash' => $r->json('token')]);
         $this->assertDatabaseHas('api_tokens', ['token_hash' => hash('sha256', $r->json('token')), 'device' => 'Chrome']);
         $this->assertArrayNotHasKey('password', $r->json('user'));
