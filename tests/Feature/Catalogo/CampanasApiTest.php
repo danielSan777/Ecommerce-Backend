@@ -54,6 +54,16 @@ final class CampanasApiTest extends TestCase
         $this->assertSame(['homero', 'bob-corazon-hombre', 'doctor'], array_column($r->json('products'), 'slug'));
     }
 
+    public function test_en_temporada_sin_productos_elegidos_muestra_los_de_la_categoria_relacionada(): void
+    {
+        $this->hoyEs('2027-01-20 15:00:00');
+
+        $r = $this->getJson('/api/v1/campaigns/san-valentin')->assertOk();
+
+        $r->assertJsonPath('state', 'active')->assertJsonPath('related_category.name', 'Amor');
+        $this->assertSame(['bob-corazon-hombre'], array_column($r->json('products'), 'slug'));
+    }
+
     public function test_fuera_de_temporada_responde_200_con_el_anio_siguiente_y_los_productos_de_amor(): void
     {
         $this->hoyEs('2027-03-10 15:00:00');
@@ -79,7 +89,7 @@ final class CampanasApiTest extends TestCase
 
         $this->getJson('/api/v1/campaigns/san-valentin')->assertJsonStructure([
             'slug', 'name', 'state', 'season_year', 'event_date', 'order_deadline', 'tagline', 'slogan',
-            'related_category' => ['slug', 'url'], 'products', 'seo' => ['title', 'description', 'canonical', 'og_image'],
+            'related_category' => ['slug', 'name', 'url'], 'products', 'seo' => ['title', 'description', 'canonical', 'og_image'],
         ]);
     }
 

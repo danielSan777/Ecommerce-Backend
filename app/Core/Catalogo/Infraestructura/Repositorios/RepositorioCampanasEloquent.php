@@ -23,9 +23,11 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
         $t = $this->temporada->calcular($modelo->start_md, $modelo->end_md, $modelo->event_md, $hoy);
 
         // En temporada: los productos que eligió Josué, en su orden. Fuera de temporada: los de la categoría relacionada.
-        $productos = $t['estado'] === 'active'
+        // Mientras nadie haya elegido productos, la temporada tampoco queda vacía: se muestran los de la categoría relacionada.
+        $elegidos = $t['estado'] === 'active'
             ? $modelo->productos()->where('is_active', true)->pluck('slug')->map(fn (string $s) => $this->catalogo->producto($s))->all()
-            : $this->catalogo->categoria($modelo->categoriaRelacionada->slug)->productos;
+            : [];
+        $productos = $elegidos !== [] ? $elegidos : $this->catalogo->categoria($modelo->categoriaRelacionada->slug)->productos;
 
         return new Campana(
             slug: $modelo->slug,
@@ -34,6 +36,7 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
             anioTemporada: $t['anio'],
             fechaEvento: $t['fechaEvento'],
             categoriaRelacionadaSlug: $modelo->categoriaRelacionada->slug,
+            categoriaRelacionadaNombre: $modelo->categoriaRelacionada->name,
             lema: $modelo->tagline,
             eslogan: $modelo->slogan,
             productos: array_values($productos),

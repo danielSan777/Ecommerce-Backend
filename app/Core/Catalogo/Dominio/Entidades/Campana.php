@@ -14,6 +14,7 @@ final readonly class Campana
         public int $anioTemporada,
         public string $fechaEvento,
         public string $categoriaRelacionadaSlug,
+        public string $categoriaRelacionadaNombre,
         public ?string $lema,
         public ?string $eslogan,
         public array $productos,

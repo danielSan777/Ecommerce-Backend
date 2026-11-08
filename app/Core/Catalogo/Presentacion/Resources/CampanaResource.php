@@ -22,9 +22,9 @@ final class CampanaResource
             'order_deadline' => null,
             'tagline' => $c->lema,
             'slogan' => $c->eslogan,
-            'related_category' => ['slug' => $c->categoriaRelacionadaSlug, 'url' => "/{$c->categoriaRelacionadaSlug}"],
+            'related_category' => ['slug' => $c->categoriaRelacionadaSlug, 'name' => $c->categoriaRelacionadaNombre, 'url' => "/{$c->categoriaRelacionadaSlug}"],
             'products' => array_map(ProductoResource::resumen(...), $c->productos),
-            'seo' => SeoResource::formato($c->seoTitulo, $c->seoDescripcion, "/{$c->slug}", $c->productos[0] ?? null ? $c->productos[0]->imagenPrincipal() : null),
+            'seo' => SeoResource::formato($c->seoTitulo ?? $c->nombre.' | Jardín de Sele', $c->seoDescripcion ?? $c->lema, "/{$c->slug}", $c->productos[0] ?? null ? $c->productos[0]->imagenPrincipal() : null),
         ];
     }
 }
