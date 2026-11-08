@@ -110,6 +110,8 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
             'material_text' => $p->material_text,
             'includes' => $p->includes ?? [],
             'description_html' => $p->description_html,
+            'seo_title' => $p->seo_title,
+            'seo_description' => $p->seo_description,
             'is_available' => (bool) $p->is_available,
             'is_active' => (bool) $p->is_active,
             'search_synonyms' => $p->search_synonyms ?? [],

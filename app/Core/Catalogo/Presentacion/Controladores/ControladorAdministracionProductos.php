@@ -37,6 +37,8 @@ final class ControladorAdministracionProductos extends Controller
         'base_price_cents.min' => 'El precio no puede ser negativo.',
         'base_price_cents.max' => 'El precio es demasiado alto.',
         'cost_cents.integer' => 'El costo no es válido.',
+        'seo_title.max' => 'El título para Google no puede pasar de 255 caracteres.',
+        'seo_description.max' => 'La descripción para Google no puede pasar de 320 caracteres.',
         'includes.max' => 'Puedes poner hasta 20 elementos en "Incluye".',
         'includes.*.max' => 'Cada elemento de "Incluye" puede tener hasta 150 caracteres.',
         'is_available.boolean' => 'Indica si el producto está disponible o no.',
@@ -119,7 +121,7 @@ final class ControladorAdministracionProductos extends Controller
     }
 
     /**
-     * El descuento vacío significa "sin descuento" (la columna no admite nulo).
+     * Normaliza lo recibido: descuento vacío = sin descuento (la columna no admite nulo) y textos de Google sin etiquetas.
      *
      * @param  array<string, mixed>  $validos
      * @return array<string, mixed>
@@ -128,6 +130,14 @@ final class ControladorAdministracionProductos extends Controller
     {
         if (array_key_exists('discount_percent', $validos) && $validos['discount_percent'] === null) {
             $validos['discount_percent'] = 0;
+        }
+
+        // Los textos de Google son texto simple: sin etiquetas HTML y, si quedan vacíos, sin valor.
+        foreach (['seo_title', 'seo_description'] as $campo) {
+            if (isset($validos[$campo]) && is_string($validos[$campo])) {
+                $limpio = trim(strip_tags($validos[$campo]));
+                $validos[$campo] = $limpio === '' ? null : $limpio;
+            }
         }
 
         return $validos;
@@ -147,6 +157,8 @@ final class ControladorAdministracionProductos extends Controller
             'includes' => ['nullable', 'array', 'max:20'],
             'includes.*' => ['string', 'max:150'],
             'description_html' => ['nullable', 'string', 'max:20000'],
+            'seo_title' => ['nullable', 'string', 'max:255'],
+            'seo_description' => ['nullable', 'string', 'max:320'],
             'is_available' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'search_synonyms' => ['nullable', 'array', 'max:30'],

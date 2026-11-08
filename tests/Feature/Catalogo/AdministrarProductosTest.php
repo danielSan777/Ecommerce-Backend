@@ -37,6 +37,27 @@ final class AdministrarProductosTest extends TestCase
         ], ...$cambios];
     }
 
+    public function test_los_campos_de_google_se_guardan_sin_etiquetas_se_devuelven_y_vacios_quedan_nulos(): void
+    {
+        $r = $this->admin()->postJson(self::BASE, $this->datos(['seo_title' => 'Maceta <b>abuela</b> | Jardín de Sele', 'seo_description' => '  Una maceta con su nombre.<script>x</script> ']))
+            ->assertCreated()
+            ->assertJsonPath('seo_title', 'Maceta abuela | Jardín de Sele')
+            ->assertJsonPath('seo_description', 'Una maceta con su nombre.x');
+        $sku = $r->json('sku');
+
+        $this->admin()->putJson(self::BASE.'/'.$sku, ['seo_title' => '   ', 'seo_description' => null])
+            ->assertOk()->assertJsonPath('seo_title', null)->assertJsonPath('seo_description', null);
+        $this->admin()->getJson(self::BASE.'/'.$sku)->assertJsonPath('seo_title', null);
+    }
+
+    public function test_los_campos_de_google_validan_su_largo_en_espanol(): void
+    {
+        $this->admin()->postJson(self::BASE, $this->datos(['seo_title' => str_repeat('a', 256), 'seo_description' => str_repeat('a', 321)]))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.seo_title.0', 'El título para Google no puede pasar de 255 caracteres.')
+            ->assertJsonPath('errors.seo_description.0', 'La descripción para Google no puede pasar de 320 caracteres.');
+    }
+
     public function test_solo_el_administrador_accede(): void
     {
         $this->getJson(self::BASE)->assertUnauthorized();
