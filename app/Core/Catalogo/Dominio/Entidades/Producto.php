@@ -12,6 +12,7 @@ final readonly class Producto
      * @param  list<string>  $incluye
      * @param  list<Medio>  $medios
      * @param  list<string>  $skusRelacionados
+     * @param  list<string>  $sinonimos
      */
     public function __construct(
         public string $sku,
@@ -31,6 +32,8 @@ final readonly class Producto
         public array $skusRelacionados,
         public ?string $seoTitulo,
         public ?string $seoDescripcion,
+        /** Palabras con las que también se encuentra el producto en la búsqueda ("médico" para Doctor). */
+        public array $sinonimos = [],
     ) {}
 
     /** Imagen principal para listados (la de rol "front", o la primera imagen). */

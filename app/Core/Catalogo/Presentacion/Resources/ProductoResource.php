@@ -32,6 +32,21 @@ final class ProductoResource
         ];
     }
 
+    /**
+     * Listado general de productos (todos, favoritos, búsqueda): el resumen más categoría, subcategoría y palabras de búsqueda.
+     *
+     * @return array<string, mixed>
+     */
+    public static function listado(Producto $p): array
+    {
+        return [
+            ...self::resumen($p),
+            'category' => ['slug' => $p->categoriaSlug, 'name' => $p->categoriaNombre],
+            'subcategory' => $p->subcategoria ? ['slug' => $p->subcategoria->slug, 'name' => $p->subcategoria->nombre] : null,
+            'search_terms' => $p->sinonimos,
+        ];
+    }
+
     /** Resumen de producto para listados (contrato de categoría). @return array<string, mixed> */
     public static function resumen(Producto $p): array
     {

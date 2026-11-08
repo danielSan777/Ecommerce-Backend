@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Catalogo;
 
+use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use Database\Seeders\ProductosDePrueba;
 use Illuminate\Database\QueryException;
@@ -114,6 +115,47 @@ final class CatalogoApiTest extends TestCase
 
         $this->getJson('/api/v1/products/doctor')->assertNotFound();
         $this->assertNotContains('doctor', array_column($this->getJson('/api/v1/categories/profesiones-y-hobbies')->json('products'), 'slug'));
+    }
+
+    public function test_el_listado_de_productos_trae_los_mas_nuevos_primero_con_categoria_y_palabras_de_busqueda(): void
+    {
+        ProductoModelo::query()->where('slug', 'doctor')->update(['search_synonyms' => ['medico', 'salud']]);
+
+        $respuesta = $this->getJson('/api/v1/products')->assertOk();
+        $ids = ProductoModelo::query()->where('is_active', true)->orderByDesc('id')->pluck('slug')->all();
+
+        $this->assertSame($ids, array_column($respuesta->json('data'), 'slug'));
+        $respuesta->assertJsonStructure(['data' => [['sku', 'slug', 'name', 'image', 'price' => ['final_cents', 'base_cents'], 'available', 'category' => ['slug', 'name'], 'subcategory', 'search_terms']]]);
+        $doctor = collect($respuesta->json('data'))->firstWhere('slug', 'doctor');
+        $this->assertSame(['medico', 'salud'], $doctor['search_terms']);
+        $this->assertSame('salud', $doctor['subcategory']['slug']);
+        $this->assertStringNotContainsString('cost', json_encode($respuesta->json()));
+    }
+
+    public function test_el_listado_acepta_limite_oculta_inactivos_y_valida_en_espanol(): void
+    {
+        $this->assertCount(3, $this->getJson('/api/v1/products?limit=3')->assertOk()->json('data'));
+
+        ProductoModelo::query()->where('slug', 'doctor')->update(['is_active' => false]);
+        $this->assertNotContains('doctor', array_column($this->getJson('/api/v1/products')->json('data'), 'slug'));
+
+        $this->getJson('/api/v1/products?limit=0')->assertStatus(422)->assertJsonPath('errors.limit.0', 'El límite mínimo es 1.');
+        $this->getJson('/api/v1/products?limit=101')->assertStatus(422)->assertJsonPath('errors.limit.0', 'El límite máximo es 100.');
+    }
+
+    public function test_las_categorias_traen_imagen_de_portada_y_frase_corta_para_las_tarjetas(): void
+    {
+        CategoriaModelo::query()->where('slug', 'amor')->firstOrFail()->medios()->create([
+            'type' => 'image', 'role' => 'hero',
+            'variants' => ['600' => 'categories/amor/x-600.webp', '1080' => 'categories/amor/x-1080.webp'], 'width' => 1080, 'height' => 800, 'alt' => 'Amor', 'sort_order' => 1,
+        ]);
+        CategoriaModelo::query()->where('slug', 'amor')->update(['headline' => 'Dile lo que sientes']);
+
+        $amor = collect($this->getJson('/api/v1/categories')->assertOk()->json('data'))->firstWhere('slug', 'amor');
+
+        $this->assertStringEndsWith('/media/categories/amor/x-600.webp', $amor['image']);
+        $this->assertSame('Dile lo que sientes', $amor['short_description']);
+        $this->assertNull(collect($this->getJson('/api/v1/categories')->json('data'))->firstWhere('slug', 'familia')['image']);
     }
 
     public function test_un_producto_agotado_se_muestra_como_no_disponible(): void

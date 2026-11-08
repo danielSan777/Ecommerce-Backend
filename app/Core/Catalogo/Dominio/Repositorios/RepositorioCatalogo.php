@@ -16,6 +16,9 @@ interface RepositorioCatalogo
     /** @throws CatalogoNoEncontrado */
     public function categoria(string $slug, ?string $subcategoria = null): Categoria;
 
+    /** Productos activos, los más nuevos primero. @return list<Producto> */
+    public function productos(?int $limite = null): array;
+
     /** @throws CatalogoNoEncontrado */
     public function producto(string $slug): Producto;
 }

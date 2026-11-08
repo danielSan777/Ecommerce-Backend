@@ -45,6 +45,13 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
         return $this->categoria_($categoria, $filtro?->slug, $productos);
     }
 
+    public function productos(?int $limite = null): array
+    {
+        return ProductoModelo::query()->where('is_active', true)->with(['categoria', 'subcategoria', 'medios'])
+            ->orderByDesc('id')->when($limite, fn ($q) => $q->limit($limite))->get()
+            ->map(fn (ProductoModelo $p) => $this->producto_($p))->all();
+    }
+
     public function producto(string $slug): Producto
     {
         $modelo = ProductoModelo::query()->where('is_active', true)->where('slug', $slug)
@@ -94,6 +101,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             skusRelacionados: $this->relacionados($p),
             seoTitulo: $p->seo_title,
             seoDescripcion: $p->seo_description,
+            sinonimos: array_values($p->search_synonyms ?? []),
         );
     }
 

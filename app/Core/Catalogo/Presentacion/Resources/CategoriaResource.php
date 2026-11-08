@@ -29,6 +29,16 @@ final class CategoriaResource
         ];
     }
 
+    /** Foto de la portada en tamaño de tarjeta (600 px), o la más pequeña que exista. */
+    private static function imagenPortada(Categoria $c): ?string
+    {
+        if ($c->portada === null || $c->portada->tipo !== 'image' || $c->portada->urls === []) {
+            return null;
+        }
+
+        return $c->portada->urls[600] ?? $c->portada->urls[array_key_first($c->portada->urls)];
+    }
+
     /** Resumen para el listado y el menú. @return array<string, mixed> */
     public static function resumen(Categoria $c): array
     {
@@ -36,6 +46,8 @@ final class CategoriaResource
             'slug' => $c->slug,
             'name' => $c->nombre,
             'url' => "/{$c->slug}",
+            'short_description' => $c->titular,
+            'image' => self::imagenPortada($c),
             'price_from_cents' => $c->precioDesdeCents,
             'subcategories' => array_map(fn (Subcategoria $s) => ['slug' => $s->slug, 'name' => $s->nombre, 'url' => "/{$c->slug}/{$s->slug}"], $c->subcategorias),
         ];
