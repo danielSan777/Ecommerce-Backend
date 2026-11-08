@@ -43,4 +43,11 @@ interface RepositorioAdministracionProductos
     public function eliminar(string $sku): void;
 
     public function existeSku(string $sku): bool;
+
+    /**
+     * Todos los códigos (también de productos eliminados) que empiezan con el prefijo, para calcular el siguiente número.
+     *
+     * @return list<string>
+     */
+    public function skusConPrefijo(string $prefijo): array;
 }

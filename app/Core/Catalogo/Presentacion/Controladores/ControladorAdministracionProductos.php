@@ -22,12 +22,16 @@ final class ControladorAdministracionProductos extends Controller
         'name.max' => 'El nombre no puede pasar de 150 caracteres.',
         'slug.required' => 'El nombre debe tener al menos una letra o un número.',
         'slug.unique' => 'Ya existe un producto con un nombre igual o muy parecido (puede ser uno eliminado).',
-        'sku.regex' => 'El código (SKU) solo admite mayúsculas, números y guiones (ejemplo: JDS-DOCTOR-01).',
-        'sku.unique' => 'Ya existe un producto con ese código (SKU). Los códigos no se reutilizan, ni siquiera de productos eliminados.',
         'type.in' => 'El tipo debe ser "personalizable" o "complemento".',
         'category.required' => 'Elige la categoría.',
         'category.exists' => 'La categoría elegida no existe.',
-        'subcategory.exists' => 'La subcategoría elegida no existe.',
+        'subcategory.required' => 'Elige la subcategoría.',
+        'subcategory.required_with' => 'Elige la subcategoría.',
+        'subcategory.exists' => 'La subcategoría elegida no existe en esa categoría.',
+        'discount_percent.numeric' => 'El descuento debe ser un número, por ejemplo 10 o 12.5.',
+        'discount_percent.min' => 'El descuento no puede ser negativo.',
+        'discount_percent.max' => 'El descuento no puede ser mayor a :max%.',
+        'discount_percent.decimal' => 'El descuento admite hasta dos decimales, por ejemplo 12.5.',
         'base_price_cents.required' => 'Escribe el precio.',
         'base_price_cents.integer' => 'El precio no es válido.',
         'base_price_cents.min' => 'El precio no puede ser negativo.',
@@ -44,6 +48,23 @@ final class ControladorAdministracionProductos extends Controller
         return response()->json(['data' => $productos->listar($request->query('category') ?: null, $request->query('q') ?: null)]);
     }
 
+    /** Código que se asignaría al próximo producto (solo para mostrarlo; el definitivo lo asigna Laravel al guardar). */
+    public function siguienteSku(AdministrarProductos $productos): JsonResponse
+    {
+        return response()->json(['sku' => $productos->nuevoSku()]);
+    }
+
+    /** Cuánto sería el descuento en dinero y el precio final. Laravel calcula; Angular solo lo muestra. */
+    public function previsualizarPrecio(Request $request, AdministrarProductos $productos): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->query(), [
+            'base_price_cents' => ['required', 'integer', 'min:0', 'max:10000000'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:'.config('catalogo.descuento_maximo'), 'decimal:0,2'],
+        ], self::MENSAJES);
+
+        return response()->json($productos->previsualizarPrecio((int) $validos['base_price_cents'], (float) ($validos['discount_percent'] ?? 0)));
+    }
+
     public function show(string $sku, AdministrarProductos $productos): JsonResponse
     {
         return response()->json($productos->ver($sku));
@@ -51,8 +72,8 @@ final class ControladorAdministracionProductos extends Controller
 
     public function store(Request $request, AdministrarProductos $productos): JsonResponse
     {
-        // La dirección (slug) siempre se genera del nombre, con guiones, y el SKU no se puede cambiar después.
-        $datos = $request->except('slug');
+        // La dirección (slug) se genera del nombre, con guiones, y el código (SKU) lo asigna Laravel: ninguno de los dos se escribe a mano.
+        $datos = $request->except(['slug', 'sku']);
         if (is_string($datos['name'] ?? null)) {
             $datos['slug'] = Str::slug($datos['name']);
         }
@@ -60,26 +81,29 @@ final class ControladorAdministracionProductos extends Controller
         $validos = ValidacionFallida::validar($datos, [
             'name' => ['required', 'string', 'max:150'],
             'slug' => ['sometimes', 'required', 'string', 'max:150', Rule::unique('products', 'slug')],
-            'sku' => ['nullable', 'string', 'max:60', 'regex:/^[A-Z0-9][A-Z0-9-]*$/', Rule::unique('products', 'sku')],
-            ...$this->reglasComunes($datos['category'] ?? null),
+            ...$this->reglasComunes(),
             'category' => ['required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')],
+            'subcategory' => ['required', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? null))],
         ], self::MENSAJES);
 
-        return response()->json($productos->crear(array_filter($validos, fn ($v, $k) => $k !== 'sku' || $v !== null, ARRAY_FILTER_USE_BOTH)), 201);
+        return response()->json($productos->crear($this->sinNulos($validos)), 201);
     }
 
     public function update(string $sku, Request $request, AdministrarProductos $productos): JsonResponse
     {
         $datos = $request->except(['slug', 'sku']);
 
-        $reglas = $this->reglasComunes($datos['category'] ?? $productos->ver($sku)['category_slug']);
+        $reglas = $this->reglasComunes();
         $reglas['name'] = ['sometimes', 'required', 'string', 'max:150'];
         $reglas['base_price_cents'] = ['sometimes', ...$reglas['base_price_cents']];
         $reglas['category'] = ['sometimes', 'required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')];
 
+        // Si cambia de categoría tiene que elegir también una subcategoría de la nueva
+        $reglas['subcategory'] = ['required_with:category', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? $productos->ver($sku)['category_slug']))];
+
         $validos = ValidacionFallida::validar($datos, $reglas, self::MENSAJES);
 
-        return response()->json($productos->actualizar($sku, $validos));
+        return response()->json($productos->actualizar($sku, $this->sinNulos($validos)));
     }
 
     public function destroy(string $sku, AdministrarProductos $productos): Response
@@ -89,18 +113,35 @@ final class ControladorAdministracionProductos extends Controller
         return response()->noContent();
     }
 
-    /** @return array<string, list<mixed>> */
-    private function reglasComunes(mixed $categoria): array
+    private function idCategoria(mixed $slug): int
     {
-        $categoriaId = is_string($categoria) ? CategoriaModelo::query()->where('slug', $categoria)->value('id') : null;
+        return is_string($slug) ? (int) CategoriaModelo::query()->where('slug', $slug)->value('id') : 0;
+    }
 
+    /**
+     * El descuento vacío significa "sin descuento" (la columna no admite nulo).
+     *
+     * @param  array<string, mixed>  $validos
+     * @return array<string, mixed>
+     */
+    private function sinNulos(array $validos): array
+    {
+        if (array_key_exists('discount_percent', $validos) && $validos['discount_percent'] === null) {
+            $validos['discount_percent'] = 0;
+        }
+
+        return $validos;
+    }
+
+    /** @return array<string, list<mixed>> */
+    private function reglasComunes(): array
+    {
         return [
             'name' => ['required', 'string', 'max:150'],
             'type' => ['sometimes', Rule::in(['personalizable', 'complemento'])],
-            // La subcategoría debe pertenecer a la categoría elegida
-            'subcategory' => ['nullable', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $categoriaId ?? 0)],
             'base_price_cents' => ['required', 'integer', 'min:0', 'max:10000000'],
             'cost_cents' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:'.config('catalogo.descuento_maximo'), 'decimal:0,2'],
             'size_text' => ['nullable', 'string', 'max:255'],
             'material_text' => ['nullable', 'string', 'max:255'],
             'includes' => ['nullable', 'array', 'max:20'],

@@ -33,6 +33,8 @@ Route::prefix('v1')->group(function () {
         Route::get('categories', [ControladorAdministracionCategorias::class, 'index'])->name('api.v1.admin.categories.index');
         Route::post('categories', [ControladorAdministracionCategorias::class, 'store'])->name('api.v1.admin.categories.store');
         Route::put('categories/{slug}', [ControladorAdministracionCategorias::class, 'update'])->name('api.v1.admin.categories.update');
+        Route::get('products/next-sku', [ControladorAdministracionProductos::class, 'siguienteSku'])->name('api.v1.admin.products.next-sku');
+        Route::get('products/price-preview', [ControladorAdministracionProductos::class, 'previsualizarPrecio'])->name('api.v1.admin.products.price-preview');
         Route::get('products', [ControladorAdministracionProductos::class, 'index'])->name('api.v1.admin.products.index');
         Route::post('products', [ControladorAdministracionProductos::class, 'store'])->name('api.v1.admin.products.store');
         Route::get('products/{sku}', [ControladorAdministracionProductos::class, 'show'])->name('api.v1.admin.products.show');

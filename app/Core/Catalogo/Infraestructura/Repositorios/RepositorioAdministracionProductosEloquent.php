@@ -6,6 +6,7 @@ namespace App\Core\Catalogo\Infraestructura\Repositorios;
 
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Repositorios\RepositorioAdministracionProductos;
+use App\Core\Catalogo\Dominio\ValueObjects\Precio;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\SubcategoriaModelo;
@@ -50,6 +51,11 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
         return ProductoModelo::withTrashed()->where('sku', $sku)->exists();
     }
 
+    public function skusConPrefijo(string $prefijo): array
+    {
+        return ProductoModelo::withTrashed()->where('sku', 'like', addcslashes($prefijo, '%_\\').'%')->pluck('sku')->all();
+    }
+
     private function producto(string $sku): ProductoModelo
     {
         return ProductoModelo::query()->with(['categoria', 'subcategoria'])->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
@@ -85,6 +91,8 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
     /** @return array<string, mixed> */
     private function formato(ProductoModelo $p): array
     {
+        $precio = Precio::conDescuentoPorcentaje((int) $p->base_price_cents, $p->discount_percent ?? 0);
+
         return [
             'sku' => $p->sku,
             'slug' => $p->slug,
@@ -95,6 +103,9 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
             'subcategory_slug' => $p->subcategoria?->slug,
             'base_price_cents' => (int) $p->base_price_cents,
             'cost_cents' => $p->cost_cents === null ? null : (int) $p->cost_cents,
+            'discount_percent' => (float) $p->discount_percent,
+            'discount_cents' => $precio->descuentoCents(),
+            'final_price_cents' => $precio->finalCents,
             'size_text' => $p->size_text,
             'material_text' => $p->material_text,
             'includes' => $p->includes ?? [],

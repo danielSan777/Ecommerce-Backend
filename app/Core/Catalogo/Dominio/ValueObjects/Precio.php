@@ -22,6 +22,18 @@ final readonly class Precio
         return new self($baseCents, $baseCents);
     }
 
+    /**
+     * Descuento en porcentaje (hasta dos decimales) sobre el precio base, redondeado al centavo (mitad hacia arriba).
+     * Todo en enteros: nada de decimales flotantes con dinero.
+     */
+    public static function conDescuentoPorcentaje(int $baseCents, float|string $porcentaje): self
+    {
+        $centesimas = (int) round(((float) $porcentaje) * 100); // 12.5 % → 1250
+        $descuento = intdiv($baseCents * $centesimas + 5000, 10000);
+
+        return new self($baseCents, $baseCents - min($descuento, $baseCents));
+    }
+
     public function descuentoCents(): int
     {
         return $this->baseCents - $this->finalCents;

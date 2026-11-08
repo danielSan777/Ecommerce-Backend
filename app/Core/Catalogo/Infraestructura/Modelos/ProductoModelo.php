@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-#[Fillable(['sku', 'slug', 'type', 'name', 'category_id', 'subcategory_id', 'base_price_cents', 'cost_cents', 'size_text',
+#[Fillable(['sku', 'slug', 'type', 'name', 'category_id', 'subcategory_id', 'base_price_cents', 'cost_cents', 'discount_percent', 'size_text',
     'material_text', 'includes', 'description_html', 'is_available', 'is_active', 'search_synonyms', 'seo_title', 'seo_description'])]
 #[Hidden(['cost_cents'])]
 class ProductoModelo extends Model
@@ -30,7 +30,7 @@ class ProductoModelo extends Model
 
     protected function casts(): array
     {
-        return ['includes' => 'array', 'search_synonyms' => 'array', 'is_available' => 'boolean', 'is_active' => 'boolean'];
+        return ['includes' => 'array', 'search_synonyms' => 'array', 'is_available' => 'boolean', 'is_active' => 'boolean', 'discount_percent' => 'decimal:2'];
     }
 
     public function categoria(): BelongsTo

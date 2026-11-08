@@ -85,7 +85,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             categoriaNombre: $p->categoria->name,
             subcategoria: $p->subcategoria ? new Subcategoria($p->subcategoria->slug, $p->subcategoria->name) : null,
             disponible: $p->is_available,
-            precio: Precio::sinDescuento($p->base_price_cents),
+            precio: Precio::conDescuentoPorcentaje((int) $p->base_price_cents, $p->discount_percent ?? 0),
             tamano: $p->size_text,
             material: $p->material_text,
             incluye: array_values($p->includes ?? []),

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Catalogo\Aplicacion\CasosDeUso;
 
 use App\Core\Catalogo\Dominio\Repositorios\RepositorioAdministracionProductos;
-use Illuminate\Support\Str;
+use App\Core\Catalogo\Dominio\ValueObjects\Precio;
 
 /** Listar, ver, crear, editar y eliminar productos desde el panel. Dinero siempre en centavos. */
 final class AdministrarProductos
@@ -32,7 +32,7 @@ final class AdministrarProductos
      */
     public function crear(array $datos): array
     {
-        $datos['sku'] ??= $this->nuevoSku();
+        $datos['sku'] = $this->nuevoSku(); // el código siempre lo asigna Laravel, nunca se escribe a mano
 
         return $this->productos->crear($datos);
     }
@@ -51,12 +51,34 @@ final class AdministrarProductos
         $this->productos->eliminar($sku);
     }
 
+    /**
+     * Siguiente código: PREFIJO-NNN con los dígitos de config/catalogo.php. Toma el número más alto que existió
+     * (incluidos los productos eliminados) y suma uno, así un código nunca se reutiliza.
+     */
     public function nuevoSku(): string
     {
+        $prefijo = (string) config('catalogo.sku_prefijo');
+        $digitos = (int) config('catalogo.sku_digitos');
+
+        $mayor = 0;
+        foreach ($this->productos->skusConPrefijo($prefijo.'-') as $sku) {
+            if (preg_match('/^'.preg_quote($prefijo, '/').'-(\d+)$/', $sku, $m)) {
+                $mayor = max($mayor, (int) $m[1]);
+            }
+        }
+
         do {
-            $sku = 'JDS-'.strtoupper(Str::random(6));
+            $sku = sprintf('%s-%0'.$digitos.'d', $prefijo, ++$mayor);
         } while ($this->productos->existeSku($sku));
 
         return $sku;
+    }
+
+    /** @return array{base_price_cents: int, discount_percent: float, discount_cents: int, final_price_cents: int} */
+    public function previsualizarPrecio(int $baseCents, float $porcentaje): array
+    {
+        $precio = Precio::conDescuentoPorcentaje($baseCents, $porcentaje);
+
+        return ['base_price_cents' => $baseCents, 'discount_percent' => $porcentaje, 'discount_cents' => $precio->descuentoCents(), 'final_price_cents' => $precio->finalCents];
     }
 }

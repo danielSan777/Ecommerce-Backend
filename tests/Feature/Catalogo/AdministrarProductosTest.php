@@ -31,7 +31,7 @@ final class AdministrarProductosTest extends TestCase
     private function datos(array $cambios = []): array
     {
         return [...[
-            'name' => 'Abuela jardinera', 'category' => 'familia', 'base_price_cents' => 2350, 'cost_cents' => 900,
+            'name' => 'Abuela jardinera', 'category' => 'profesiones-y-hobbies', 'subcategory' => 'salud', 'base_price_cents' => 2350, 'cost_cents' => 900,
             'size_text' => '12 cm', 'material_text' => 'Cerámica', 'includes' => ['Plantita natural', 'Funda kraft'],
             'description_html' => '<p>Una maceta para abuela.</p>', 'is_available' => true, 'is_active' => true,
         ], ...$cambios];
@@ -70,30 +70,53 @@ final class AdministrarProductosTest extends TestCase
         $this->getJson(self::BASE.'/NO-EXISTE')->assertNotFound()->assertJsonPath('code', 'not_found');
     }
 
-    public function test_crear_genera_slug_con_guiones_y_sku_unico_y_se_ve_en_la_tienda(): void
+    public function test_crear_genera_slug_con_guiones_y_sku_automatico_y_se_ve_en_la_tienda(): void
     {
         $r = $this->admin()->postJson(self::BASE, $this->datos())->assertCreated();
 
         $r->assertJsonPath('slug', 'abuela-jardinera')->assertJsonPath('base_price_cents', 2350)->assertJsonPath('cost_cents', 900)
-            ->assertJsonPath('includes', ['Plantita natural', 'Funda kraft'])->assertJsonPath('category_slug', 'familia')->assertJsonPath('is_active', true);
-        $this->assertMatchesRegularExpression('/^JDS-[A-Z0-9]{6}$/', $r->json('sku'));
+            ->assertJsonPath('includes', ['Plantita natural', 'Funda kraft'])->assertJsonPath('category_slug', 'profesiones-y-hobbies')
+            ->assertJsonPath('subcategory_slug', 'salud')->assertJsonPath('is_active', true)->assertJsonPath('sku', 'JDS-001');
         $this->getJson('/api/v1/products/abuela-jardinera')->assertOk()->assertJsonMissingPath('cost_cents');
     }
 
-    public function test_el_slug_nunca_se_elige_y_el_sku_si_se_puede_escribir(): void
+    public function test_ni_el_slug_ni_el_sku_se_escriben_a_mano(): void
     {
         $this->admin()->postJson(self::BASE, $this->datos(['name' => 'Tía Chiquita', 'slug' => 'otro', 'sku' => 'JDS-TIA-01']))
-            ->assertCreated()->assertJsonPath('slug', 'tia-chiquita')->assertJsonPath('sku', 'JDS-TIA-01');
+            ->assertCreated()->assertJsonPath('slug', 'tia-chiquita')->assertJsonPath('sku', 'JDS-001');
     }
 
-    public function test_el_sku_no_se_repite_ni_con_productos_eliminados_y_debe_tener_formato(): void
+    public function test_el_sku_es_consecutivo_con_ceros_y_nunca_se_reutiliza_ni_con_productos_eliminados(): void
     {
-        $this->admin()->postJson(self::BASE, $this->datos(['sku' => 'pro-homero']))->assertStatus(422)
-            ->assertJsonPath('errors.sku.0', 'El código (SKU) solo admite mayúsculas, números y guiones (ejemplo: JDS-DOCTOR-01).');
+        $this->admin();
+        $this->postJson(self::BASE, $this->datos(['name' => 'Uno']))->assertCreated()->assertJsonPath('sku', 'JDS-001');
+        $this->postJson(self::BASE, $this->datos(['name' => 'Dos']))->assertCreated()->assertJsonPath('sku', 'JDS-002');
 
-        ProductoModelo::query()->where('sku', 'PRO-HOMERO')->first()->delete();
-        $this->postJson(self::BASE, $this->datos(['name' => 'Otro Distinto', 'sku' => 'PRO-HOMERO']))->assertStatus(422)
-            ->assertJsonPath('errors.sku.0', 'Ya existe un producto con ese código (SKU). Los códigos no se reutilizan, ni siquiera de productos eliminados.');
+        ProductoModelo::query()->where('sku', 'JDS-002')->first()->delete(); // eliminado: su número no vuelve
+        $this->postJson(self::BASE, $this->datos(['name' => 'Tres']))->assertCreated()->assertJsonPath('sku', 'JDS-003');
+
+        // Los códigos que no siguen el formato (PRO-HOMERO) no afectan la numeración
+        $this->assertSame('JDS-004', $this->getJson(self::BASE.'/next-sku')->assertOk()->json('sku'));
+    }
+
+    public function test_la_cantidad_de_digitos_se_puede_cambiar_sin_tocar_los_codigos_anteriores(): void
+    {
+        $this->admin();
+        $this->postJson(self::BASE, $this->datos(['name' => 'Uno']))->assertJsonPath('sku', 'JDS-001');
+
+        config(['catalogo.sku_digitos' => 4]);
+        $this->postJson(self::BASE, $this->datos(['name' => 'Dos']))->assertJsonPath('sku', 'JDS-0002');
+        $this->assertNotNull(ProductoModelo::query()->where('sku', 'JDS-001')->first());
+
+        config(['catalogo.sku_prefijo' => 'ZZ', 'catalogo.sku_digitos' => 3]);
+        $this->postJson(self::BASE, $this->datos(['name' => 'Tres']))->assertJsonPath('sku', 'ZZ-001');
+    }
+
+    public function test_el_numero_crece_aunque_pase_de_los_digitos(): void
+    {
+        ProductoModelo::query()->where('sku', 'PRO-HOMERO')->update(['sku' => 'JDS-999']);
+
+        $this->admin()->postJson(self::BASE, $this->datos())->assertCreated()->assertJsonPath('sku', 'JDS-1000');
     }
 
     public function test_valida_en_espanol(): void
@@ -116,7 +139,7 @@ final class AdministrarProductosTest extends TestCase
             ->assertCreated()->assertJsonPath('subcategory_slug', 'salud');
 
         $this->postJson(self::BASE, $this->datos(['name' => 'Otro Producto', 'category' => 'amor', 'subcategory' => 'salud']))->assertStatus(422)
-            ->assertJsonPath('errors.subcategory.0', 'La subcategoría elegida no existe.');
+            ->assertJsonPath('errors.subcategory.0', 'La subcategoría elegida no existe en esa categoría.');
     }
 
     public function test_editar_cambia_los_datos_pero_no_el_sku_ni_el_slug(): void
@@ -128,10 +151,59 @@ final class AdministrarProductosTest extends TestCase
         $this->getJson('/api/v1/products/homero')->assertNotFound(); // inactivo: la tienda ya no lo muestra
     }
 
-    public function test_cambiar_de_categoria_deja_la_subcategoria_vacia_si_no_se_indica(): void
+    public function test_cambiar_de_categoria_exige_elegir_una_subcategoria_de_la_nueva(): void
     {
-        $this->admin()->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'amor'])->assertOk()->assertJsonPath('category_slug', 'amor')->assertJsonPath('subcategory_slug', null);
+        $this->admin()->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'amor'])->assertStatus(422)->assertJsonPath('errors.subcategory.0', 'Elige la subcategoría.');
         $this->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'profesiones-y-hobbies', 'subcategory' => 'cocina-y-hobbies'])->assertOk()->assertJsonPath('subcategory_slug', 'cocina-y-hobbies');
+        $this->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'amor', 'subcategory' => 'salud'])->assertStatus(422)->assertJsonPath('errors.subcategory.0', 'La subcategoría elegida no existe en esa categoría.');
+    }
+
+    public function test_categoria_y_subcategoria_son_obligatorias_al_crear(): void
+    {
+        $this->admin();
+        $datos = $this->datos();
+        unset($datos['subcategory']);
+        $this->postJson(self::BASE, $datos)->assertStatus(422)->assertJsonPath('errors.subcategory.0', 'Elige la subcategoría.');
+
+        $datos = $this->datos();
+        unset($datos['category']);
+        $this->postJson(self::BASE, $datos)->assertStatus(422)->assertJsonPath('errors.category.0', 'Elige la categoría.');
+
+        // Una categoría sin subcategorías no admite productos hasta que se le cree una
+        $this->postJson(self::BASE, $this->datos(['category' => 'amor']))->assertStatus(422)->assertJsonPath('errors.subcategory.0', 'La subcategoría elegida no existe en esa categoría.');
+        $this->assertSame(0, ProductoModelo::query()->where('name', 'Abuela jardinera')->count());
+    }
+
+    public function test_descuento_en_porcentaje_calcula_el_monto_y_el_precio_final_en_laravel(): void
+    {
+        $r = $this->admin()->postJson(self::BASE, $this->datos(['base_price_cents' => 2150, 'discount_percent' => 12.5]))->assertCreated();
+
+        // 2150 × 12.5 % = 268.75 → 269 centavos (mitad hacia arriba)
+        $r->assertJsonPath('discount_percent', 12.5)->assertJsonPath('discount_cents', 269)->assertJsonPath('final_price_cents', 1881);
+
+        // La tienda también muestra el precio con descuento
+        $precio = $this->getJson('/api/v1/products/abuela-jardinera')->assertOk()->json('price');
+        $this->assertSame([2150, 1881, 269, 13, '13% OFF'], [$precio['base_cents'], $precio['final_cents'], $precio['discount_cents'], $precio['discount_percent'], $precio['badge']]);
+
+        $this->putJson(self::BASE.'/'.$r->json('sku'), ['discount_percent' => null])->assertOk()->assertJsonPath('discount_percent', 0)->assertJsonPath('discount_cents', 0)->assertJsonPath('final_price_cents', 2150);
+    }
+
+    public function test_valida_el_descuento_en_espanol(): void
+    {
+        $this->admin();
+        $this->postJson(self::BASE, $this->datos(['discount_percent' => 95]))->assertStatus(422)->assertJsonPath('errors.discount_percent.0', 'El descuento no puede ser mayor a 90%.');
+        $this->postJson(self::BASE, $this->datos(['discount_percent' => -5]))->assertStatus(422)->assertJsonPath('errors.discount_percent.0', 'El descuento no puede ser negativo.');
+        $this->postJson(self::BASE, $this->datos(['discount_percent' => 'mucho']))->assertStatus(422)->assertJsonPath('errors.discount_percent.0', 'El descuento debe ser un número, por ejemplo 10 o 12.5.');
+        $this->postJson(self::BASE, $this->datos(['discount_percent' => 10.123]))->assertStatus(422)->assertJsonPath('errors.discount_percent.0', 'El descuento admite hasta dos decimales, por ejemplo 12.5.');
+    }
+
+    public function test_previsualizar_el_precio_con_descuento(): void
+    {
+        $this->admin()->getJson(self::BASE.'/price-preview?base_price_cents=2150&discount_percent=10')->assertOk()
+            ->assertExactJson(['base_price_cents' => 2150, 'discount_percent' => 10, 'discount_cents' => 215, 'final_price_cents' => 1935]);
+        $this->getJson(self::BASE.'/price-preview?base_price_cents=2150')->assertOk()->assertJsonPath('discount_cents', 0)->assertJsonPath('final_price_cents', 2150);
+        $this->getJson(self::BASE.'/price-preview?base_price_cents=abc')->assertStatus(422)->assertJsonPath('errors.base_price_cents.0', 'El precio no es válido.');
+        $this->getJson(self::BASE.'/price-preview?base_price_cents=2150&discount_percent=99')->assertStatus(422);
     }
 
     public function test_los_datos_invalidos_al_editar_no_cambian_nada_y_uno_inexistente_responde_404(): void
