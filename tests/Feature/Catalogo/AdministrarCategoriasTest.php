@@ -87,6 +87,29 @@ final class AdministrarCategoriasTest extends TestCase
         $this->getJson('/api/v1/categories/amor')->assertNotFound(); // inactiva: la tienda pública ya no la muestra
     }
 
+    public function test_los_campos_de_google_se_guardan_sin_etiquetas_html_y_vacios_quedan_nulos(): void
+    {
+        $this->admin()->putJson('/api/v1/admin/categories/amor', [
+            'seo_title' => 'Regalos de amor | <b>Jardín</b> de Sele',
+            'seo_description' => '<script>alert(1)</script>Macetas con su nombre.',
+            'intro_html' => '  Un regalo <i>que crece</i>.  ',
+        ])->assertOk()
+            ->assertJsonPath('seo_title', 'Regalos de amor | Jardín de Sele')
+            ->assertJsonPath('seo_description', 'alert(1)Macetas con su nombre.')
+            ->assertJsonPath('intro_html', 'Un regalo que crece.');
+
+        $this->admin()->putJson('/api/v1/admin/categories/amor', ['seo_title' => '   ', 'seo_description' => null, 'intro_html' => ''])
+            ->assertOk()->assertJsonPath('seo_title', null)->assertJsonPath('seo_description', null)->assertJsonPath('intro_html', null);
+    }
+
+    public function test_los_campos_de_google_validan_su_largo_en_espanol(): void
+    {
+        $this->admin()->putJson('/api/v1/admin/categories/amor', ['seo_title' => str_repeat('a', 256), 'seo_description' => str_repeat('a', 321)])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.seo_title.0', 'El título para Google no puede pasar de 255 caracteres.')
+            ->assertJsonPath('errors.seo_description.0', 'La descripción para Google no puede pasar de 320 caracteres.');
+    }
+
     public function test_editar_una_categoria_que_no_existe_responde_404(): void
     {
         $this->admin()->putJson('/api/v1/admin/categories/no-existe', ['name' => 'X'])->assertNotFound()->assertJsonPath('code', 'not_found');

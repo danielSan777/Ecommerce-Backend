@@ -23,7 +23,10 @@ final class ControladorAdministracionCategorias extends Controller
         'slug.unique' => 'Ya existe una categoría con un nombre igual o muy parecido (puede ser una eliminada).',
         'sort_order.integer' => 'El orden debe ser un número.',
         'is_active.boolean' => 'Indica si la categoría está activa o no.',
-        'seo_description.max' => 'La descripción para buscadores no puede pasar de 320 caracteres.',
+        'seo_title.max' => 'El título para Google no puede pasar de 255 caracteres.',
+        'seo_description.max' => 'La descripción para Google no puede pasar de 320 caracteres.',
+        'intro_html.max' => 'La introducción no puede pasar de 20000 caracteres.',
+        'headline.max' => 'La frase bajo el nombre no puede pasar de 255 caracteres.',
     ];
 
     public function index(AdministrarCategorias $categorias): JsonResponse
@@ -45,7 +48,7 @@ final class ControladorAdministracionCategorias extends Controller
             ...$this->reglasComunes(),
         ], self::MENSAJES);
 
-        return response()->json($categorias->crear($validos), 201);
+        return response()->json($categorias->crear($this->sinEtiquetas($validos)), 201);
     }
 
     public function update(string $slug, Request $request, AdministrarCategorias $categorias): JsonResponse
@@ -56,7 +59,7 @@ final class ControladorAdministracionCategorias extends Controller
             ...$this->reglasComunes(),
         ], self::MENSAJES);
 
-        return response()->json($categorias->actualizar($slug, $validos));
+        return response()->json($categorias->actualizar($slug, $this->sinEtiquetas($validos)));
     }
 
     public function destroy(string $slug, EliminarCategoria $eliminar): Response
@@ -64,6 +67,25 @@ final class ControladorAdministracionCategorias extends Controller
         $eliminar($slug);
 
         return response()->noContent();
+    }
+
+    /**
+     * Los textos de Google y la introducción se escriben como texto simple: se quitan las etiquetas HTML
+     * para que nada pueda colarse cuando la tienda los muestre.
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    private function sinEtiquetas(array $datos): array
+    {
+        foreach (['headline', 'intro_html', 'seo_title', 'seo_description'] as $campo) {
+            if (isset($datos[$campo]) && is_string($datos[$campo])) {
+                $limpio = trim(strip_tags($datos[$campo]));
+                $datos[$campo] = $limpio === '' ? null : $limpio;
+            }
+        }
+
+        return $datos;
     }
 
     /** @return array<string, list<mixed>> */
