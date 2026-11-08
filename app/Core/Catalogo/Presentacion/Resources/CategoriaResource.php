@@ -14,6 +14,14 @@ final class CategoriaResource
     public static function formato(Categoria $c): array
     {
         $ruta = "/{$c->slug}".($c->subcategoriaActiva ? "/{$c->subcategoriaActiva}" : '');
+        $activa = null;
+        foreach ($c->subcategorias as $s) {
+            if ($s->slug === $c->subcategoriaActiva) {
+                $activa = $s->nombre;
+            }
+        }
+        // Sin título para Google escrito en el panel: "Nombre | Jardín de Sele" (en una pestaña: "Salud · Profesiones y Hobbies | Jardín de Sele").
+        $titulo = $c->seoTitulo ?? ($activa ? "{$activa} · {$c->nombre}" : $c->nombre).' | Jardín de Sele';
 
         return [
             'slug' => $c->slug,
@@ -25,7 +33,7 @@ final class CategoriaResource
             'subcategories' => array_map(fn (Subcategoria $s) => ['slug' => $s->slug, 'name' => $s->nombre, 'url' => "/{$c->slug}/{$s->slug}"], $c->subcategorias),
             'active_subcategory' => $c->subcategoriaActiva,
             'products' => array_map(ProductoResource::resumen(...), $c->productos),
-            'seo' => SeoResource::formato($c->seoTitulo, $c->seoDescripcion, $ruta, $c->productos[0] ?? null ? $c->productos[0]->imagenPrincipal() : null),
+            'seo' => SeoResource::formato($titulo, $c->seoDescripcion, $ruta, $c->productos[0] ?? null ? $c->productos[0]->imagenPrincipal() : null),
         ];
     }
 

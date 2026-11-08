@@ -117,6 +117,16 @@ final class CatalogoApiTest extends TestCase
         $this->assertNotContains('doctor', array_column($this->getJson('/api/v1/categories/profesiones-y-hobbies')->json('products'), 'slug'));
     }
 
+    public function test_sin_titulo_para_google_se_usa_nombre_barra_jardin_de_sele(): void
+    {
+        $this->getJson('/api/v1/categories/amor')->assertJsonPath('seo.title', 'Amor | Jardín de Sele');
+        $this->getJson('/api/v1/categories/profesiones-y-hobbies?subcategory=salud')->assertJsonPath('seo.title', 'Salud · Profesiones y Hobbies | Jardín de Sele');
+        $this->getJson('/api/v1/products/doctor')->assertJsonPath('seo.title', 'Doctor | Jardín de Sele');
+
+        ProductoModelo::query()->where('slug', 'doctor')->update(['seo_title' => 'Maceta para doctores']);
+        $this->getJson('/api/v1/products/doctor')->assertJsonPath('seo.title', 'Maceta para doctores');
+    }
+
     public function test_el_listado_de_productos_trae_los_mas_nuevos_primero_con_categoria_y_palabras_de_busqueda(): void
     {
         ProductoModelo::query()->where('slug', 'doctor')->update(['search_synonyms' => ['medico', 'salud']]);

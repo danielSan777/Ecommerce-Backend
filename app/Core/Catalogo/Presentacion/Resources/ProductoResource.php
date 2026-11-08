@@ -28,7 +28,7 @@ final class ProductoResource
             'media' => array_map(MedioResource::formato(...), $p->medios),
             'related_skus' => $p->skusRelacionados,
             'configurator_url' => "/api/v1/products/{$p->slug}/configurator",
-            'seo' => SeoResource::formato($p->seoTitulo, $p->seoDescripcion, "/producto/{$p->slug}", $p->imagenPrincipal()),
+            'seo' => SeoResource::formato($p->seoTitulo ?? $p->nombre.' | Jardín de Sele', $p->seoDescripcion, "/producto/{$p->slug}", $p->imagenPrincipal()),
         ];
     }
 
