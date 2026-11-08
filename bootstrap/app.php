@@ -2,6 +2,7 @@
 
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Excepciones\CategoriaConProductos;
+use App\Core\Catalogo\Dominio\Excepciones\CategoriaEnCampana;
 use App\Core\Catalogo\Dominio\Excepciones\SubcategoriaConProductos;
 use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
@@ -35,6 +36,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'message' => $e->getMessage(),
             'products_count' => $e->total,
             'products' => $e->productos,
+        ], 409));
+        $exceptions->render(fn (CategoriaEnCampana $e) => response()->json([
+            'code' => 'category_in_campaign',
+            'message' => $e->getMessage(),
+            'campaigns' => $e->campanas,
         ], 409));
         $exceptions->render(fn (SubcategoriaConProductos $e) => response()->json([
             'code' => 'subcategory_has_products',

@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Catalogo\Infraestructura\Repositorios;
+
+use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
+use App\Core\Catalogo\Dominio\Repositorios\RepositorioAdministracionCampanas;
+use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
+use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
+use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
+use Illuminate\Support\Facades\DB;
+
+final class RepositorioAdministracionCampanasEloquent implements RepositorioAdministracionCampanas
+{
+    public function listar(): array
+    {
+        return CampanaModelo::query()->with(['categoriaRelacionada', 'productos'])->orderBy('id')->get()
+            ->map(fn (CampanaModelo $c) => $this->formato($c))->all();
+    }
+
+    public function obtener(string $slug): array
+    {
+        return $this->formato($this->campana($slug));
+    }
+
+    public function crear(array $datos): array
+    {
+        return DB::transaction(function () use ($datos) {
+            $campana = CampanaModelo::query()->create([...$this->columnas($datos), 'slug' => $datos['slug']]);
+            $this->guardarProductos($campana, $datos['products'] ?? []);
+
+            return $this->formato($campana->refresh()->load(['categoriaRelacionada', 'productos']));
+        });
+    }
+
+    public function actualizar(string $slug, array $datos): array
+    {
+        return DB::transaction(function () use ($slug, $datos) {
+            $campana = $this->campana($slug);
+            $campana->update($this->columnas($datos));
+            if (array_key_exists('products', $datos)) {
+                $this->guardarProductos($campana, $datos['products'] ?? []);
+            }
+
+            return $this->formato($campana->refresh()->load(['categoriaRelacionada', 'productos']));
+        });
+    }
+
+    public function eliminar(string $slug): void
+    {
+        $this->campana($slug)->delete(); // sus productos elegidos se borran con ella; los productos no se tocan
+    }
+
+    private function campana(string $slug): CampanaModelo
+    {
+        return CampanaModelo::query()->with(['categoriaRelacionada', 'productos'])->where('slug', $slug)->first()
+            ?? throw CatalogoNoEncontrado::campana($slug);
+    }
+
+    /**
+     * Solo las columnas de la campaña (el slug no se edita).
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    private function columnas(array $datos): array
+    {
+        $columnas = array_intersect_key($datos, array_flip(['name', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'is_active', 'seo_title', 'seo_description']));
+        if (isset($datos['related_category'])) {
+            $columnas['related_category_id'] = CategoriaModelo::query()->where('slug', $datos['related_category'])->value('id');
+        }
+
+        return $columnas;
+    }
+
+    /** @param list<string> $skus en el orden elegido */
+    private function guardarProductos(CampanaModelo $campana, array $skus): void
+    {
+        $ids = ProductoModelo::query()->whereIn('sku', $skus)->pluck('id', 'sku');
+        $sync = [];
+        foreach (array_values(array_unique($skus)) as $orden => $sku) {
+            if ($ids->has($sku)) {
+                $sync[$ids[$sku]] = ['sort_order' => $orden];
+            }
+        }
+        $campana->productos()->sync($sync);
+    }
+
+    /** @return array<string, mixed> */
+    private function formato(CampanaModelo $c): array
+    {
+        return [
+            'slug' => $c->slug,
+            'name' => $c->name,
+            'related_category' => ['slug' => $c->categoriaRelacionada->slug, 'name' => $c->categoriaRelacionada->name],
+            'start_md' => $c->start_md,
+            'end_md' => $c->end_md,
+            'event_md' => $c->event_md,
+            'tagline' => $c->tagline,
+            'slogan' => $c->slogan,
+            'is_active' => $c->is_active,
+            'seo_title' => $c->seo_title,
+            'seo_description' => $c->seo_description,
+            'products' => $c->productos->map(fn (ProductoModelo $p) => ['sku' => $p->sku, 'slug' => $p->slug, 'name' => $p->name])->all(),
+            'updated_at' => $c->updated_at?->toIso8601String() ?? '',
+        ];
+    }
+}

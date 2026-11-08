@@ -6,6 +6,7 @@ namespace App\Core\Catalogo\Infraestructura\Repositorios;
 
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Repositorios\RepositorioAdministracionCatalogo;
+use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,14 @@ final class RepositorioAdministracionCatalogoEloquent implements RepositorioAdmi
 
         return ProductoModelo::query()->where('category_id', $categoria->id)->orderBy('id')->get(['sku', 'slug', 'name'])
             ->map(fn (ProductoModelo $p) => ['sku' => $p->sku, 'slug' => $p->slug, 'name' => $p->name])->all();
+    }
+
+    public function campanasDeCategoria(string $slug): array
+    {
+        $categoria = $this->categoria($slug);
+
+        return CampanaModelo::query()->where('related_category_id', $categoria->id)->orderBy('id')->get(['slug', 'name'])
+            ->map(fn (CampanaModelo $c) => ['slug' => $c->slug, 'name' => $c->name])->all();
     }
 
     public function eliminarCategoria(string $slug): void

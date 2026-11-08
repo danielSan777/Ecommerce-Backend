@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionMedios;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionProductos;
@@ -31,6 +32,11 @@ Route::prefix('v1')->group(function () {
 
     // Administración (Angular del administrador): solo rol administrador.
     Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('campaigns', [ControladorAdministracionCampanas::class, 'index'])->name('api.v1.admin.campaigns.index');
+        Route::post('campaigns', [ControladorAdministracionCampanas::class, 'store'])->name('api.v1.admin.campaigns.store');
+        Route::get('campaigns/{slug}', [ControladorAdministracionCampanas::class, 'show'])->name('api.v1.admin.campaigns.show');
+        Route::put('campaigns/{slug}', [ControladorAdministracionCampanas::class, 'update'])->name('api.v1.admin.campaigns.update');
+        Route::delete('campaigns/{slug}', [ControladorAdministracionCampanas::class, 'destroy'])->name('api.v1.admin.campaigns.destroy');
         Route::get('categories', [ControladorAdministracionCategorias::class, 'index'])->name('api.v1.admin.categories.index');
         Route::post('categories', [ControladorAdministracionCategorias::class, 'store'])->name('api.v1.admin.categories.store');
         Route::put('categories/{slug}', [ControladorAdministracionCategorias::class, 'update'])->name('api.v1.admin.categories.update');
