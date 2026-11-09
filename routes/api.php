@@ -2,7 +2,9 @@
 
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionInicio;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionMedios;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorInicio;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionProductos;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionSubcategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCampanas;
@@ -18,6 +20,7 @@ Route::prefix('v1')->group(function () {
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
     Route::get('products', [ControladorProductos::class, 'index'])->name('api.v1.products.index');
     Route::get('products/{slug}', [ControladorProductos::class, 'show'])->name('api.v1.products.show');
+    Route::get('home/hero', [ControladorInicio::class, 'hero'])->name('api.v1.home.hero');
     Route::get('campaigns/current', [ControladorCampanas::class, 'current'])->name('api.v1.campaigns.current');
     Route::get('campaigns/{slug}', [ControladorCampanas::class, 'show'])->name('api.v1.campaigns.show');
     // Cuenta única (clientes y administradores). El rol viene en la respuesta; Angular decide a dónde llevar al usuario.
@@ -60,6 +63,13 @@ Route::prefix('v1')->group(function () {
         Route::post('campaigns/{slug}/media', [ControladorAdministracionMedios::class, 'storeCampana'])->name('api.v1.admin.campaigns.media.store');
         Route::get('categories/{slug}/media', [ControladorAdministracionMedios::class, 'indexCategoria'])->name('api.v1.admin.categories.media.index');
         Route::post('categories/{slug}/media', [ControladorAdministracionMedios::class, 'storeCategoria'])->name('api.v1.admin.categories.media.store');
+        // Portada de la página principal: imagen o video (reemplaza la foto de ejemplo).
+        Route::get('home/hero', [ControladorAdministracionInicio::class, 'show'])->name('api.v1.admin.home.hero.show');
+        Route::post('home/hero', [ControladorAdministracionInicio::class, 'store'])->name('api.v1.admin.home.hero.store');
+        Route::delete('home/hero', [ControladorAdministracionInicio::class, 'destroy'])->name('api.v1.admin.home.hero.destroy');
+        // Video (MP4 H.264): producto de máx. 6 s, banner de categoría de máx. 10 s. Campos `video` y `poster` (opcional).
+        Route::post('products/{sku}/video', [ControladorAdministracionMedios::class, 'storeProductoVideo'])->name('api.v1.admin.products.video.store');
+        Route::post('categories/{slug}/video', [ControladorAdministracionMedios::class, 'storeCategoriaVideo'])->name('api.v1.admin.categories.video.store');
         Route::put('media/{id}', [ControladorAdministracionMedios::class, 'update'])->whereNumber('id')->name('api.v1.admin.media.update');
         Route::delete('media/{id}', [ControladorAdministracionMedios::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.media.destroy');
     });

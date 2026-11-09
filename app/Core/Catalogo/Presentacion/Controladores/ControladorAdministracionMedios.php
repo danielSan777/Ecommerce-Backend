@@ -16,6 +16,11 @@ use Illuminate\Validation\Rule;
 final class ControladorAdministracionMedios extends Controller
 {
     private const MENSAJES = [
+        'video.required' => 'Elige un video.',
+        'video.file' => 'Elige un video.',
+        'video.uploaded' => 'No se pudo subir el video. Pide aumentar el límite de subida del servidor (upload_max_filesize y post_max_size).',
+        'poster.file' => 'La portada del video debe ser una imagen.',
+        'poster.uploaded' => 'No se pudo subir la portada del video.',
         'image.required' => 'Elige una imagen.',
         'image.file' => 'Elige una imagen.',
         'image.uploaded' => 'No se pudo subir la imagen. Revisa que pese menos de 2 MB o pide aumentar el límite del servidor.',
@@ -55,6 +60,16 @@ final class ControladorAdministracionMedios extends Controller
         return $this->subir('categoria', $slug, $request, $medios);
     }
 
+    public function storeProductoVideo(string $sku, Request $request, AdministrarMedios $medios): JsonResponse
+    {
+        return $this->subirVideo('producto', $sku, $request, $medios);
+    }
+
+    public function storeCategoriaVideo(string $slug, Request $request, AdministrarMedios $medios): JsonResponse
+    {
+        return $this->subirVideo('categoria', $slug, $request, $medios);
+    }
+
     public function update(int $id, Request $request, AdministrarMedios $medios): JsonResponse
     {
         $validos = ValidacionFallida::validar($request->all(), [
@@ -75,6 +90,25 @@ final class ControladorAdministracionMedios extends Controller
         $medios->eliminar($id);
 
         return response()->noContent();
+    }
+
+    private function subirVideo(string $tipo, string $clave, Request $request, AdministrarMedios $medios): JsonResponse
+    {
+        // El formato, la duración y el peso los valida el procesador mirando el contenido del MP4
+        $validos = ValidacionFallida::validar($request->all(), [
+            'video' => ['required', 'file'],
+            'poster' => ['sometimes', 'nullable', 'file'],
+            'alt' => ['sometimes', 'nullable', 'string', 'max:200'],
+        ], self::MENSAJES);
+
+        $video = (string) file_get_contents($request->file('video')->getRealPath());
+        $portada = $request->hasFile('poster') ? (string) file_get_contents($request->file('poster')->getRealPath()) : null;
+
+        try {
+            return response()->json($medios->subirVideo($tipo, $clave, $video, $portada, $validos['alt'] ?? null), 201);
+        } catch (ImagenInvalida $e) {
+            throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
+        }
     }
 
     private function subir(string $tipo, string $clave, Request $request, AdministrarMedios $medios): JsonResponse

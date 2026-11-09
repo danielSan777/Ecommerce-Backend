@@ -29,6 +29,7 @@ final class CategoriaResource
             'headline' => $c->titular,
             'intro_html' => $c->introHtml,
             'hero' => $c->portada ? MedioResource::formato($c->portada) : null,
+            'hero_video' => $c->video ? MedioResource::formato($c->video) : null,
             'price_from_cents' => $c->precioDesdeCents,
             'subcategories' => array_map(fn (Subcategoria $s) => ['slug' => $s->slug, 'name' => $s->nombre, 'url' => "/{$c->slug}/{$s->slug}"], $c->subcategorias),
             'active_subcategory' => $c->subcategoriaActiva,

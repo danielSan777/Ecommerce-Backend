@@ -71,13 +71,14 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             nombre: $c->name,
             titular: $c->headline,
             introHtml: $c->intro_html,
-            portada: ($m = $c->medios->first()) ? $this->medio($m) : null,
+            portada: ($m = $c->medios->firstWhere('type', 'image')) ? $this->medio($m) : null,
             subcategorias: $c->subcategorias->map(fn ($s) => new Subcategoria($s->slug, $s->name))->all(),
             subcategoriaActiva: $activa,
             productos: $productos,
             precioDesdeCents: $desde === null ? null : (int) $desde,
             seoTitulo: $c->seo_title,
             seoDescripcion: $c->seo_description,
+            video: ($v = $c->medios->firstWhere('type', 'video')) ? $this->medio($v) : null,
         );
     }
 
