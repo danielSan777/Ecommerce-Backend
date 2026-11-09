@@ -35,6 +35,16 @@ final class ControladorAdministracionMedios extends Controller
         return response()->json(['data' => $medios->listar('categoria', $slug)]);
     }
 
+    public function indexCampana(string $slug, AdministrarMedios $medios): JsonResponse
+    {
+        return response()->json(['data' => $medios->listar('campana', $slug)]);
+    }
+
+    public function storeCampana(string $slug, Request $request, AdministrarMedios $medios): JsonResponse
+    {
+        return $this->subir('campana', $slug, $request, $medios);
+    }
+
     public function storeProducto(string $sku, Request $request, AdministrarMedios $medios): JsonResponse
     {
         return $this->subir('producto', $sku, $request, $medios);

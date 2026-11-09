@@ -20,5 +20,8 @@ final readonly class Campana
         public array $productos,
         public ?string $seoTitulo,
         public ?string $seoDescripcion,
+        public ?string $colorTema = null,
+        public ?string $emoji = null,
+        public ?Medio $portada = null,
     ) {}
 }

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['product_id', 'category_id', 'type', 'role', 'disk', 'variants', 'original_path', 'width', 'height', 'duration_s', 'alt', 'sort_order'])]
+#[Fillable(['product_id', 'category_id', 'campaign_id', 'type', 'role', 'disk', 'variants', 'original_path', 'width', 'height', 'duration_s', 'alt', 'sort_order'])]
 class MedioModelo extends Model
 {
     protected $table = 'media';
@@ -21,6 +21,11 @@ class MedioModelo extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(ProductoModelo::class, 'product_id');
+    }
+
+    public function campana(): BelongsTo
+    {
+        return $this->belongsTo(CampanaModelo::class, 'campaign_id');
     }
 
     public function categoria(): BelongsTo

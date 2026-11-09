@@ -6,6 +6,7 @@ namespace App\Core\Catalogo\Aplicacion\CasosDeUso;
 
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Excepciones\ImagenInvalida;
+use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\MedioModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Fotos de productos y categorías. Las versiones WebP van al disco público `media` (solo la ruta relativa en la base
+ * Fotos de productos, categorías y campañas. Las versiones WebP van al disco público `media` (solo la ruta relativa en la base
  * de datos) y el archivo original al disco privado, que nunca se sirve directo.
  */
 final class AdministrarMedios
@@ -46,7 +47,11 @@ final class AdministrarMedios
         $resultado = $this->procesador->procesar($contenido);
 
         // Nombre propio, nunca el del archivo subido
-        $carpeta = ($tipo === 'producto' ? 'products/' : 'categories/').($tipo === 'producto' ? $dueno->sku : $dueno->slug);
+        $carpeta = match ($tipo) {
+            'producto' => 'products/'.$dueno->sku,
+            'campana' => 'campaigns/'.$dueno->slug,
+            default => 'categories/'.$dueno->slug,
+        };
         $nombre = Str::lower(Str::random(16));
         $variantes = [];
         foreach ($resultado['versiones'] as $ancho => $webp) {
@@ -73,7 +78,7 @@ final class AdministrarMedios
     public function actualizar(int $id, array $datos): array
     {
         $medio = $this->medio($id);
-        $dueno = $medio->product_id ? $medio->producto : $medio->categoria;
+        $dueno = $medio->product_id ? $medio->producto : ($medio->campaign_id ? $medio->campana : $medio->categoria);
         if (isset($datos['role'])) {
             $this->verificarPrincipal($dueno, $datos['role'], $medio->id);
         }
@@ -115,6 +120,10 @@ final class AdministrarMedios
     {
         if ($tipo === 'producto') {
             return ProductoModelo::query()->where('sku', $clave)->first() ?? throw CatalogoNoEncontrado::producto($clave);
+        }
+
+        if ($tipo === 'campana') {
+            return CampanaModelo::query()->where('slug', $clave)->first() ?? throw CatalogoNoEncontrado::campana($clave);
         }
 
         return CategoriaModelo::query()->where('slug', $clave)->first() ?? throw CatalogoNoEncontrado::categoria($clave);

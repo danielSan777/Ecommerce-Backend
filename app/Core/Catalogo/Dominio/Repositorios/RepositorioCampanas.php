@@ -11,4 +11,7 @@ interface RepositorioCampanas
 {
     /** @throws CatalogoNoEncontrado */
     public function campana(string $slug, string $hoy): Campana;
+
+    /** La campaña activa que está en temporada hoy (si hay varias, la del evento más próximo), o null. */
+    public function vigente(string $hoy): ?Campana;
 }

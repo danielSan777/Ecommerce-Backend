@@ -28,6 +28,8 @@ final class ControladorAdministracionCampanas extends Controller
         'event_md.required' => 'Elige la fecha del evento.',
         'tagline.max' => 'El lema no puede pasar de 255 caracteres.',
         'slogan.max' => 'La frase del banner no puede pasar de 255 caracteres.',
+        'theme_color.regex' => 'El color debe ser como #C2185B (almohadilla y 6 letras o números).',
+        'emoji.max' => 'El emoji no puede pasar de 16 caracteres.',
         'is_active.boolean' => 'Indica si la campaña está activa o no.',
         'seo_title.max' => 'El título para Google no puede pasar de 255 caracteres.',
         'seo_description.max' => 'La descripción para Google no puede pasar de 320 caracteres.',
@@ -89,7 +91,7 @@ final class ControladorAdministracionCampanas extends Controller
      */
     private function limpiar(array $validos): array
     {
-        foreach (['tagline', 'slogan', 'seo_title', 'seo_description'] as $campo) {
+        foreach (['tagline', 'slogan', 'emoji', 'seo_title', 'seo_description'] as $campo) {
             if (isset($validos[$campo]) && is_string($validos[$campo])) {
                 $limpio = trim(strip_tags($validos[$campo]));
                 $validos[$campo] = $limpio === '' ? null : $limpio;
@@ -124,6 +126,8 @@ final class ControladorAdministracionCampanas extends Controller
             'event_md' => [$req, $this->fechaAnual()],
             'tagline' => ['nullable', 'string', 'max:255'],
             'slogan' => ['nullable', 'string', 'max:255'],
+            'theme_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'emoji' => ['nullable', 'string', 'max:16'],
             'is_active' => ['sometimes', 'boolean'],
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],

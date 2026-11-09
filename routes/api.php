@@ -18,6 +18,7 @@ Route::prefix('v1')->group(function () {
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
     Route::get('products', [ControladorProductos::class, 'index'])->name('api.v1.products.index');
     Route::get('products/{slug}', [ControladorProductos::class, 'show'])->name('api.v1.products.show');
+    Route::get('campaigns/current', [ControladorCampanas::class, 'current'])->name('api.v1.campaigns.current');
     Route::get('campaigns/{slug}', [ControladorCampanas::class, 'show'])->name('api.v1.campaigns.show');
     // Cuenta única (clientes y administradores). El rol viene en la respuesta; Angular decide a dónde llevar al usuario.
     Route::prefix('auth')->group(function () {
@@ -55,6 +56,8 @@ Route::prefix('v1')->group(function () {
         // Imágenes: se suben una por una (multipart, campo `image`); Laravel genera las versiones WebP.
         Route::get('products/{sku}/media', [ControladorAdministracionMedios::class, 'indexProducto'])->name('api.v1.admin.products.media.index');
         Route::post('products/{sku}/media', [ControladorAdministracionMedios::class, 'storeProducto'])->name('api.v1.admin.products.media.store');
+        Route::get('campaigns/{slug}/media', [ControladorAdministracionMedios::class, 'indexCampana'])->name('api.v1.admin.campaigns.media.index');
+        Route::post('campaigns/{slug}/media', [ControladorAdministracionMedios::class, 'storeCampana'])->name('api.v1.admin.campaigns.media.store');
         Route::get('categories/{slug}/media', [ControladorAdministracionMedios::class, 'indexCategoria'])->name('api.v1.admin.categories.media.index');
         Route::post('categories/{slug}/media', [ControladorAdministracionMedios::class, 'storeCategoria'])->name('api.v1.admin.categories.media.store');
         Route::put('media/{id}', [ControladorAdministracionMedios::class, 'update'])->whereNumber('id')->name('api.v1.admin.media.update');
