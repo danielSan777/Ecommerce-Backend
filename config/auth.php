@@ -118,8 +118,9 @@ return [
     |
     */
 
-    // Horas que dura una sesión (cliente o administrador) antes de pedir login otra vez
-    'token_hours' => (int) env('ACCESS_TOKEN_HOURS', 12),
+    // La sesión del cliente no vence: dura hasta que cierre sesión. La del administrador dura estos minutos desde el ingreso
+    // (por seguridad, 2 horas; no se renueva con el uso)
+    'admin_token_minutes' => (int) env('ACCESS_TOKEN_ADMIN_MINUTES', 120),
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 

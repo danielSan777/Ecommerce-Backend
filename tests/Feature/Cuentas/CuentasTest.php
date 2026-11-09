@@ -42,7 +42,7 @@ final class CuentasTest extends TestCase
         $r = $this->postJson('/api/v1/auth/login', ['email' => 'Sele@JardindeSele.com', 'password' => self::CLAVE, 'device' => 'Chrome'])->assertOk()
             ->assertJsonStructure(['token', 'token_type', 'expires_at', 'expires_in', 'user' => ['name', 'email', 'role']])->assertJsonPath('user.role', 'admin')->assertJsonPath('token_type', 'Bearer');
 
-        $this->assertEqualsWithDelta(12 * 3600, $r->json('expires_in'), 5);
+        $this->assertEqualsWithDelta(2 * 3600, $r->json('expires_in'), 5); // administrador: 2 horas
         $this->assertDatabaseMissing('api_tokens', ['token_hash' => $r->json('token')]);
         $this->assertDatabaseHas('api_tokens', ['token_hash' => hash('sha256', $r->json('token')), 'device' => 'Chrome']);
         $this->assertArrayNotHasKey('password', $r->json('user'));
@@ -107,14 +107,45 @@ final class CuentasTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['email' => 'x@x.com', 'password' => 'mala'])->assertStatus(429);
     }
 
-    public function test_sin_configuracion_de_horas_el_token_dura_12_horas_y_no_nace_vencido(): void
+    public function test_la_sesion_del_administrador_dura_2_horas_y_la_del_cliente_no_vence(): void
     {
         $this->usuario();
-        config(['auth.token_hours' => 0]);
+        User::factory()->create(['email' => 'ana@correo.com', 'password' => self::CLAVE]);
+
+        $admin = $this->postJson('/api/v1/auth/login', ['email' => 'sele@jardindesele.com', 'password' => self::CLAVE])->assertOk();
+        $cliente = $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => self::CLAVE])->assertOk();
+
+        $this->assertEqualsWithDelta(2 * 3600, $admin->json('expires_in'), 5);
+        $this->assertNull($cliente->json('expires_in'));
+        $this->assertNull($cliente->json('expires_at'));
+        $this->assertDatabaseHas('api_tokens', ['token_hash' => hash('sha256', $cliente->json('token')), 'expires_at' => null]);
+
+        $this->travel(400)->days();
+        $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer '.$cliente->json('token')])->assertOk()->assertJsonPath('user.role', 'customer');
+        $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer '.$admin->json('token')])->assertUnauthorized();
+    }
+
+    public function test_pasadas_las_2_horas_el_token_del_administrador_deja_de_servir_aunque_se_haya_usado(): void
+    {
+        $this->usuario();
+        $token = $this->postJson('/api/v1/auth/login', ['email' => 'sele@jardindesele.com', 'password' => self::CLAVE])->assertOk()->json('token');
+        $this->getJson('/api/v1/admin/categories', ['Authorization' => 'Bearer '.$token])->assertOk();
+
+        $this->travel(119)->minutes();
+        $this->getJson('/api/v1/admin/categories', ['Authorization' => 'Bearer '.$token])->assertOk(); // usarlo no lo renueva
+
+        $this->travel(2)->minutes();
+        $this->getJson('/api/v1/admin/categories', ['Authorization' => 'Bearer '.$token])->assertUnauthorized();
+    }
+
+    public function test_sin_configuracion_el_token_del_administrador_dura_2_horas_y_no_nace_vencido(): void
+    {
+        $this->usuario();
+        config(['auth.admin_token_minutes' => 0]);
 
         $r = $this->postJson('/api/v1/auth/login', ['email' => 'sele@jardindesele.com', 'password' => self::CLAVE])->assertOk();
 
-        $this->assertEqualsWithDelta(12 * 3600, $r->json('expires_in'), 5);
+        $this->assertEqualsWithDelta(2 * 3600, $r->json('expires_in'), 5);
         $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer '.$r->json('token')])->assertOk();
     }
 

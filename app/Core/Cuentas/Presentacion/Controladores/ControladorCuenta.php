@@ -88,15 +88,16 @@ final class ControladorCuenta extends Controller
         return response()->noContent();
     }
 
-    /** @param array{token: string, expires_at: CarbonInterface, user: User} $sesion */
+    /** @param array{token: string, expires_at: CarbonInterface|null, user: User} $sesion */
     private function conSesion(array $sesion, int $estado = 200): JsonResponse
     {
         return response()->json([
             'token' => $sesion['token'],
             'token_type' => 'Bearer',
-            'expires_at' => $sesion['expires_at']->toIso8601String(),
+            // Administrador: vence a las 2 horas. Cliente: no vence (null) hasta que cierre su sesión.
+            'expires_at' => $sesion['expires_at']?->toIso8601String(),
             // Segundos de vida: Angular calcula el vencimiento con su propio reloj y no depende de que el del servidor coincida.
-            'expires_in' => max(0, (int) now()->diffInSeconds($sesion['expires_at'], false)),
+            'expires_in' => $sesion['expires_at'] === null ? null : max(0, (int) now()->diffInSeconds($sesion['expires_at'], false)),
             'user' => self::usuario($sesion['user']),
         ], $estado);
     }

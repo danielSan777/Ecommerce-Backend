@@ -24,7 +24,7 @@ final class SesionesDeAcceso
         return $usuario;
     }
 
-    /** @return array{token: string, expires_at: CarbonInterface, user: User}|null */
+    /** @return array{token: string, expires_at: CarbonInterface|null, user: User}|null */
     public function iniciar(string $correo, string $clave, ?string $dispositivo): ?array
     {
         $usuario = User::query()->where('email', mb_strtolower($correo))->first();
@@ -38,13 +38,12 @@ final class SesionesDeAcceso
         return $this->abrir($usuario, $dispositivo);
     }
 
-    /** @return array{token: string, expires_at: CarbonInterface, user: User} */
+    /** @return array{token: string, expires_at: CarbonInterface|null, user: User} */
     public function abrir(User $usuario, ?string $dispositivo): array
     {
         $token = Str::random(64);
-        // Si la configuración falta o vale 0 (por ejemplo, config en caché antigua) se usan 12 horas: nunca un token ya vencido.
-        $horas = (int) config('auth.token_hours', 12);
-        $expira = now()->addHours($horas >= 1 ? $horas : 12);
+        $minutos = $this->minutosDeVida($usuario);
+        $expira = $minutos === null ? null : now()->addMinutes($minutos);
 
         TokenDeAcceso::query()->create([
             'user_id' => $usuario->id,
@@ -56,6 +55,22 @@ final class SesionesDeAcceso
         return ['token' => $token, 'expires_at' => $expira, 'user' => $usuario];
     }
 
+    /**
+     * Minutos que dura la sesión desde el ingreso (no se renueva con el uso). El administrador, por seguridad, 2 horas
+     * (si la configuración falta o vale 0 se usan 2 horas: nunca un token ya vencido). El cliente no vence: `null`;
+     * su sesión termina al cerrarla él, en un dispositivo o en todos.
+     */
+    private function minutosDeVida(User $usuario): ?int
+    {
+        if (! $usuario->esAdministrador()) {
+            return null;
+        }
+
+        $minutos = (int) config('auth.admin_token_minutes', 120);
+
+        return $minutos >= 1 ? $minutos : 120;
+    }
+
     public function usuarioDelToken(string $token): ?User
     {
         $registro = TokenDeAcceso::query()->with('usuario')->where('token_hash', self::hash($token))->first();
@@ -63,7 +78,7 @@ final class SesionesDeAcceso
         if ($registro === null) {
             return null;
         }
-        if ($registro->expires_at->isPast()) {
+        if ($registro->expires_at?->isPast()) {
             $registro->delete();
 
             return null;
