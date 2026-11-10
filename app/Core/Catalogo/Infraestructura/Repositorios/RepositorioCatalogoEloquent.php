@@ -20,9 +20,12 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
 {
     public function categorias(): array
     {
+        $desde = ProductoModelo::query()->where('is_active', true)->selectRaw('category_id, MIN(base_price_cents) as desde')
+            ->groupBy('category_id')->pluck('desde', 'category_id'); // una sola consulta para todas, no una por categoría
+
         return CategoriaModelo::query()->where('is_active', true)->orderBy('sort_order')
             ->with(['subcategorias' => fn ($q) => $q->where('is_active', true), 'medios'])->get()
-            ->map(fn (CategoriaModelo $c) => $this->categoria_($c, null, []))->all();
+            ->map(fn (CategoriaModelo $c) => $this->categoria_($c, null, [], $desde[$c->id] ?? null))->all();
     }
 
     public function categoria(string $slug, ?string $subcategoria = null): Categoria
@@ -42,7 +45,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             ->with(['categoria', 'subcategoria', 'medios'])->orderBy('id')->get()
             ->map(fn (ProductoModelo $p) => $this->producto_($p))->all();
 
-        return $this->categoria_($categoria, $filtro?->slug, $productos);
+        return $this->categoria_($categoria, $filtro?->slug, $productos, ProductoModelo::query()->where('is_active', true)->where('category_id', $categoria->id)->min('base_price_cents'));
     }
 
     public function productos(?int $limite = null): array
@@ -58,14 +61,12 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             ->with(['categoria', 'subcategoria', 'medios'])->first()
             ?? throw CatalogoNoEncontrado::producto($slug);
 
-        return $this->producto_($modelo);
+        return $this->producto_($modelo, conRelacionados: true);
     }
 
     /** @param list<Producto> $productos */
-    private function categoria_(CategoriaModelo $c, ?string $activa, array $productos): Categoria
+    private function categoria_(CategoriaModelo $c, ?string $activa, array $productos, mixed $desde): Categoria
     {
-        $desde = ProductoModelo::query()->where('is_active', true)->where('category_id', $c->id)->min('base_price_cents');
-
         return new Categoria(
             slug: $c->slug,
             nombre: $c->name,
@@ -82,7 +83,8 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
         );
     }
 
-    private function producto_(ProductoModelo $p): Producto
+    /** Los relacionados cuestan una consulta por producto: solo se calculan en la ficha, no en los listados. */
+    private function producto_(ProductoModelo $p, bool $conRelacionados = false): Producto
     {
         return new Producto(
             sku: $p->sku,
@@ -99,7 +101,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             incluye: array_values($p->includes ?? []),
             descripcionHtml: $p->description_html,
             medios: $p->medios->map(fn (MedioModelo $m) => $this->medio($m))->all(),
-            skusRelacionados: $this->relacionados($p),
+            skusRelacionados: $conRelacionados ? $this->relacionados($p) : [],
             seoTitulo: $p->seo_title,
             seoDescripcion: $p->seo_description,
             sinonimos: array_values($p->search_synonyms ?? []),

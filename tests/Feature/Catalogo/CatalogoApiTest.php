@@ -9,6 +9,7 @@ use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use Database\Seeders\ProductosDePrueba;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class CatalogoApiTest extends TestCase
@@ -32,6 +33,18 @@ final class CatalogoApiTest extends TestCase
             array_column($respuesta->json('data.0.subcategories'), 'slug'),
         );
         $respuesta->assertJsonPath('data.0.subcategories.0.url', '/profesiones-y-hobbies/salud');
+    }
+
+    public function test_listar_una_categoria_o_el_menu_hace_pocas_consultas_sin_importar_cuantos_productos_hay(): void
+    {
+        DB::enableQueryLog();
+        $this->getJson('/api/v1/categories/profesiones-y-hobbies')->assertOk();
+        $this->getJson('/api/v1/categories')->assertOk();
+        $consultas = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        // Antes eran 1 consulta extra por producto y por categoría; ahora son fijas
+        $this->assertLessThanOrEqual(14, $consultas, "Se hicieron {$consultas} consultas.");
     }
 
     public function test_categoria_sin_subcategoria_trae_todos_sus_productos_con_la_forma_del_contrato(): void
