@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Imagen o video de la portada de la página principal (reemplaza a la foto de ejemplo). Se guarda en `settings` (clave
- * `home_hero`) y los archivos en el disco público `media`, carpeta `home/`. Solo hay una portada: al subir otra, la anterior se borra.
- * Mientras no haya portada, la tienda sigue mostrando su imagen de siempre.
+ * Portada de la página principal: una lista sin límite de imágenes y videos que el administrador agrega y quita; la tienda
+ * los muestra uno tras otro. Se guarda en `settings` (clave `home_hero`) y los archivos en el disco público `media`, carpeta `home/`.
+ * Mientras la lista esté vacía, la tienda sigue mostrando su imagen de siempre.
  */
 final class AdministrarPortadaInicio
 {
@@ -27,29 +27,14 @@ final class AdministrarPortadaInicio
         private readonly ProcesadorDeVideos $videos,
     ) {}
 
-    /** La portada tal como la ve la tienda (mismo formato que cualquier medio), o null si no hay. */
-    public function obtener(): ?Medio
+    /** @return list<array{id: string, medio: Medio}> en el orden en que se agregaron */
+    public function lista(): array
     {
-        $h = $this->configuracion->obtener(self::CLAVE);
-        if (! is_array($h) || ! isset($h['type'])) {
-            return null;
-        }
-        $disco = Storage::disk('media');
-
-        if ($h['type'] === 'video') {
-            $urls = ['url' => $disco->url($h['url'])];
-            if (! empty($h['poster'])) {
-                $urls['poster'] = $disco->url($h['poster']);
-            }
-
-            return new Medio('video', 'hero', $urls, $h['alt'] ?? null, $h['width'] ?? null, $h['height'] ?? null, $h['duration_s'] ?? null);
-        }
-
-        return new Medio('image', 'hero', array_map(fn (string $r) => $disco->url($r), $h['paths']), $h['alt'] ?? null, $h['width'] ?? null, $h['height'] ?? null);
+        return array_map(fn (array $i) => ['id' => $i['id'], 'medio' => $this->medio($i)], $this->items());
     }
 
-    /** @throws ImagenInvalida */
-    public function subirImagen(string $contenido, string $alt): Medio
+    /** @return array{id: string, medio: Medio} @throws ImagenInvalida */
+    public function agregarImagen(string $contenido, string $alt): array
     {
         $resultado = $this->imagenes->procesar($contenido);
         $nombre = Str::lower(Str::random(16));
@@ -60,11 +45,11 @@ final class AdministrarPortadaInicio
             $rutas[(string) $ancho] = $ruta;
         }
 
-        return $this->reemplazar(['type' => 'image', 'alt' => $alt, 'width' => $resultado['ancho'], 'height' => $resultado['alto'], 'paths' => $rutas]);
+        return $this->agregar(['type' => 'image', 'alt' => $alt, 'width' => $resultado['ancho'], 'height' => $resultado['alto'], 'paths' => $rutas]);
     }
 
-    /** @throws ImagenInvalida */
-    public function subirVideo(string $video, ?string $portada, ?string $alt): Medio
+    /** @return array{id: string, medio: Medio} @throws ImagenInvalida */
+    public function agregarVideo(string $video, ?string $portada, ?string $alt): array
     {
         $datos = $this->videos->procesar($video, ProcesadorDeVideos::PERFIL_INICIO);
         $imagen = $portada !== null && $portada !== '' ? $this->imagenes->procesar($portada) : null;
@@ -77,30 +62,70 @@ final class AdministrarPortadaInicio
             $nuevo['poster'] = "home/{$nombre}-portada.webp";
         }
 
-        return $this->reemplazar($nuevo);
+        return $this->agregar($nuevo);
     }
 
-    public function quitar(): void
+    /** Quita una imagen o video de la portada y borra sus archivos. false si no existe. */
+    public function quitar(string $id): bool
     {
-        $this->borrarArchivos($this->configuracion->obtener(self::CLAVE));
-        $this->configuracion->guardar(self::CLAVE, []); // la columna no admite null: vacío = sin portada
-    }
-
-    /** @param array<string, mixed> $nuevo */
-    private function reemplazar(array $nuevo): Medio
-    {
-        $anterior = $this->configuracion->obtener(self::CLAVE);
-        $this->configuracion->guardar(self::CLAVE, $nuevo);
-        $this->borrarArchivos($anterior);
-
-        return $this->obtener();
-    }
-
-    private function borrarArchivos(mixed $h): void
-    {
-        if (! is_array($h)) {
-            return;
+        $items = $this->items();
+        $quedan = array_values(array_filter($items, fn (array $i) => $i['id'] !== $id));
+        if (count($quedan) === count($items)) {
+            return false;
         }
+        foreach ($items as $i) {
+            if ($i['id'] === $id) {
+                $this->borrarArchivos($i);
+            }
+        }
+        $this->configuracion->guardar(self::CLAVE, $quedan);
+
+        return true;
+    }
+
+    /** @param array<string, mixed> $nuevo @return array{id: string, medio: Medio} */
+    private function agregar(array $nuevo): array
+    {
+        $nuevo['id'] = Str::lower(Str::random(12));
+        $this->configuracion->guardar(self::CLAVE, [...$this->items(), $nuevo]);
+
+        return ['id' => $nuevo['id'], 'medio' => $this->medio($nuevo)];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function items(): array
+    {
+        $h = $this->configuracion->obtener(self::CLAVE);
+        if (! is_array($h) || $h === []) {
+            return [];
+        }
+        // Formato anterior: una sola portada guardada como objeto
+        if (isset($h['type'])) {
+            return [$h + ['id' => 'principal']];
+        }
+
+        return array_values(array_filter($h, fn ($i) => is_array($i) && isset($i['type'], $i['id'])));
+    }
+
+    /** @param array<string, mixed> $h */
+    private function medio(array $h): Medio
+    {
+        $disco = Storage::disk('media');
+        if ($h['type'] === 'video') {
+            $urls = ['url' => $disco->url($h['url'])];
+            if (! empty($h['poster'])) {
+                $urls['poster'] = $disco->url($h['poster']);
+            }
+
+            return new Medio('video', 'hero', $urls, $h['alt'] ?? null, $h['width'] ?? null, $h['height'] ?? null, $h['duration_s'] ?? null);
+        }
+
+        return new Medio('image', 'hero', array_map(fn (string $r) => $disco->url($r), $h['paths']), $h['alt'] ?? null, $h['width'] ?? null, $h['height'] ?? null);
+    }
+
+    /** @param array<string, mixed> $h */
+    private function borrarArchivos(array $h): void
+    {
         $rutas = $h['type'] === 'video' ? array_filter([$h['url'] ?? null, $h['poster'] ?? null]) : ($h['paths'] ?? []);
         foreach ($rutas as $ruta) {
             Storage::disk('media')->delete($ruta);

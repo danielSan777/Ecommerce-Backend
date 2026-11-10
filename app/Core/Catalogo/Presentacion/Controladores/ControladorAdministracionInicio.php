@@ -14,7 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
-/** Panel: imagen o video de la portada de la página principal. Se sube `image` (con `alt`) o `video` (con `poster` opcional). */
+/** Panel: imágenes y videos de la portada de la página principal (sin límite de cantidad). Se sube `image` (con `alt`) o `video` (con `poster` opcional). */
 final class ControladorAdministracionInicio extends Controller
 {
     private const MENSAJES = [
@@ -27,11 +27,9 @@ final class ControladorAdministracionInicio extends Controller
         'poster.file' => 'La portada del video debe ser una imagen.',
     ];
 
-    public function show(AdministrarPortadaInicio $portada): JsonResponse
+    public function index(AdministrarPortadaInicio $portada): JsonResponse
     {
-        $m = $portada->obtener();
-
-        return response()->json(['data' => $m ? MedioResource::formato($m) : null]);
+        return response()->json(['data' => array_map($this->formato(...), $portada->lista())]);
     }
 
     public function store(Request $request, AdministrarPortadaInicio $portada): JsonResponse
@@ -50,24 +48,32 @@ final class ControladorAdministracionInicio extends Controller
                     'video' => ['required', 'file'], 'poster' => ['sometimes', 'nullable', 'file'], 'alt' => ['sometimes', 'nullable', 'string', 'max:200'],
                 ], self::MENSAJES);
                 $poster = $request->hasFile('poster') ? (string) file_get_contents($request->file('poster')->getRealPath()) : null;
-                $medio = $portada->subirVideo((string) file_get_contents($request->file('video')->getRealPath()), $poster, $validos['alt'] ?? null);
+                $item = $portada->agregarVideo((string) file_get_contents($request->file('video')->getRealPath()), $poster, $validos['alt'] ?? null);
             } else {
                 $validos = ValidacionFallida::validar($request->all(), [
                     'image' => ['required', 'file'], 'alt' => ['required', 'string', 'max:200'],
                 ], self::MENSAJES);
-                $medio = $portada->subirImagen((string) file_get_contents($request->file('image')->getRealPath()), $validos['alt']);
+                $item = $portada->agregarImagen((string) file_get_contents($request->file('image')->getRealPath()), $validos['alt']);
             }
         } catch (ImagenInvalida $e) {
             throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
         }
 
-        return response()->json(['data' => MedioResource::formato($medio)], 201);
+        return response()->json(['data' => $this->formato($item)], 201);
     }
 
-    public function destroy(AdministrarPortadaInicio $portada): Response
+    public function destroy(string $id, AdministrarPortadaInicio $portada): Response|JsonResponse
     {
-        $portada->quitar();
+        if (! $portada->quitar($id)) {
+            return response()->json(['code' => 'not_found', 'message' => 'Esa portada no existe.'], 404);
+        }
 
         return response()->noContent();
+    }
+
+    /** @param array{id: string, medio: \App\Core\Catalogo\Dominio\Entidades\Medio} $item @return array<string, mixed> */
+    private function formato(array $item): array
+    {
+        return ['id' => $item['id'], ...MedioResource::formato($item['medio'])];
     }
 }

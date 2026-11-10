@@ -78,7 +78,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             precioDesdeCents: $desde === null ? null : (int) $desde,
             seoTitulo: $c->seo_title,
             seoDescripcion: $c->seo_description,
-            video: ($v = $c->medios->firstWhere('type', 'video')) ? $this->medio($v) : null,
+            videos: $c->medios->where('type', 'video')->map(fn ($v) => $this->medio($v))->values()->all(),
         );
     }
 

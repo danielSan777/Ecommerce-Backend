@@ -22,6 +22,7 @@ final readonly class Categoria
         public ?int $precioDesdeCents,
         public ?string $seoTitulo,
         public ?string $seoDescripcion,
-        public ?Medio $video = null,
+        /** @var list<Medio> */
+        public array $videos = [],
     ) {}
 }

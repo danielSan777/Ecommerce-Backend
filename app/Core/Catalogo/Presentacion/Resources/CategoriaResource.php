@@ -29,7 +29,8 @@ final class CategoriaResource
             'headline' => $c->titular,
             'intro_html' => $c->introHtml,
             'hero' => $c->portada ? MedioResource::formato($c->portada) : null,
-            'hero_video' => $c->video ? MedioResource::formato($c->video) : null,
+            'hero_video' => $c->videos !== [] ? MedioResource::formato($c->videos[0]) : null, // el primero (compatibilidad)
+            'hero_videos' => array_map(MedioResource::formato(...), $c->videos),
             'price_from_cents' => $c->precioDesdeCents,
             'subcategories' => array_map(fn (Subcategoria $s) => ['slug' => $s->slug, 'name' => $s->nombre, 'url' => "/{$c->slug}/{$s->slug}"], $c->subcategorias),
             'active_subcategory' => $c->subcategoriaActiva,

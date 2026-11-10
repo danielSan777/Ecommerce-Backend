@@ -41,7 +41,8 @@ final class AdministrarMedios
         if ($rol === 'video') {
             throw new ImagenInvalida('Un video se sube con "Subir video", no como imagen.', 'role');
         }
-        if ($dueno->medios()->count() >= self::MAX_POR_DUENO) {
+        // El tope de 12 es solo para imágenes: los videos no tienen límite de cantidad
+        if ($dueno->medios()->where('type', 'image')->count() >= self::MAX_POR_DUENO) {
             throw new ImagenInvalida('Ya hay '.self::MAX_POR_DUENO.' imágenes. Elimina alguna antes de subir otra.');
         }
 
@@ -108,7 +109,7 @@ final class AdministrarMedios
 
     /**
      * Sube el video (MP4 H.264) de un producto o del banner de una categoría (máx. 1 minuto cada uno). Se guarda tal cual, sin
-     * transcodificar; la portada (imagen del primer cuadro) es opcional y se convierte a WebP. Solo un video por producto o categoría.
+     * transcodificar; la portada (imagen del primer cuadro) es opcional y se convierte a WebP. Sin límite de cantidad de videos.
      *
      * @return array<string, mixed>
      */
@@ -117,12 +118,6 @@ final class AdministrarMedios
         $dueno = $this->dueno($tipo, $clave);
         if (! in_array($tipo, ['producto', 'categoria'], true)) {
             throw new ImagenInvalida('Este elemento no admite video.', 'video');
-        }
-        if ($dueno->medios()->where('type', 'video')->exists()) {
-            throw new ImagenInvalida('Ya hay un video. Elimínalo antes de subir otro.', 'video');
-        }
-        if ($dueno->medios()->count() >= self::MAX_POR_DUENO) {
-            throw new ImagenInvalida('Ya hay '.self::MAX_POR_DUENO.' archivos. Elimina alguno antes de subir otro.', 'video');
         }
 
         // Todo se valida antes de guardar: un rechazo no deja archivos sueltos

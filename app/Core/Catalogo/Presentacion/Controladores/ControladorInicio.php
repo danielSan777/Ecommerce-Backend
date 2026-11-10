@@ -9,13 +9,16 @@ use App\Core\Catalogo\Presentacion\Resources\MedioResource;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
-/** Portada de la página principal (pública). Siempre 200: `data` es null si no hay portada y la tienda usa su imagen de siempre. */
+/**
+ * Portada de la página principal (pública). Siempre 200. `items` es la lista, en orden, de imágenes y videos (vacía si no hay y
+ * la tienda usa su imagen de siempre); `data` es el primero (o null), por compatibilidad.
+ */
 final class ControladorInicio extends Controller
 {
     public function hero(AdministrarPortadaInicio $portada): JsonResponse
     {
-        $m = $portada->obtener();
+        $items = array_map(fn (array $i) => MedioResource::formato($i['medio']), $portada->lista());
 
-        return response()->json(['data' => $m ? MedioResource::formato($m) : null]);
+        return response()->json(['data' => $items[0] ?? null, 'items' => $items]);
     }
 }

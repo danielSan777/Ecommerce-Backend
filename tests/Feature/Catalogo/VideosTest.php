@@ -110,15 +110,18 @@ final class VideosTest extends TestCase
         $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(4, 1080, 1080)])->assertCreated()->assertJsonPath('width', 1080);
     }
 
-    public function test_solo_un_video_por_producto_y_se_puede_reponer_tras_eliminarlo(): void
+    public function test_se_pueden_subir_videos_ilimitados_a_un_producto_y_cada_uno_se_elimina_solo(): void
     {
-        $id = $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo()])->assertCreated()->json('id');
-        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo()])->assertUnprocessable()->assertJsonValidationErrors('video');
+        $ids = [];
+        for ($i = 0; $i < 15; $i++) { // más que el tope de 12 imágenes
+            $ids[] = $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo()])->assertCreated()->json('id');
+        }
+        $this->assertSame(15, MedioModelo::query()->where('type', 'video')->count());
 
-        $ruta = MedioModelo::query()->find($id)->variants['url'];
-        $this->deleteJson("/api/v1/admin/media/{$id}")->assertNoContent();
+        $ruta = MedioModelo::query()->find($ids[0])->variants['url'];
+        $this->deleteJson("/api/v1/admin/media/{$ids[0]}")->assertNoContent();
         $this->assertFalse(Storage::disk('media')->exists($ruta)); // se borra el archivo
-        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo()])->assertCreated();
+        $this->assertSame(14, MedioModelo::query()->where('type', 'video')->count());
     }
 
     public function test_portada_opcional_se_convierte_a_webp(): void
@@ -186,7 +189,7 @@ final class VideosTest extends TestCase
         $this->postJson("/api/v1/admin/categories/{$this->categoria}/video", ['video' => Mp4DePrueba::archivo(8, 1280, 720)])->assertCreated();
 
         $r = $this->getJson("/api/v1/categories/{$this->categoria}")->assertOk();
-        $r->assertJsonPath('hero.type', 'image')->assertJsonPath('hero_video.type', 'video');
+        $r->assertJsonPath('hero.type', 'image')->assertJsonPath('hero_video.type', 'video')->assertJsonCount(1, 'hero_videos');
     }
 
     public function test_no_se_sube_video_a_una_campana(): void
@@ -198,7 +201,7 @@ final class VideosTest extends TestCase
 
     public function test_sin_portada_la_api_responde_200_con_null(): void
     {
-        $this->getJson('/api/v1/home/hero')->assertOk()->assertExactJson(['data' => null]);
+        $this->getJson('/api/v1/home/hero')->assertOk()->assertExactJson(['data' => null, 'items' => []]);
     }
 
     public function test_solo_el_administrador_cambia_la_portada(): void
@@ -206,7 +209,7 @@ final class VideosTest extends TestCase
         $this->postJson('/api/v1/admin/home/hero', ['image' => $this->imagen(), 'alt' => 'x'])->assertUnauthorized();
         $this->actingAs(User::factory()->create(), 'api');
         $this->postJson('/api/v1/admin/home/hero', ['image' => $this->imagen(), 'alt' => 'x'])->assertForbidden();
-        $this->deleteJson('/api/v1/admin/home/hero')->assertForbidden();
+        $this->deleteJson('/api/v1/admin/home/hero/abc')->assertForbidden();
     }
 
     public function test_la_portada_puede_ser_una_imagen_y_es_publica(): void
@@ -232,29 +235,40 @@ final class VideosTest extends TestCase
     {
         $this->admin()->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(61)])->assertUnprocessable()->assertJsonValidationErrors('video');
         $this->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(60)])->assertCreated();
-        $this->deleteJson('/api/v1/admin/home/hero')->assertNoContent();
-        $this->getJson('/api/v1/home/hero')->assertExactJson(['data' => null]);
     }
 
-    public function test_subir_otra_portada_reemplaza_y_borra_los_archivos_anteriores(): void
+    public function test_la_portada_acepta_muchas_imagenes_y_videos_en_orden_y_cada_una_se_quita_sola(): void
     {
-        $this->admin()->postJson('/api/v1/admin/home/hero', ['image' => $this->imagen(), 'alt' => 'Una'])->assertCreated();
-        $antes = Storage::disk('media')->allFiles('home');
-        $this->assertNotEmpty($antes);
+        $a = $this->admin()->postJson('/api/v1/admin/home/hero', ['image' => $this->imagen(), 'alt' => 'Una'])->assertCreated()->json('data.id');
+        $b = $this->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(5)])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(6)])->assertCreated();
 
-        $this->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(5)])->assertCreated();
-        $despues = Storage::disk('media')->allFiles('home');
-        $this->assertCount(1, $despues); // solo el video nuevo
-        $this->assertEmpty(array_intersect($antes, $despues));
+        $r = $this->getJson('/api/v1/home/hero')->assertOk();
+        $r->assertJsonCount(3, 'items')->assertJsonPath('items.0.type', 'image')->assertJsonPath('items.1.type', 'video')->assertJsonPath('data.type', 'image');
+        $this->getJson('/api/v1/admin/home/hero')->assertOk()->assertJsonCount(3, 'data')->assertJsonPath('data.1.id', $b);
+
+        $this->deleteJson("/api/v1/admin/home/hero/{$a}")->assertNoContent();
+        $this->getJson('/api/v1/home/hero')->assertJsonCount(2, 'items')->assertJsonPath('data.type', 'video');
+        $this->assertCount(2, Storage::disk('media')->allFiles('home')); // solo quedan los 2 videos
+        $this->deleteJson('/api/v1/admin/home/hero/no-existe')->assertNotFound();
     }
 
-    public function test_quitar_la_portada_borra_los_archivos_y_vuelve_a_la_imagen_de_siempre(): void
+    public function test_quitar_toda_la_portada_borra_los_archivos_y_vuelve_a_la_imagen_de_siempre(): void
     {
-        $this->admin()->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(5), 'poster' => $this->imagen()])->assertCreated();
-        $this->deleteJson('/api/v1/admin/home/hero')->assertNoContent();
+        $id = $this->admin()->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(5), 'poster' => $this->imagen()])->assertCreated()->json('data.id');
+        $this->deleteJson("/api/v1/admin/home/hero/{$id}")->assertNoContent();
 
         $this->assertSame([], Storage::disk('media')->allFiles('home'));
-        $this->getJson('/api/v1/home/hero')->assertExactJson(['data' => null]);
+        $this->getJson('/api/v1/home/hero')->assertExactJson(['data' => null, 'items' => []]);
+    }
+
+    public function test_la_portada_del_formato_anterior_un_solo_objeto_se_sigue_leyendo(): void
+    {
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('home_hero', [
+            'type' => 'video', 'alt' => null, 'width' => 1280, 'height' => 720, 'duration_s' => 5, 'url' => 'home/viejo.mp4',
+        ]);
+
+        $this->getJson('/api/v1/home/hero')->assertOk()->assertJsonCount(1, 'items')->assertJsonPath('data.type', 'video');
     }
 
     public function test_la_portada_exige_una_imagen_o_un_video_pero_no_los_dos(): void
