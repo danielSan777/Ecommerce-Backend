@@ -6,6 +6,7 @@ namespace App\Core\Catalogo\Presentacion\Controladores;
 
 use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarPortadaInicio;
 use App\Core\Catalogo\Dominio\Excepciones\ImagenInvalida;
+use App\Core\Catalogo\Presentacion\ArchivoSubido;
 use App\Core\Catalogo\Presentacion\Resources\MedioResource;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
@@ -35,8 +36,12 @@ final class ControladorAdministracionInicio extends Controller
 
     public function store(Request $request, AdministrarPortadaInicio $portada): JsonResponse
     {
-        if ($request->hasFile('video') === $request->hasFile('image')) {
-            throw new ValidacionFallida(['image' => ['Sube una imagen o un video (solo uno).']]);
+        ArchivoSubido::verificar($request, ['video', 'poster', 'image']);
+        if (! $request->hasFile('video') && ! $request->hasFile('image')) {
+            throw new ValidacionFallida(['image' => ['Elige una imagen o un video.']]);
+        }
+        if ($request->hasFile('video') && $request->hasFile('image')) {
+            throw new ValidacionFallida(['image' => ['Sube una imagen o un video, no los dos a la vez.']]);
         }
 
         try {

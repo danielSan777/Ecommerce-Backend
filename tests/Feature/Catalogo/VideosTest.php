@@ -263,4 +263,46 @@ final class VideosTest extends TestCase
         $this->postJson('/api/v1/admin/home/hero', ['image' => $this->imagen(), 'video' => Mp4DePrueba::archivo(), 'alt' => 'x'])->assertUnprocessable();
         $this->postJson('/api/v1/admin/home/hero', ['image' => $this->imagen()])->assertUnprocessable()->assertJsonValidationErrors('alt');
     }
+
+    // ===== Archivos que PHP rechaza por pasar su límite: el mensaje debe decir el motivo real =====
+
+    private function demasiadoGrande(string $nombre = 'video.mp4'): UploadedFile
+    {
+        $ruta = tempnam(sys_get_temp_dir(), 'big');
+        file_put_contents($ruta, 'x');
+
+        return new UploadedFile($ruta, $nombre, null, UPLOAD_ERR_INI_SIZE, true);
+    }
+
+    public function test_un_video_que_pasa_el_limite_de_php_dice_el_motivo_y_no_pide_una_imagen(): void
+    {
+        $r = $this->admin()->postJson('/api/v1/admin/home/hero', ['video' => $this->demasiadoGrande()])->assertUnprocessable();
+
+        $mensaje = $r->json('errors.video.0');
+        $this->assertStringContainsString('pesa más de lo que permite este servidor', $mensaje);
+        $this->assertStringContainsString('upload_max_filesize', $mensaje);
+        $this->assertStringNotContainsString('imagen o un video', $mensaje);
+    }
+
+    public function test_el_video_de_producto_y_de_categoria_tambien_explican_el_limite_de_php(): void
+    {
+        $this->admin()->postJson(self::PRODUCTO, ['video' => $this->demasiadoGrande()])
+            ->assertUnprocessable()->assertJsonPath('errors.video.0', fn ($m) => str_contains($m, 'upload_max_filesize'));
+        $this->postJson("/api/v1/admin/categories/{$this->categoria}/video", ['video' => $this->demasiadoGrande()])
+            ->assertUnprocessable()->assertJsonPath('errors.video.0', fn ($m) => str_contains($m, 'upload_max_filesize'));
+        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(), 'poster' => $this->demasiadoGrande('p.png')])
+            ->assertUnprocessable()->assertJsonValidationErrors('poster');
+    }
+
+    public function test_una_imagen_de_portada_que_pasa_el_limite_de_php_tambien_lo_explica(): void
+    {
+        $this->admin()->postJson('/api/v1/admin/home/hero', ['image' => $this->demasiadoGrande('a.png'), 'alt' => 'x'])
+            ->assertUnprocessable()->assertJsonPath('errors.image.0', fn ($m) => str_contains($m, 'upload_max_filesize'));
+    }
+
+    public function test_sin_archivo_la_portada_pide_elegir_uno(): void
+    {
+        $this->admin()->postJson('/api/v1/admin/home/hero', ['alt' => 'x'])->assertUnprocessable()
+            ->assertJsonPath('errors.image.0', 'Elige una imagen o un video.');
+    }
 }

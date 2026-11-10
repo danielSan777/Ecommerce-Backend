@@ -6,6 +6,7 @@ namespace App\Core\Catalogo\Presentacion\Controladores;
 
 use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarMedios;
 use App\Core\Catalogo\Dominio\Excepciones\ImagenInvalida;
+use App\Core\Catalogo\Presentacion\ArchivoSubido;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\JsonResponse;
@@ -94,6 +95,7 @@ final class ControladorAdministracionMedios extends Controller
 
     private function subirVideo(string $tipo, string $clave, Request $request, AdministrarMedios $medios): JsonResponse
     {
+        ArchivoSubido::verificar($request, ['video', 'poster']);
         // El formato, la duración y el peso los valida el procesador mirando el contenido del MP4
         $validos = ValidacionFallida::validar($request->all(), [
             'video' => ['required', 'file'],
@@ -113,6 +115,7 @@ final class ControladorAdministracionMedios extends Controller
 
     private function subir(string $tipo, string $clave, Request $request, AdministrarMedios $medios): JsonResponse
     {
+        ArchivoSubido::verificar($request, ['image']);
         // La validación real (tipo de archivo, tamaño, píxeles) la hace el procesador mirando el contenido
         $validos = ValidacionFallida::validar($request->all(), [
             'image' => ['required', 'file'],
