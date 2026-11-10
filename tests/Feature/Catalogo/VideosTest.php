@@ -89,8 +89,9 @@ final class VideosTest extends TestCase
 
     public function test_rechaza_pesos_formatos_y_codecs_no_validos(): void
     {
+        ini_set('memory_limit', '1G'); // el archivo de prueba pesa más de 100 MB
         $this->admin();
-        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, relleno: 15 * 1024 * 1024)])->assertJsonValidationErrors('video'); // pasa de 15 MB
+        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, relleno: 101 * 1024 * 1024)])->assertJsonValidationErrors('video'); // pasa de 100 MB
         $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, codec: 'hvc1')])
             ->assertJsonPath('errors.video.0', fn ($m) => str_contains($m, 'H.264'));
         $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, marca: 'qt  ')])
