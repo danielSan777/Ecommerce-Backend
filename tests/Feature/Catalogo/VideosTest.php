@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\Support\Mp4DePrueba;
 use Tests\TestCase;
 
-/** Videos de producto (máx. 6 s), de banner de categoría (máx. 1 minuto) y portada de la página principal (imagen o video, máx. 1 minuto). */
+/** Videos de producto (máx. 1 minuto), de banner de categoría (máx. 1 minuto) y portada de la página principal (imagen o video, máx. 1 minuto). */
 final class VideosTest extends TestCase
 {
     use RefreshDatabase;
@@ -55,14 +55,14 @@ final class VideosTest extends TestCase
         $this->assertSame(0, MedioModelo::query()->count());
     }
 
-    public function test_producto_acepta_un_video_de_6_segundos_y_lo_guarda_sin_transcodificar(): void
+    public function test_producto_acepta_un_video_de_hasta_un_minuto_y_lo_guarda_sin_transcodificar(): void
     {
-        $archivo = Mp4DePrueba::archivo(6.0, 720, 1280, relleno: 1000);
+        $archivo = Mp4DePrueba::archivo(45.0, 720, 1280, relleno: 1000);
         $original = file_get_contents($archivo->getRealPath());
 
         $r = $this->admin()->postJson(self::PRODUCTO, ['video' => $archivo, 'alt' => 'Giro de la maceta'])->assertCreated();
 
-        $r->assertJsonPath('type', 'video')->assertJsonPath('role', 'video')->assertJsonPath('duration_s', 6)
+        $r->assertJsonPath('type', 'video')->assertJsonPath('role', 'video')->assertJsonPath('duration_s', 45)
             ->assertJsonPath('width', 720)->assertJsonPath('height', 1280)->assertJsonMissingPath('urls.poster');
         $medio = MedioModelo::query()->firstOrFail();
         $ruta = $medio->variants['url'];
@@ -72,25 +72,25 @@ final class VideosTest extends TestCase
         $this->assertNull($medio->original_path);
     }
 
-    public function test_producto_rechaza_video_de_mas_de_6_segundos(): void
+    public function test_producto_rechaza_video_de_mas_de_un_minuto(): void
     {
-        $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(8.0)])
+        $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(61.0)])
             ->assertUnprocessable()->assertJsonValidationErrors('video');
-        $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(15.0)])
-            ->assertJsonPath('errors.video.0', fn ($m) => str_contains($m, 'máximo 6 segundos') && str_contains($m, '15 s'));
+        $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(90.0)])
+            ->assertJsonPath('errors.video.0', fn ($m) => str_contains($m, 'un minuto') && str_contains($m, '90 s'));
         $this->assertSame(0, MedioModelo::query()->count());
         $this->assertSame([], Storage::disk('media')->allFiles());
     }
 
     public function test_tolera_un_cuarto_de_segundo_de_mas(): void
     {
-        $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(6.2)])->assertCreated();
+        $this->admin()->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(60.2)])->assertCreated();
     }
 
     public function test_rechaza_pesos_formatos_y_codecs_no_validos(): void
     {
         $this->admin();
-        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, relleno: 2 * 1024 * 1024)])->assertJsonValidationErrors('video'); // pasa de 2 MB
+        $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, relleno: 15 * 1024 * 1024)])->assertJsonValidationErrors('video'); // pasa de 15 MB
         $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, codec: 'hvc1')])
             ->assertJsonPath('errors.video.0', fn ($m) => str_contains($m, 'H.264'));
         $this->postJson(self::PRODUCTO, ['video' => Mp4DePrueba::archivo(5, marca: 'qt  ')])

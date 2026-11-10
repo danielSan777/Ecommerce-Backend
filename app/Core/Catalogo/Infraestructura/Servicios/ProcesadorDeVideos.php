@@ -20,17 +20,17 @@ final class ProcesadorDeVideos
     public const PERFIL_INICIO = 'inicio';
 
     /**
-     * Duración máxima en segundos y peso máximo en bytes por perfil. Pedido de Josué: el video de producto dura 6 s como máximo y
-     * los de la página principal y de los banners de categoría, 1 minuto como máximo (por eso su peso permitido es mayor que el
-     * de la tabla del Paso 6, pensada para videos de 6–10 s).
+     * Duración máxima en segundos y peso máximo en bytes por perfil. Pedido de Josué: todo video (producto, banner de categoría y
+     * página principal) dura 1 minuto como máximo; por eso los pesos permitidos son mayores que los de la tabla del Paso 6,
+     * pensada para videos de 6–10 s.
      */
     public const PERFILES = [
-        self::PERFIL_PRODUCTO => ['segundos' => 6, 'bytes' => 2 * 1024 * 1024, 'nombre' => 'del producto'],
+        self::PERFIL_PRODUCTO => ['segundos' => 60, 'bytes' => 15 * 1024 * 1024, 'nombre' => 'del producto'],
         self::PERFIL_CATEGORIA => ['segundos' => 60, 'bytes' => 15 * 1024 * 1024, 'nombre' => 'del banner de la categoría'],
         self::PERFIL_INICIO => ['segundos' => 60, 'bytes' => 20 * 1024 * 1024, 'nombre' => 'de la página principal'],
     ];
 
-    /** Un video "de 6 s" suele medir 6,02 s: se tolera un cuarto de segundo. */
+    /** Un video "de 1 minuto" suele medir 60,02 s: se tolera un cuarto de segundo. */
     private const TOLERANCIA_S = 0.25;
 
     private const MARCAS_MP4 = ['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'M4V ', 'dash'];

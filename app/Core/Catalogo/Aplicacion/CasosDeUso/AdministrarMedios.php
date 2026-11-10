@@ -107,7 +107,7 @@ final class AdministrarMedios
     }
 
     /**
-     * Sube el video (MP4 H.264) de un producto (máx. 6 s) o del banner de una categoría (máx. 10 s). Se guarda tal cual, sin
+     * Sube el video (MP4 H.264) de un producto o del banner de una categoría (máx. 1 minuto cada uno). Se guarda tal cual, sin
      * transcodificar; la portada (imagen del primer cuadro) es opcional y se convierte a WebP. Solo un video por producto o categoría.
      *
      * @return array<string, mixed>
