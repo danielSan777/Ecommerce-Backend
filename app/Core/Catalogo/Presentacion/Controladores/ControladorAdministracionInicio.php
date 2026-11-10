@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Core\Catalogo\Presentacion\Controladores;
 
+use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarPortadaCategorias;
 use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarPortadaInicio;
+use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarTextoCategorias;
 use App\Core\Catalogo\Dominio\Excepciones\ImagenInvalida;
 use App\Core\Catalogo\Presentacion\ArchivoSubido;
 use App\Core\Catalogo\Presentacion\Resources\MedioResource;
@@ -14,7 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
-/** Panel: imágenes y videos de la portada de la página principal (sin límite de cantidad). Se sube `image` (con `alt`) o `video` (con `poster` opcional). */
+/** Panel: imágenes y videos de la portada de la página principal y de la página de categorías (sin límite de cantidad; la ruta indica cuál con `seccion`) y el texto de esta última. Se sube `image` (con `alt`) o `video` (con `poster` opcional). */
 final class ControladorAdministracionInicio extends Controller
 {
     private const MENSAJES = [
@@ -27,13 +29,16 @@ final class ControladorAdministracionInicio extends Controller
         'poster.file' => 'La portada del video debe ser una imagen.',
     ];
 
-    public function index(AdministrarPortadaInicio $portada): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $portada = $this->portada($request);
+
         return response()->json(['data' => array_map($this->formato(...), $portada->lista())]);
     }
 
-    public function store(Request $request, AdministrarPortadaInicio $portada): JsonResponse
+    public function store(Request $request): JsonResponse
     {
+        $portada = $this->portada($request);
         ArchivoSubido::verificar($request, ['video', 'poster', 'image']);
         if (! $request->hasFile('video') && ! $request->hasFile('image')) {
             throw new ValidacionFallida(['image' => ['Elige una imagen o un video.']]);
@@ -62,13 +67,33 @@ final class ControladorAdministracionInicio extends Controller
         return response()->json(['data' => $this->formato($item)], 201);
     }
 
-    public function destroy(string $id, AdministrarPortadaInicio $portada): Response|JsonResponse
+    public function destroy(Request $request, string $id): Response|JsonResponse
     {
+        $portada = $this->portada($request);
         if (! $portada->quitar($id)) {
             return response()->json(['code' => 'not_found', 'message' => 'Esa portada no existe.'], 404);
         }
 
         return response()->noContent();
+    }
+
+    public function texto(AdministrarTextoCategorias $texto): JsonResponse
+    {
+        return response()->json(['data' => $texto->obtener()]);
+    }
+
+    public function guardarTexto(Request $request, AdministrarTextoCategorias $texto): JsonResponse
+    {
+        $v = ValidacionFallida::validar($request->all(), [
+            'title' => ['sometimes', 'nullable', 'string', 'max:80'], 'subtitle' => ['sometimes', 'nullable', 'string', 'max:160'],
+        ], ['title.max' => 'El título no puede pasar de 80 caracteres.', 'subtitle.max' => 'El subtítulo no puede pasar de 160 caracteres.']);
+
+        return response()->json(['data' => $texto->guardar($v['title'] ?? null, $v['subtitle'] ?? null)]);
+    }
+
+    private function portada(Request $request): AdministrarPortadaInicio
+    {
+        return $request->route('seccion') === 'categorias' ? app(AdministrarPortadaCategorias::class) : app(AdministrarPortadaInicio::class);
     }
 
     /** @param array{id: string, medio: \App\Core\Catalogo\Dominio\Entidades\Medio} $item @return array<string, mixed> */

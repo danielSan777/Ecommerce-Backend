@@ -21,6 +21,7 @@ Route::prefix('v1')->group(function () {
     Route::get('products', [ControladorProductos::class, 'index'])->name('api.v1.products.index');
     Route::get('products/{slug}', [ControladorProductos::class, 'show'])->name('api.v1.products.show');
     Route::get('home/hero', [ControladorInicio::class, 'hero'])->name('api.v1.home.hero');
+    Route::get('categories-page', [ControladorInicio::class, 'categorias'])->name('api.v1.categories-page');
     Route::get('campaigns/current', [ControladorCampanas::class, 'current'])->name('api.v1.campaigns.current');
     Route::get('campaigns/{slug}', [ControladorCampanas::class, 'show'])->name('api.v1.campaigns.show');
     // Cuenta única (clientes y administradores). El rol viene en la respuesta; Angular decide a dónde llevar al usuario.
@@ -64,9 +65,15 @@ Route::prefix('v1')->group(function () {
         Route::get('categories/{slug}/media', [ControladorAdministracionMedios::class, 'indexCategoria'])->name('api.v1.admin.categories.media.index');
         Route::post('categories/{slug}/media', [ControladorAdministracionMedios::class, 'storeCategoria'])->name('api.v1.admin.categories.media.store');
         // Portada de la página principal: lista sin límite de imágenes y videos (reemplaza la foto de ejemplo).
-        Route::get('home/hero', [ControladorAdministracionInicio::class, 'index'])->name('api.v1.admin.home.hero.index');
-        Route::post('home/hero', [ControladorAdministracionInicio::class, 'store'])->name('api.v1.admin.home.hero.store');
-        Route::delete('home/hero/{id}', [ControladorAdministracionInicio::class, 'destroy'])->name('api.v1.admin.home.hero.destroy');
+        Route::get('home/hero', [ControladorAdministracionInicio::class, 'index'])->name('api.v1.admin.home.hero.index')->defaults('seccion', 'inicio');
+        Route::post('home/hero', [ControladorAdministracionInicio::class, 'store'])->name('api.v1.admin.home.hero.store')->defaults('seccion', 'inicio');
+        Route::delete('home/hero/{id}', [ControladorAdministracionInicio::class, 'destroy'])->name('api.v1.admin.home.hero.destroy')->defaults('seccion', 'inicio');
+        // Encabezado de la página /categorias: imágenes y videos (igual que la portada de inicio) y su texto
+        Route::get('categories-page/hero', [ControladorAdministracionInicio::class, 'index'])->name('api.v1.admin.categories-page.hero.index')->defaults('seccion', 'categorias');
+        Route::post('categories-page/hero', [ControladorAdministracionInicio::class, 'store'])->name('api.v1.admin.categories-page.hero.store')->defaults('seccion', 'categorias');
+        Route::delete('categories-page/hero/{id}', [ControladorAdministracionInicio::class, 'destroy'])->name('api.v1.admin.categories-page.hero.destroy')->defaults('seccion', 'categorias');
+        Route::get('categories-page/text', [ControladorAdministracionInicio::class, 'texto'])->name('api.v1.admin.categories-page.text.show');
+        Route::put('categories-page/text', [ControladorAdministracionInicio::class, 'guardarTexto'])->name('api.v1.admin.categories-page.text.update');
         // Video (MP4 H.264): producto de máx. 6 s, banner de categoría de máx. 10 s. Campos `video` y `poster` (opcional).
         Route::post('products/{sku}/video', [ControladorAdministracionMedios::class, 'storeProductoVideo'])->name('api.v1.admin.products.video.store');
         Route::post('categories/{slug}/video', [ControladorAdministracionMedios::class, 'storeCategoriaVideo'])->name('api.v1.admin.categories.video.store');

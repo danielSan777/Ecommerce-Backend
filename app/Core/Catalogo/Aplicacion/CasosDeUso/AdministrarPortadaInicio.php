@@ -14,17 +14,17 @@ use Illuminate\Support\Str;
 
 /**
  * Portada de la página principal: una lista sin límite de imágenes y videos que el administrador agrega y quita; la tienda
- * los muestra uno tras otro. Se guarda en `settings` (clave `home_hero`) y los archivos en el disco público `media`, carpeta `home/`.
+ * los muestra uno tras otro. Se guarda en `settings` (clave `home_hero`) y los archivos en el disco público `media`, carpeta `home/`. La portada de la página de categorías es la misma lógica con otra clave y carpeta (subclase).
  * Mientras la lista esté vacía, la tienda sigue mostrando su imagen de siempre.
  */
-final class AdministrarPortadaInicio
+class AdministrarPortadaInicio
 {
-    public const CLAVE = 'home_hero';
-
     public function __construct(
         private readonly RepositorioConfiguracion $configuracion,
         private readonly ProcesadorDeImagenes $imagenes,
         private readonly ProcesadorDeVideos $videos,
+        private readonly string $clave = 'home_hero',
+        private readonly string $carpeta = 'home',
     ) {}
 
     /** @return list<array{id: string, medio: Medio}> en el orden en que se agregaron */
@@ -40,7 +40,7 @@ final class AdministrarPortadaInicio
         $nombre = Str::lower(Str::random(16));
         $rutas = [];
         foreach ($resultado['versiones'] as $ancho => $webp) {
-            $ruta = "home/{$nombre}-{$ancho}.webp";
+            $ruta = "{$this->carpeta}/{$nombre}-{$ancho}.webp";
             Storage::disk('media')->put($ruta, $webp);
             $rutas[(string) $ancho] = $ruta;
         }
@@ -55,11 +55,11 @@ final class AdministrarPortadaInicio
         $imagen = $portada !== null && $portada !== '' ? $this->imagenes->procesar($portada) : null;
 
         $nombre = Str::lower(Str::random(16));
-        Storage::disk('media')->put("home/{$nombre}.mp4", $video);
-        $nuevo = ['type' => 'video', 'alt' => $alt, 'width' => $datos['ancho'], 'height' => $datos['alto'], 'duration_s' => (int) round($datos['duracion']), 'url' => "home/{$nombre}.mp4"];
+        Storage::disk('media')->put("{$this->carpeta}/{$nombre}.mp4", $video);
+        $nuevo = ['type' => 'video', 'alt' => $alt, 'width' => $datos['ancho'], 'height' => $datos['alto'], 'duration_s' => (int) round($datos['duracion']), 'url' => "{$this->carpeta}/{$nombre}.mp4"];
         if ($imagen !== null) {
-            Storage::disk('media')->put("home/{$nombre}-portada.webp", $imagen['versiones'][max(array_keys($imagen['versiones']))]);
-            $nuevo['poster'] = "home/{$nombre}-portada.webp";
+            Storage::disk('media')->put("{$this->carpeta}/{$nombre}-portada.webp", $imagen['versiones'][max(array_keys($imagen['versiones']))]);
+            $nuevo['poster'] = "{$this->carpeta}/{$nombre}-portada.webp";
         }
 
         return $this->agregar($nuevo);
@@ -78,7 +78,7 @@ final class AdministrarPortadaInicio
                 $this->borrarArchivos($i);
             }
         }
-        $this->configuracion->guardar(self::CLAVE, $quedan);
+        $this->configuracion->guardar($this->clave, $quedan);
 
         return true;
     }
@@ -87,7 +87,7 @@ final class AdministrarPortadaInicio
     private function agregar(array $nuevo): array
     {
         $nuevo['id'] = Str::lower(Str::random(12));
-        $this->configuracion->guardar(self::CLAVE, [...$this->items(), $nuevo]);
+        $this->configuracion->guardar($this->clave, [...$this->items(), $nuevo]);
 
         return ['id' => $nuevo['id'], 'medio' => $this->medio($nuevo)];
     }
@@ -95,7 +95,7 @@ final class AdministrarPortadaInicio
     /** @return list<array<string, mixed>> */
     private function items(): array
     {
-        $h = $this->configuracion->obtener(self::CLAVE);
+        $h = $this->configuracion->obtener($this->clave);
         if (! is_array($h) || $h === []) {
             return [];
         }

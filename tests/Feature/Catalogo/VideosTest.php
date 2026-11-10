@@ -254,6 +254,34 @@ final class VideosTest extends TestCase
         $this->deleteJson('/api/v1/admin/home/hero/no-existe')->assertNotFound();
     }
 
+    public function test_la_pagina_de_categorias_tiene_su_propia_portada_y_texto_editables(): void
+    {
+        $this->getJson('/api/v1/categories-page')->assertOk()->assertExactJson(['title' => null, 'subtitle' => null, 'items' => []]);
+
+        $img = $this->admin()->postJson('/api/v1/admin/categories-page/hero', ['image' => $this->imagen(), 'alt' => 'Regalos'])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/admin/categories-page/hero', ['video' => Mp4DePrueba::archivo(5)])->assertCreated();
+        $this->putJson('/api/v1/admin/categories-page/text', ['title' => '  Mira estos regalos ', 'subtitle' => 'Elige uno'])->assertOk()->assertJsonPath('data.title', 'Mira estos regalos');
+
+        $this->getJson('/api/v1/categories-page')->assertOk()->assertJsonPath('title', 'Mira estos regalos')->assertJsonPath('subtitle', 'Elige uno')
+            ->assertJsonCount(2, 'items')->assertJsonPath('items.1.type', 'video');
+        // es independiente de la portada de inicio
+        $this->getJson('/api/v1/home/hero')->assertExactJson(['data' => null, 'items' => []]);
+        $this->assertNotEmpty(Storage::disk('media')->allFiles('categories-page'));
+        $this->assertSame([], Storage::disk('media')->allFiles('home'));
+
+        $this->deleteJson("/api/v1/admin/categories-page/hero/{$img}")->assertNoContent();
+        $this->getJson('/api/v1/categories-page')->assertJsonCount(1, 'items');
+        $this->putJson('/api/v1/admin/categories-page/text', ['title' => '', 'subtitle' => ''])->assertOk();
+        $this->getJson('/api/v1/categories-page')->assertJsonPath('title', null);
+        $this->putJson('/api/v1/admin/categories-page/text', ['title' => str_repeat('a', 81)])->assertUnprocessable()->assertJsonValidationErrors('title');
+    }
+
+    public function test_solo_el_admin_cambia_la_pagina_de_categorias(): void
+    {
+        $this->putJson('/api/v1/admin/categories-page/text', ['title' => 'x'])->assertUnauthorized();
+        $this->postJson('/api/v1/admin/categories-page/hero', [])->assertUnauthorized();
+    }
+
     public function test_quitar_toda_la_portada_borra_los_archivos_y_vuelve_a_la_imagen_de_siempre(): void
     {
         $id = $this->admin()->postJson('/api/v1/admin/home/hero', ['video' => Mp4DePrueba::archivo(5), 'poster' => $this->imagen()])->assertCreated()->json('data.id');
