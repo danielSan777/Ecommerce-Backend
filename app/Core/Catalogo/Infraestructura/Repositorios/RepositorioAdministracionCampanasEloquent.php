@@ -7,7 +7,6 @@ namespace App\Core\Catalogo\Infraestructura\Repositorios;
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Repositorios\RepositorioAdministracionCampanas;
 use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
-use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +15,7 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
 {
     public function listar(): array
     {
-        return CampanaModelo::query()->with(['categoriaRelacionada', 'productos', 'medios'])->orderBy('id')->get()
+        return CampanaModelo::query()->with(['productos', 'medios'])->orderBy('id')->get()
             ->map(fn (CampanaModelo $c) => $this->formato($c))->all();
     }
 
@@ -31,7 +30,7 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
             $campana = CampanaModelo::query()->create([...$this->columnas($datos), 'slug' => $datos['slug']]);
             $this->guardarProductos($campana, $datos['products'] ?? []);
 
-            return $this->formato($campana->refresh()->load(['categoriaRelacionada', 'productos', 'medios']));
+            return $this->formato($campana->refresh()->load(['productos', 'medios']));
         });
     }
 
@@ -45,7 +44,7 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
                 $this->guardarProductos($campana, $datos['products'] ?? []);
             }
 
-            return $this->formato($campana->refresh()->load(['categoriaRelacionada', 'productos', 'medios']));
+            return $this->formato($campana->refresh()->load(['productos', 'medios']));
         });
     }
 
@@ -77,7 +76,7 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
 
     private function campana(string $slug): CampanaModelo
     {
-        return CampanaModelo::query()->with(['categoriaRelacionada', 'productos', 'medios'])->where('slug', $slug)->first()
+        return CampanaModelo::query()->with(['productos', 'medios'])->where('slug', $slug)->first()
             ?? throw CatalogoNoEncontrado::campana($slug);
     }
 
@@ -90,9 +89,6 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
     private function columnas(array $datos): array
     {
         $columnas = array_intersect_key($datos, array_flip(['name', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'closing_message', 'closing_until_md', 'is_active', 'seo_title', 'seo_description']));
-        if (isset($datos['related_category'])) {
-            $columnas['related_category_id'] = CategoriaModelo::query()->where('slug', $datos['related_category'])->value('id');
-        }
 
         return $columnas;
     }
@@ -116,7 +112,6 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
         return [
             'slug' => $c->slug,
             'name' => $c->name,
-            'related_category' => ['slug' => $c->categoriaRelacionada->slug, 'name' => $c->categoriaRelacionada->name],
             'start_md' => $c->start_md,
             'end_md' => $c->end_md,
             'event_md' => $c->event_md,

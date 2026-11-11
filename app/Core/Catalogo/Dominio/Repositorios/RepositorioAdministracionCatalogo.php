@@ -41,13 +41,6 @@ interface RepositorioAdministracionCatalogo
      */
     public function productosDeCategoria(string $slug): array;
 
-    /**
-     * Campañas que tienen esta categoría como relacionada.
-     *
-     * @return list<array{slug: string, name: string}>
-     */
-    public function campanasDeCategoria(string $slug): array;
-
     /** @throws CatalogoNoEncontrado */
     public function eliminarCategoria(string $slug): void;
 }

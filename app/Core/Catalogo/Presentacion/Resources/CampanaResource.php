@@ -51,7 +51,6 @@ final class CampanaResource
             'tagline' => $c->lema,
             'slogan' => $c->eslogan,
             'theme' => self::tema($c),
-            'related_category' => ['slug' => $c->categoriaRelacionadaSlug, 'name' => $c->categoriaRelacionadaNombre, 'url' => "/{$c->categoriaRelacionadaSlug}"],
             'products' => array_map(ProductoResource::resumen(...), $c->productos),
             'seo' => SeoResource::formato($c->seoTitulo ?? $c->nombre.' | Jardín de Sele', $c->seoDescripcion ?? $c->lema, "/{$c->slug}", $c->productos[0] ?? null ? $c->productos[0]->imagenPrincipal() : null),
         ];

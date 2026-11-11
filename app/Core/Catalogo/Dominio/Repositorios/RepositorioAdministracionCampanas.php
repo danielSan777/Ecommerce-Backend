@@ -7,7 +7,7 @@ namespace App\Core\Catalogo\Dominio\Repositorios;
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 
 /**
- * @phpstan-type CampanaAdmin array{slug: string, name: string, related_category: array{slug: string, name: string}, start_md: string, end_md: string, event_md: string, tagline: ?string, slogan: ?string, is_active: bool, seo_title: ?string, seo_description: ?string, products: list<array{sku: string, slug: string, name: string}>, updated_at: string}
+ * @phpstan-type CampanaAdmin array{slug: string, name: string, start_md: string, end_md: string, event_md: string, tagline: ?string, slogan: ?string, is_active: bool, seo_title: ?string, seo_description: ?string, products: list<array{sku: string, slug: string, name: string}>, updated_at: string}
  */
 interface RepositorioAdministracionCampanas
 {
@@ -26,7 +26,7 @@ interface RepositorioAdministracionCampanas
     public function obtener(string $slug): array;
 
     /**
-     * `related_category` es el slug de la categoría y `products` la lista de SKU en el orden elegido.
+     * `products` la lista de SKU en el orden elegido.
      *
      * @param  array<string, mixed>  $datos
      * @return CampanaAdmin

@@ -50,21 +50,19 @@ final class CampanasApiTest extends TestCase
         $r = $this->getJson('/api/v1/campaigns/san-valentin')->assertOk();
 
         $r->assertJsonPath('state', 'active')->assertJsonPath('season_year', 2027)->assertJsonPath('event_date', '2027-02-14')
-            ->assertJsonPath('related_category.url', '/amor')->assertJsonPath('tagline', 'Un regalo con su nombre que sigue creciendo');
+            ->assertJsonPath('tagline', 'Un regalo con su nombre que sigue creciendo');
         $this->assertSame(['homero', 'bob-corazon-hombre', 'doctor'], array_column($r->json('products'), 'slug'));
     }
 
-    public function test_en_temporada_sin_productos_elegidos_muestra_los_de_la_categoria_relacionada(): void
+    public function test_en_temporada_sin_productos_elegidos_la_lista_queda_vacia(): void
     {
         $this->hoyEs('2027-01-20 15:00:00');
 
-        $r = $this->getJson('/api/v1/campaigns/san-valentin')->assertOk();
-
-        $r->assertJsonPath('state', 'active')->assertJsonPath('related_category.name', 'Amor');
-        $this->assertSame(['bob-corazon-hombre'], array_column($r->json('products'), 'slug'));
+        $r = $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('state', 'active')->assertJsonMissingPath('related_category');
+        $this->assertSame([], $r->json('products'));
     }
 
-    public function test_fuera_de_temporada_responde_200_con_el_anio_siguiente_y_los_productos_de_amor(): void
+    public function test_fuera_de_temporada_responde_200_con_el_anio_siguiente_y_sin_productos(): void
     {
         $this->hoyEs('2027-03-10 15:00:00');
         $this->elegir('homero');
@@ -72,7 +70,7 @@ final class CampanasApiTest extends TestCase
         $r = $this->getJson('/api/v1/campaigns/san-valentin')->assertOk();
 
         $r->assertJsonPath('state', 'upcoming')->assertJsonPath('season_year', 2028)->assertJsonPath('event_date', '2028-02-14');
-        $this->assertSame(['bob-corazon-hombre'], array_column($r->json('products'), 'slug'));
+        $this->assertSame([], $r->json('products')); // los productos solo se muestran en temporada
     }
 
     public function test_al_terminar_la_campana_se_muestra_su_mensaje_de_cierre_hasta_la_fecha_elegida_y_luego_nada(): void
@@ -114,7 +112,7 @@ final class CampanasApiTest extends TestCase
 
         $this->getJson('/api/v1/campaigns/san-valentin')->assertJsonStructure([
             'slug', 'name', 'state', 'season_year', 'event_date', 'order_deadline', 'tagline', 'slogan',
-            'related_category' => ['slug', 'name', 'url'], 'products', 'seo' => ['title', 'description', 'canonical', 'og_image'],
+            'products', 'seo' => ['title', 'description', 'canonical', 'og_image'],
         ]);
     }
 

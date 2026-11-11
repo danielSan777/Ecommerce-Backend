@@ -60,7 +60,7 @@ final class DisenoDeCampanasTest extends TestCase
     private function navidad(array $cambios = []): array
     {
         return [...[
-            'name' => 'Navidad', 'related_category' => 'familia', 'start_md' => '11-15', 'end_md' => '12-24', 'event_md' => '12-25',
+            'name' => 'Navidad', 'start_md' => '11-15', 'end_md' => '12-24', 'event_md' => '12-25',
             'tagline' => 'Un regalo que crece', 'slogan' => null, 'theme_color' => '#1B5E20', 'emoji' => '🎄', 'is_active' => true, 'products' => [],
         ], ...$cambios];
     }

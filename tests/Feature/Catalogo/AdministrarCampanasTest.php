@@ -42,7 +42,7 @@ final class AdministrarCampanasTest extends TestCase
     private function datos(array $cambios = []): array
     {
         return [...[
-            'name' => 'Día de la Madre', 'related_category' => 'familia', 'start_md' => '04-20', 'end_md' => '05-10', 'event_md' => '05-10',
+            'name' => 'Día de la Madre', 'start_md' => '04-20', 'end_md' => '05-10', 'event_md' => '05-10',
             'tagline' => 'Para mamá, con cariño', 'slogan' => 'Mamá merece flores que duran', 'is_active' => true,
             'seo_title' => null, 'seo_description' => null, 'products' => ['PRO-HOMERO', 'PRO-DOCTOR'],
         ], ...$cambios];
@@ -83,15 +83,14 @@ final class AdministrarCampanasTest extends TestCase
         $r = $this->admin()->getJson(self::BASE)->assertOk();
 
         $r->assertJsonPath('data.0.slug', 'san-valentin')->assertJsonPath('data.0.is_active', false)
-            ->assertJsonPath('data.0.state', 'upcoming')->assertJsonPath('data.0.season_year', 2027)
-            ->assertJsonPath('data.0.related_category.slug', 'amor');
+            ->assertJsonPath('data.0.state', 'upcoming')->assertJsonPath('data.0.season_year', 2027);
     }
 
     public function test_crear_genera_la_direccion_del_nombre_y_guarda_los_productos_en_su_orden(): void
     {
         $r = $this->admin()->postJson(self::BASE, $this->datos())->assertCreated();
 
-        $r->assertJsonPath('slug', 'dia-de-la-madre')->assertJsonPath('related_category.name', 'Familia')
+        $r->assertJsonPath('slug', 'dia-de-la-madre')
             ->assertJsonPath('state', 'upcoming')->assertJsonPath('season_year', 2027);
         $this->assertSame(['PRO-HOMERO', 'PRO-DOCTOR'], array_column($r->json('products'), 'sku'));
         $this->getJson('/api/v1/campaigns/dia-de-la-madre')->assertOk()->assertJsonPath('name', 'Día de la Madre');
@@ -145,15 +144,13 @@ final class AdministrarCampanasTest extends TestCase
 
     public function test_crear_valida_en_espanol(): void
     {
-        $this->admin()->postJson(self::BASE, $this->datos(['name' => '', 'related_category' => 'nada', 'start_md' => '13-40', 'event_md' => '02-30']))
+        $this->admin()->postJson(self::BASE, $this->datos(['name' => '', 'start_md' => '13-40', 'event_md' => '02-30']))
             ->assertStatus(422)
             ->assertJsonPath('errors.name.0', 'Escribe el nombre de la campaña.')
-            ->assertJsonPath('errors.related_category.0', 'La categoría elegida no existe.')
             ->assertJsonPath('errors.start_md.0', 'La fecha no es válida. Elige un día y un mes que existan.')
             ->assertJsonPath('errors.event_md.0', 'La fecha no es válida. Elige un día y un mes que existan.');
 
         $this->admin()->postJson(self::BASE, ['name' => 'Solo nombre'])->assertStatus(422)
-            ->assertJsonPath('errors.related_category.0', 'Elige la categoría relacionada.')
             ->assertJsonPath('errors.start_md.0', 'Elige cuándo empieza la temporada.');
 
         $this->admin()->postJson(self::BASE, $this->datos(['name' => 'San Valentín']))->assertStatus(422)
@@ -174,10 +171,10 @@ final class AdministrarCampanasTest extends TestCase
         $this->admin()->postJson(self::BASE, $this->datos())->assertCreated();
 
         $r = $this->admin()->putJson(self::BASE.'/dia-de-la-madre', [
-            'tagline' => 'Nuevo lema', 'is_active' => false, 'related_category' => 'amor', 'products' => ['PRO-DOCTOR', 'PRO-BOB-CORAZON-HOMBRE', 'PRO-HOMERO'],
+            'tagline' => 'Nuevo lema', 'is_active' => false, 'products' => ['PRO-DOCTOR', 'PRO-BOB-CORAZON-HOMBRE', 'PRO-HOMERO'],
         ])->assertOk();
 
-        $r->assertJsonPath('tagline', 'Nuevo lema')->assertJsonPath('is_active', false)->assertJsonPath('related_category.slug', 'amor')
+        $r->assertJsonPath('tagline', 'Nuevo lema')->assertJsonPath('is_active', false)
             ->assertJsonPath('name', 'Día de la Madre');
         $this->assertSame(['PRO-DOCTOR', 'PRO-BOB-CORAZON-HOMBRE', 'PRO-HOMERO'], array_column($r->json('products'), 'sku'));
         $this->getJson('/api/v1/campaigns/dia-de-la-madre')->assertNotFound(); // inactiva: la tienda ya no la muestra
@@ -215,19 +212,6 @@ final class AdministrarCampanasTest extends TestCase
         $this->getJson('/api/v1/campaigns/dia-de-la-madre')->assertNotFound();
         $this->assertSame($productos, ProductoModelo::query()->count());
         $this->admin()->deleteJson(self::BASE.'/dia-de-la-madre')->assertNotFound()->assertJsonPath('code', 'not_found');
-    }
-
-    public function test_no_se_puede_eliminar_la_categoria_relacionada_de_una_campana(): void
-    {
-        $this->admin()->postJson(self::BASE, $this->datos(['related_category' => 'familia']))->assertCreated();
-        ProductoModelo::query()->where('category_id', \App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo::query()->where('slug', 'familia')->value('id'))->delete();
-
-        $this->admin()->deleteJson('/api/v1/admin/categories/familia')->assertStatus(409)
-            ->assertJsonPath('code', 'category_in_campaign')->assertJsonPath('campaigns.0.slug', 'dia-de-la-madre');
-        $this->assertDatabaseHas('categories', ['slug' => 'familia', 'deleted_at' => null]);
-
-        $this->admin()->deleteJson(self::BASE.'/dia-de-la-madre')->assertNoContent();
-        $this->admin()->deleteJson('/api/v1/admin/categories/familia')->assertNoContent();
     }
 
     public function test_guarda_el_mensaje_de_cierre_y_su_fecha_limite(): void

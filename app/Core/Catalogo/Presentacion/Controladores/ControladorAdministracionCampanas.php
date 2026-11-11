@@ -9,7 +9,6 @@ use App\Core\Catalogo\Aplicacion\CasosDeUso\PrevisualizarCampana;
 use App\Core\Catalogo\Presentacion\Resources\CampanaResource;
 use App\Core\Catalogo\Dominio\Servicios\TemporadaDeCampana;
 use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
-use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\JsonResponse;
@@ -25,8 +24,6 @@ final class ControladorAdministracionCampanas extends Controller
         'name.max' => 'El nombre no puede pasar de 150 caracteres.',
         'slug.required' => 'El nombre debe tener al menos una letra o un número.',
         'slug.unique' => 'Ya existe una campaña con un nombre igual o muy parecido.',
-        'related_category.required' => 'Elige la categoría relacionada.',
-        'related_category.exists' => 'La categoría elegida no existe.',
         'start_md.required' => 'Elige cuándo empieza la temporada.',
         'end_md.required' => 'Elige cuándo termina la temporada.',
         'event_md.required' => 'Elige la fecha del evento.',
@@ -161,7 +158,6 @@ final class ControladorAdministracionCampanas extends Controller
         $req = $requeridos ? 'required' : 'sometimes';
 
         return [
-            'related_category' => [$req, 'string', Rule::exists(CategoriaModelo::class, 'slug')],
             'start_md' => [$req, $this->fechaAnual()],
             'end_md' => [$req, $this->fechaAnual()],
             'event_md' => [$req, $this->fechaAnual()],

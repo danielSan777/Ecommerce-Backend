@@ -29,7 +29,7 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
     /** Por su dirección actual o, si tuvo otra antes, por la anterior (la respuesta trae la actual y Angular redirige). */
     private function buscar(string $slug, bool $soloActivas): ?CampanaModelo
     {
-        $consulta = fn () => CampanaModelo::query()->when($soloActivas, fn ($q) => $q->where('is_active', true))->with(['categoriaRelacionada', 'medios']);
+        $consulta = fn () => CampanaModelo::query()->when($soloActivas, fn ($q) => $q->where('is_active', true))->with(['medios']);
 
         return $consulta()->where('slug', $slug)->first()
             ?? $consulta()->whereIn('id', DB::table('campaign_slug_redirects')->where('slug', $slug)->select('campaign_id'))->first();
@@ -60,7 +60,7 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
         // Una campaña en temporada siempre manda; si no hay ninguna, se muestra el mensaje de despedida de la que acaba de terminar
         $elegida ??= $despidiendose;
 
-        return $elegida ? $this->armar($elegida->load(['categoriaRelacionada', 'medios']), $hoy) : null;
+        return $elegida ? $this->armar($elegida->load(['medios']), $hoy) : null;
     }
 
     private function armar(CampanaModelo $modelo, string $hoy, bool $enTemporada = false): Campana
@@ -70,12 +70,10 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
             $t['estado'] = 'active'; // vista previa del administrador: se ve como en temporada
         }
 
-        // En temporada: los productos que eligió Josué, en su orden. Fuera de temporada: los de la categoría relacionada.
-        // Mientras nadie haya elegido productos, la temporada tampoco queda vacía: se muestran los de la categoría relacionada.
-        $elegidos = $t['estado'] === 'active'
+        // En temporada: los productos que eligió el administrador, en su orden. Fuera de temporada no se muestran productos.
+        $productos = $t['estado'] === 'active'
             ? $modelo->productos()->where('is_active', true)->pluck('slug')->map(fn (string $s) => $this->catalogo->producto($s))->all()
             : [];
-        $productos = $elegidos !== [] ? $elegidos : $this->catalogo->categoria($modelo->categoriaRelacionada->slug)->productos;
 
         return new Campana(
             slug: $modelo->slug,
@@ -83,8 +81,6 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
             estado: $t['estado'],
             anioTemporada: $t['anio'],
             fechaEvento: $t['fechaEvento'],
-            categoriaRelacionadaSlug: $modelo->categoriaRelacionada->slug,
-            categoriaRelacionadaNombre: $modelo->categoriaRelacionada->name,
             lema: $modelo->tagline,
             eslogan: $modelo->slogan,
             productos: array_values($productos),

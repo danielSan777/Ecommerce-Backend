@@ -15,7 +15,6 @@ class CampanasIniciales extends Seeder
 
         CampanaModelo::query()->firstOrCreate(['slug' => 'san-valentin'], [
             'name' => 'San Valentín',
-            'related_category_id' => CategoriaModelo::query()->where('slug', 'amor')->value('id'),
             'start_md' => '01-02',
             'end_md' => '02-14',
             'event_md' => '02-14',

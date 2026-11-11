@@ -6,11 +6,10 @@ namespace App\Core\Catalogo\Infraestructura\Modelos;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['slug', 'name', 'related_category_id', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'closing_message', 'closing_until_md', 'is_active', 'seo_title', 'seo_description'])]
+#[Fillable(['slug', 'name', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'closing_message', 'closing_until_md', 'is_active', 'seo_title', 'seo_description'])]
 class CampanaModelo extends Model
 {
     protected $table = 'campaigns';
@@ -18,11 +17,6 @@ class CampanaModelo extends Model
     protected function casts(): array
     {
         return ['is_active' => 'boolean'];
-    }
-
-    public function categoriaRelacionada(): BelongsTo
-    {
-        return $this->belongsTo(CategoriaModelo::class, 'related_category_id');
     }
 
     public function medios(): HasMany
