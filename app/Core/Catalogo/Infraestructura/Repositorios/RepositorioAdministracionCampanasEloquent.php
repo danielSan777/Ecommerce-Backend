@@ -40,12 +40,24 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
         return DB::transaction(function () use ($slug, $datos) {
             $campana = $this->campana($slug);
             $campana->update($this->columnas($datos));
+            $this->cambiarDireccion($campana, $datos['slug'] ?? $campana->slug);
             if (array_key_exists('products', $datos)) {
                 $this->guardarProductos($campana, $datos['products'] ?? []);
             }
 
             return $this->formato($campana->refresh()->load(['categoriaRelacionada', 'productos', 'medios']));
         });
+    }
+
+    /** Si cambia la dirección, la anterior se guarda para que siga llevando a la campaña (y volver a una antigua la libera). */
+    private function cambiarDireccion(CampanaModelo $campana, string $nueva): void
+    {
+        if ($nueva === $campana->slug) {
+            return;
+        }
+        DB::table('campaign_slug_redirects')->where('slug', $nueva)->where('campaign_id', $campana->id)->delete();
+        DB::table('campaign_slug_redirects')->updateOrInsert(['slug' => $campana->slug], ['campaign_id' => $campana->id, 'created_at' => now(), 'updated_at' => now()]);
+        $campana->update(['slug' => $nueva]);
     }
 
     public function eliminar(string $slug): void

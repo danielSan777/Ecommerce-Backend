@@ -97,11 +97,50 @@ final class AdministrarCampanasTest extends TestCase
         $this->getJson('/api/v1/campaigns/dia-de-la-madre')->assertOk()->assertJsonPath('name', 'Día de la Madre');
     }
 
-    public function test_la_direccion_no_se_puede_elegir_ni_cambiar(): void
+    public function test_la_direccion_no_se_elige_pero_sale_del_nombre(): void
     {
         $this->admin()->postJson(self::BASE, $this->datos(['slug' => 'otra']))->assertCreated()->assertJsonPath('slug', 'dia-de-la-madre');
-        $this->admin()->putJson(self::BASE.'/dia-de-la-madre', ['name' => 'Mamá', 'slug' => 'nueva'])->assertOk()->assertJsonPath('slug', 'dia-de-la-madre');
+        // Mandar una dirección a mano en la edición no sirve: manda el nombre.
+        $this->admin()->putJson(self::BASE.'/dia-de-la-madre', ['name' => 'Día de la Madre', 'slug' => 'nueva'])->assertOk()->assertJsonPath('slug', 'dia-de-la-madre');
         $this->assertDatabaseMissing('campaigns', ['slug' => 'nueva']);
+    }
+
+    public function test_al_cambiar_el_nombre_cambia_la_direccion_y_la_anterior_lleva_a_la_nueva(): void
+    {
+        $this->admin()->putJson(self::BASE.'/san-valentin', ['name' => 'San Valentín 2027'])->assertOk()->assertJsonPath('slug', 'san-valentin-2027');
+
+        $this->assertDatabaseHas('campaign_slug_redirects', ['slug' => 'san-valentin']);
+        // La antigua responde con la campaña, cuyo slug es el nuevo (Angular redirige).
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('slug', 'san-valentin-2027');
+        $this->getJson('/api/v1/campaigns/san-valentin-2027')->assertOk()->assertJsonPath('slug', 'san-valentin-2027');
+        $this->admin()->getJson(self::BASE.'/san-valentin-2027')->assertOk();
+        $this->admin()->getJson(self::BASE.'/san-valentin')->assertNotFound();
+
+        // Otro cambio: las dos direcciones anteriores siguen llevando a la actual.
+        $this->admin()->putJson(self::BASE.'/san-valentin-2027', ['name' => 'San Valentín 2028'])->assertOk();
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('slug', 'san-valentin-2028');
+        $this->getJson('/api/v1/campaigns/san-valentin-2027')->assertOk()->assertJsonPath('slug', 'san-valentin-2028');
+
+        // Volver a un nombre anterior libera esa dirección.
+        $this->admin()->putJson(self::BASE.'/san-valentin-2028', ['name' => 'San Valentín'])->assertOk()->assertJsonPath('slug', 'san-valentin');
+        $this->assertDatabaseMissing('campaign_slug_redirects', ['slug' => 'san-valentin']);
+        $this->getJson('/api/v1/campaigns/san-valentin-2028')->assertOk()->assertJsonPath('slug', 'san-valentin');
+    }
+
+    public function test_una_direccion_anterior_de_otra_campana_no_se_puede_reutilizar(): void
+    {
+        $this->admin()->putJson(self::BASE.'/san-valentin', ['name' => 'San Valentín 2027'])->assertOk();
+
+        $this->admin()->postJson(self::BASE, $this->datos(['name' => 'San Valentín']))->assertUnprocessable()->assertJsonValidationErrors('slug');
+    }
+
+    public function test_al_eliminar_la_campana_sus_direcciones_anteriores_dejan_de_existir(): void
+    {
+        $this->admin()->putJson(self::BASE.'/san-valentin', ['name' => 'San Valentín 2027'])->assertOk();
+        $this->admin()->deleteJson(self::BASE.'/san-valentin-2027')->assertNoContent();
+
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertNotFound();
+        $this->assertDatabaseMissing('campaign_slug_redirects', ['slug' => 'san-valentin']);
     }
 
     public function test_crear_valida_en_espanol(): void

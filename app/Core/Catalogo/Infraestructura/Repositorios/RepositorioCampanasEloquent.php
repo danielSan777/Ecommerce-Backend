@@ -12,6 +12,7 @@ use App\Core\Catalogo\Dominio\Repositorios\RepositorioCatalogo;
 use App\Core\Catalogo\Dominio\Servicios\TemporadaDeCampana;
 use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\MedioModelo;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 final class RepositorioCampanasEloquent implements RepositorioCampanas
@@ -20,16 +21,23 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
 
     public function campana(string $slug, string $hoy): Campana
     {
-        $modelo = CampanaModelo::query()->where('is_active', true)->where('slug', $slug)->with(['categoriaRelacionada', 'medios'])->first()
-            ?? throw CatalogoNoEncontrado::campana($slug);
+        $modelo = $this->buscar($slug, soloActivas: true) ?? throw CatalogoNoEncontrado::campana($slug);
 
         return $this->armar($modelo, $hoy);
     }
 
+    /** Por su dirección actual o, si tuvo otra antes, por la anterior (la respuesta trae la actual y Angular redirige). */
+    private function buscar(string $slug, bool $soloActivas): ?CampanaModelo
+    {
+        $consulta = fn () => CampanaModelo::query()->when($soloActivas, fn ($q) => $q->where('is_active', true))->with(['categoriaRelacionada', 'medios']);
+
+        return $consulta()->where('slug', $slug)->first()
+            ?? $consulta()->whereIn('id', DB::table('campaign_slug_redirects')->where('slug', $slug)->select('campaign_id'))->first();
+    }
+
     public function vistaPrevia(string $slug, string $hoy): Campana
     {
-        $modelo = CampanaModelo::query()->where('slug', $slug)->with(['categoriaRelacionada', 'medios'])->first()
-            ?? throw CatalogoNoEncontrado::campana($slug);
+        $modelo = $this->buscar($slug, soloActivas: false) ?? throw CatalogoNoEncontrado::campana($slug);
 
         return $this->armar($modelo, $hoy, enTemporada: true);
     }

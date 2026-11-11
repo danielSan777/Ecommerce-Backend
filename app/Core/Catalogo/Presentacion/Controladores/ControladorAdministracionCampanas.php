@@ -8,6 +8,7 @@ use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarCampanas;
 use App\Core\Catalogo\Aplicacion\CasosDeUso\PrevisualizarCampana;
 use App\Core\Catalogo\Presentacion\Resources\CampanaResource;
 use App\Core\Catalogo\Dominio\Servicios\TemporadaDeCampana;
+use App\Core\Catalogo\Infraestructura\Modelos\CampanaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
@@ -69,7 +70,7 @@ final class ControladorAdministracionCampanas extends Controller
 
         $validos = ValidacionFallida::validar($datos, [
             'name' => ['required', 'string', 'max:150'],
-            'slug' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('campaigns', 'slug')],
+            'slug' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('campaigns', 'slug'), Rule::unique('campaign_slug_redirects', 'slug')],
             ...$this->reglasComunes(requeridos: true),
         ], self::MENSAJES);
 
@@ -80,9 +81,16 @@ final class ControladorAdministracionCampanas extends Controller
 
     public function update(string $slug, Request $request, AdministrarCampanas $campanas): JsonResponse
     {
-        // La dirección no se edita: cambiarla rompería los enlaces ya publicados.
-        $validos = ValidacionFallida::validar($request->except('slug'), [
+        // La dirección sale del nombre: si cambia el nombre, cambia la dirección y la anterior sigue llevando a la nueva.
+        $datos = $request->except('slug');
+        $id = CampanaModelo::query()->where('slug', $slug)->value('id');
+        if (is_string($datos['name'] ?? null) && ($nueva = Str::slug($datos['name'])) !== $slug) {
+            $datos['slug'] = $nueva;
+        }
+        $validos = ValidacionFallida::validar($datos, [
             'name' => ['sometimes', 'required', 'string', 'max:150'],
+            'slug' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('campaigns', 'slug')->ignore($id),
+                Rule::unique('campaign_slug_redirects', 'slug')->where(fn ($q) => $q->where('campaign_id', '!=', $id))],
             ...$this->reglasComunes(requeridos: false),
         ], self::MENSAJES);
 
