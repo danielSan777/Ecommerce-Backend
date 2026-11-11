@@ -16,6 +16,9 @@ use Illuminate\Validation\Rule;
 
 final class ControladorAdministracionAccesorios extends Controller
 {
+    /** Comportamientos especiales que reconoce el personalizador. */
+    private const COMPORTAMIENTOS = ['lentes', 'gafas', 'marco_foto', 'marco_frase'];
+
     private const MENSAJES = [
         'name.required' => 'Escribe el nombre.',
         'name.max' => 'El nombre no puede pasar de 150 caracteres.',
@@ -24,6 +27,8 @@ final class ControladorAdministracionAccesorios extends Controller
         'accessory_category_id.required' => 'Elige la categoría del accesorio.',
         'accessory_category_id.exists' => 'La categoría de accesorios elegida no existe.',
         'type.in' => 'El tipo debe ser imagen o texto.',
+        'behavior.in' => 'El comportamiento debe ser lentes, gafas, marco con foto o marco con frase.',
+        'behavior.unique' => 'Otro accesorio ya tiene ese comportamiento. Solo uno puede tenerlo.',
         'default_text.required_if' => 'Escribe el texto de ejemplo del accesorio de tipo texto.',
         'default_text.max' => 'El texto de ejemplo no puede pasar de 150 caracteres.',
         'is_active.boolean' => 'Indica si el accesorio está activo o no.',
@@ -75,6 +80,7 @@ final class ControladorAdministracionAccesorios extends Controller
             'name' => ['required', 'string', 'max:150'],
             'accessory_category_id' => ['required', 'integer', Rule::exists('accessory_categories', 'id')],
             'type' => ['sometimes', Rule::in(['imagen', 'texto'])],
+            'behavior' => ['sometimes', 'nullable', Rule::in(self::COMPORTAMIENTOS), Rule::unique('accessories', 'behavior')],
             'default_text' => ['required_if:type,texto', 'nullable', 'string', 'max:150'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],
@@ -89,6 +95,7 @@ final class ControladorAdministracionAccesorios extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:150'],
             'accessory_category_id' => ['sometimes', 'required', 'integer', Rule::exists('accessory_categories', 'id')],
             'type' => ['sometimes', Rule::in(['imagen', 'texto'])],
+            'behavior' => ['sometimes', 'nullable', Rule::in(self::COMPORTAMIENTOS), Rule::unique('accessories', 'behavior')->ignore($id)],
             'default_text' => ['required_if:type,texto', 'nullable', 'string', 'max:150'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],

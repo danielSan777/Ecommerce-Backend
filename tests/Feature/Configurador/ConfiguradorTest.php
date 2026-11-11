@@ -178,6 +178,22 @@ final class ConfiguradorTest extends TestCase
         $this->assertCount(2, Storage::disk('media')->allFiles('accessories'));
     }
 
+    public function test_el_comportamiento_especial_lo_tiene_como_maximo_un_accesorio(): void
+    {
+        [$categoria, , $gafas] = $this->base();
+
+        $this->putJson("/api/v1/admin/accessories/$gafas", ['behavior' => 'gafas'])->assertOk()->assertJsonPath('behavior', 'gafas');
+        // Se puede volver a guardar el mismo accesorio con su comportamiento
+        $this->putJson("/api/v1/admin/accessories/$gafas", ['behavior' => 'gafas', 'name' => 'Gafas negras'])->assertOk();
+        $this->postJson('/api/v1/admin/accessories', ['name' => 'Otras gafas', 'accessory_category_id' => $categoria, 'behavior' => 'gafas'])
+            ->assertUnprocessable()->assertJsonPath('errors.behavior.0', 'Otro accesorio ya tiene ese comportamiento. Solo uno puede tenerlo.');
+        $this->postJson('/api/v1/admin/accessories', ['name' => 'Raro', 'accessory_category_id' => $categoria, 'behavior' => 'volar'])
+            ->assertUnprocessable()->assertJsonPath('errors.behavior.0', 'El comportamiento debe ser lentes, gafas, marco con foto o marco con frase.');
+        // Dos accesorios sin comportamiento conviven sin problema
+        $this->postJson('/api/v1/admin/accessories', ['name' => 'Uno', 'accessory_category_id' => $categoria])->assertCreated()->assertJsonPath('behavior', null);
+        $this->postJson('/api/v1/admin/accessories', ['name' => 'Dos', 'accessory_category_id' => $categoria])->assertCreated();
+    }
+
     // ------------------------------------------------------------ ubicaciones
 
     public function test_las_ubicaciones_guardan_sus_reglas_de_categoria(): void
@@ -393,6 +409,8 @@ final class ConfiguradorTest extends TestCase
         $this->assertSame('fija', $r->json('locations.1.state'));
         $this->assertCount(1, $r->json('exceptions'));
         $nombre = collect($r->json('accessories'))->firstWhere('name', 'Nombre');
+        $this->assertEqualsCanonicalizing(['lentes', 'gafas', 'marco_foto', 'marco_frase'], array_values(array_filter(array_column($r->json('accessories'), 'behavior'))));
+        $this->assertSame('gafas', collect($r->json('accessories'))->firstWhere('name', 'Gafas')['behavior']);
         $this->assertSame('texto', $nombre['type']);
         $this->assertSame('Ingrese su nombre.', $nombre['text']);
         $this->assertNull($nombre['image']);

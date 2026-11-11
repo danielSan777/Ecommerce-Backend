@@ -118,6 +118,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'id' => $a->id,
             'name' => $a->name,
             'type' => $a->type,
+            'behavior' => $a->behavior,
             'text' => $a->default_text,
             'category_id' => $a->accessory_category_id,
             'category' => $a->categoria?->name,
@@ -320,7 +321,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'accessories' => $marcados->map(function (AccesorioModelo $a): array {
                 $f = $this->formatoAccesorio($a);
 
-                return ['id' => $f['id'], 'name' => $f['name'], 'type' => $f['type'], 'text' => $f['text'], 'category' => $f['category'], 'image' => $f['image'], 'thumb' => $f['thumb'], 'alt' => $f['alt']];
+                return ['id' => $f['id'], 'name' => $f['name'], 'type' => $f['type'], 'behavior' => $f['behavior'], 'text' => $f['text'], 'category' => $f['category'], 'image' => $f['image'], 'thumb' => $f['thumb'], 'alt' => $f['alt']];
             })->values()->all(),
             'exceptions' => $armada['exceptions'],
         ];

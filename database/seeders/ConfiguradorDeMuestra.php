@@ -32,19 +32,19 @@ class ConfiguradorDeMuestra extends Seeder
         'Base' => [['Personalización'], []],
     ];
 
-    /** nombre => [categoría, archivo (o null si es de texto), texto alternativo o texto de ejemplo] */
+    /** nombre => [categoría, archivo (o null si es de texto), texto alternativo o texto de ejemplo, comportamiento] */
     private const ACCESORIOS = [
-        'Lentes' => ['Moda', 'lentes.webp', 'Lentes'],
-        'Nombre' => ['Personalización', null, 'Ingrese su nombre.'],
-        'Marco de foto' => ['Objetos', 'marco-foto.webp', 'Marco para una foto'],
-        'Marco de frase' => ['Objetos', 'marco-frase.webp', 'Marco para una frase'],
-        'Gafas' => ['Moda', 'gafas-sin-fondo.webp', 'Gafas'],
-        'Caja de herramientas' => ['Objetos', 'caja_herramientas.webp', 'Caja de herramientas'],
-        'Regalo' => ['Objetos', 'regalo.webp', 'Caja de regalo'],
-        'Vaso de café' => ['Objetos', 'vaso_cafe.webp', 'Vaso de café'],
-        'Gato amarillo' => ['Animales', 'gatito.webp', 'Gatito amarillo'],
-        'Perro' => ['Animales', 'perro.webp', 'Perro'],
-        'Flor' => ['Flores', 'flores.webp', 'Flores'],
+        'Lentes' => ['Moda', 'lentes.webp', 'Lentes', 'lentes'],
+        'Nombre' => ['Personalización', null, 'Ingrese su nombre.', null],
+        'Marco de foto' => ['Objetos', 'marco-foto.webp', 'Marco para una foto', 'marco_foto'],
+        'Marco de frase' => ['Objetos', 'marco-frase.webp', 'Marco para una frase', 'marco_frase'],
+        'Gafas' => ['Moda', 'gafas-sin-fondo.webp', 'Gafas', 'gafas'],
+        'Caja de herramientas' => ['Objetos', 'caja_herramientas.webp', 'Caja de herramientas', null],
+        'Regalo' => ['Objetos', 'regalo.webp', 'Caja de regalo', null],
+        'Vaso de café' => ['Objetos', 'vaso_cafe.webp', 'Vaso de café', null],
+        'Gato amarillo' => ['Animales', 'gatito.webp', 'Gatito amarillo', null],
+        'Perro' => ['Animales', 'perro.webp', 'Perro', null],
+        'Flor' => ['Flores', 'flores.webp', 'Flores', null],
     ];
 
     /** Ubicación => [estado, prioridad, accesorio fijo, x, y, ancho, alto] */
@@ -79,10 +79,11 @@ class ConfiguradorDeMuestra extends Seeder
         }
 
         $i = 0;
-        foreach (self::ACCESORIOS as $nombre => [$categoria, $archivo, $texto]) {
+        foreach (self::ACCESORIOS as $nombre => [$categoria, $archivo, $texto, $comportamiento]) {
             $accesorio = AccesorioModelo::query()->firstOrCreate(['name' => $nombre], [
                 'accessory_category_id' => $categorias[$categoria],
                 'type' => $archivo === null ? 'texto' : 'imagen',
+                'behavior' => $comportamiento,
                 'default_text' => $archivo === null ? $texto : null,
                 'sort_order' => ++$i,
             ]);

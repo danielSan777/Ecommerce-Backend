@@ -206,7 +206,7 @@ Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre
 | Tabla | Qué guarda |
 | --- | --- |
 | `accessory_categories` | Categorías de accesorios (Moda, Personalización, Objetos, Animales, Flores…). |
-| `accessories` | Accesorio: nombre, categoría (FK), `type` `imagen` o `texto`, texto de ejemplo, `image_variants` (rutas relativas de la imagen grande de 1080 px y la miniatura de 160 px, ambas WebP con transparencia), `alt`, `is_active`. |
+| `accessories` | Accesorio: nombre, categoría (FK), `type` `imagen` o `texto`, `behavior` (comportamiento especial en el personalizador: `lentes`, `gafas`, `marco_foto`, `marco_frase` o nulo; lo tiene como máximo un accesorio, así el personalizador no depende del número del accesorio), texto de ejemplo, `image_variants` (rutas relativas de la imagen grande de 1080 px y la miniatura de 160 px, ambas WebP con transparencia), `alt`, `is_active`. |
 | `locations` | Ubicaciones (slots): Cabeza, Pie izquierdo… |
 | `location_category_rules` | Qué categorías admite cada ubicación: `allow` (solo esas) o `exclude` (todas menos esas). |
 | `configurator_configs` | Una configuración por **categoría de producto** (`category_id`) o **por producto** (`product_id`). |
@@ -225,6 +225,6 @@ Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre
 - `PUT /admin/configurator/products/{sku}/mode` con `{uses_own_configurator, copy_from_category?}`.
 
 **API pública:** `GET /api/v1/products/{slug}/configurator` →
-`{source:'product'|'category', configured, locations:[{location_id,name,allowed_categories,excluded_categories,state,priority,layer,fixed_accessory_id,preset}], accessories:[{id,name,type,text,category,image,thumb,alt}], exceptions:[…]}`. Solo accesorios marcados y activos. Caché de 60 s.
+`{source:'product'|'category', configured, locations:[{location_id,name,allowed_categories,excluded_categories,state,priority,layer,fixed_accessory_id,preset}], accessories:[{id,name,type,behavior,text,category,image,thumb,alt}], exceptions:[…]}`. Solo accesorios marcados y activos. Caché de 60 s.
 
 **Datos de muestra** (los del prototipo VentaPruebaApp: 5 ubicaciones, 11 accesorios con imagen y, si existe la categoría `profesiones-y-hobbies` sin configuración, una configuración de ejemplo): `php artisan db:seed --class=ConfiguradorDeMuestra` (idempotente, no pisa lo que el administrador editó).
