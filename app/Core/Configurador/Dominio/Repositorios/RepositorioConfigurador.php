@@ -1,0 +1,96 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Configurador\Dominio\Repositorios;
+
+/**
+ * Todo lo del configurador sale de la base de datos. Los datos viajan como arreglos con los nombres de la API
+ * (en inglés); Laravel valida las reglas y Angular solo representa.
+ */
+interface RepositorioConfigurador
+{
+    /** @return list<array<string, mixed>> */
+    public function categoriasDeAccesorios(): array;
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function crearCategoriaDeAccesorio(array $datos): array;
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function actualizarCategoriaDeAccesorio(int $id, array $datos): array;
+
+    public function eliminarCategoriaDeAccesorio(int $id): void;
+
+    /** @return list<array<string, mixed>> */
+    public function accesorios(): array;
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function crearAccesorio(array $datos): array;
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function actualizarAccesorio(int $id, array $datos): array;
+
+    /** Rutas de imagen actuales del accesorio (para borrar los archivos al reemplazarlos o eliminarlo). @return list<string> */
+    public function rutasDeImagenDelAccesorio(int $id): array;
+
+    /**
+     * @param  array<int|string, string>  $variantes  ancho => ruta relativa
+     * @return array<string, mixed>
+     */
+    public function guardarImagenDelAccesorio(int $id, array $variantes, string $alt): array;
+
+    public function eliminarAccesorio(int $id): void;
+
+    /** @return list<array<string, mixed>> */
+    public function ubicaciones(): array;
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function crearUbicacion(array $datos): array;
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function actualizarUbicacion(int $id, array $datos): array;
+
+    public function eliminarUbicacion(int $id): void;
+
+    /** @return array<string, mixed> */
+    public function configuracionDeCategoria(string $slug): array;
+
+    /** @return array<string, mixed> */
+    public function configuracionDeProducto(string $sku): array;
+
+    /**
+     * @param  array<string, mixed>  $configuracion
+     * @return array<string, mixed>
+     */
+    public function guardarConfiguracionDeCategoria(string $slug, array $configuracion): array;
+
+    /**
+     * @param  array<string, mixed>  $configuracion
+     * @return array<string, mixed>
+     */
+    public function guardarConfiguracionDeProducto(string $sku, array $configuracion): array;
+
+    /** @return array<string, mixed> */
+    public function cambiarModoDelProducto(string $sku, bool $propia, bool $copiarDeLaCategoria): array;
+
+    /** Lo que ve el cliente: la configuración propia del producto o la de su categoría. @return array<string, mixed> */
+    public function paraElCliente(string $slugDelProducto): array;
+}

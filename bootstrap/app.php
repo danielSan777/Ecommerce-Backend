@@ -3,6 +3,9 @@
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Dominio\Excepciones\CategoriaConProductos;
 use App\Core\Catalogo\Dominio\Excepciones\SubcategoriaConProductos;
+use App\Core\Configurador\Dominio\Excepciones\ConfiguracionInvalida;
+use App\Core\Configurador\Dominio\Excepciones\ConfiguradorEnUso;
+use App\Core\Configurador\Dominio\Excepciones\ConfiguradorNoEncontrado;
 use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
@@ -42,6 +45,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'products_count' => $e->total,
             'products' => $e->productos,
         ], 409));
+        // Configurador: lo que no existe responde 404, lo que está en uso 409 y una configuración incoherente 422
+        $exceptions->render(fn (ConfiguradorNoEncontrado $e) => response()->json(['code' => 'not_found', 'message' => $e->getMessage()], 404));
+        $exceptions->render(fn (ConfiguradorEnUso $e) => response()->json(['code' => 'in_use', 'message' => $e->getMessage()], 409));
+        $exceptions->render(fn (ConfiguracionInvalida $e) => response()->json(['code' => 'validation_error', 'message' => $e->getMessage(), 'errors' => $e->errores], 422));
         $exceptions->render(fn (ValidacionFallida $e) => response()->json(['code' => 'validation_error', 'message' => $e->getMessage(), 'errors' => $e->errores], 422));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),

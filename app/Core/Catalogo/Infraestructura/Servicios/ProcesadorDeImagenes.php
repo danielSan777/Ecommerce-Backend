@@ -88,7 +88,7 @@ final class ProcesadorDeImagenes
         return $girada === false ? $imagen : $girada;
     }
 
-    private function aWebp(\GdImage $origen, int $ancho, int $alto, int $anchoFinal): string
+    public function aWebp(\GdImage $origen, int $ancho, int $alto, int $anchoFinal): string
     {
         $altoFinal = max(1, (int) round($alto * $anchoFinal / $ancho));
         $copia = imagecreatetruecolor($anchoFinal, $altoFinal);

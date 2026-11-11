@@ -16,6 +16,8 @@ use App\Core\Catalogo\Infraestructura\Repositorios\RepositorioCampanasEloquent;
 use App\Core\Catalogo\Infraestructura\Repositorios\RepositorioCatalogoEloquent;
 use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
 use App\Core\Configuracion\Infraestructura\Repositorios\RepositorioConfiguracionEloquent;
+use App\Core\Configurador\Dominio\Repositorios\RepositorioConfigurador;
+use App\Core\Configurador\Infraestructura\Repositorios\RepositorioConfiguradorEloquent;
 use App\Core\Cuentas\Aplicacion\SesionesDeAcceso;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -36,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(RepositorioAdministracionProductos::class, RepositorioAdministracionProductosEloquent::class);
         $this->app->bind(RepositorioCampanas::class, RepositorioCampanasEloquent::class);
         $this->app->bind(RepositorioCatalogo::class, RepositorioCatalogoEloquent::class);
+        $this->app->bind(RepositorioConfigurador::class, RepositorioConfiguradorEloquent::class);
         $this->app->bind(RepositorioConfiguracion::class, RepositorioConfiguracionEloquent::class);
     }
 

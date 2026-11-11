@@ -4,12 +4,16 @@ use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCampan
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionInicio;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionMedios;
-use App\Core\Catalogo\Presentacion\Controladores\ControladorInicio;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionProductos;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionSubcategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCategorias;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorInicio;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorProductos;
+use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionAccesorios;
+use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionConfigurador;
+use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
+use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
 use App\Core\Cuentas\Presentacion\Controladores\ControladorCuenta;
 use App\Core\Salud\Presentacion\Controladores\ControladorSalud;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +24,7 @@ Route::prefix('v1')->group(function () {
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
     Route::get('products', [ControladorProductos::class, 'index'])->name('api.v1.products.index');
     Route::get('products/{slug}', [ControladorProductos::class, 'show'])->name('api.v1.products.show');
+    Route::get('products/{slug}/configurator', [ControladorConfigurador::class, 'show'])->name('api.v1.products.configurator');
     Route::get('home/hero', [ControladorInicio::class, 'hero'])->name('api.v1.home.hero');
     Route::get('categories-page', [ControladorInicio::class, 'categorias'])->name('api.v1.categories-page');
     Route::get('campaigns/current', [ControladorCampanas::class, 'current'])->name('api.v1.campaigns.current');
@@ -81,6 +86,26 @@ Route::prefix('v1')->group(function () {
         Route::post('categories/{slug}/video', [ControladorAdministracionMedios::class, 'storeCategoriaVideo'])->name('api.v1.admin.categories.video.store');
         Route::put('media/{id}', [ControladorAdministracionMedios::class, 'update'])->whereNumber('id')->name('api.v1.admin.media.update');
         Route::delete('media/{id}', [ControladorAdministracionMedios::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.media.destroy');
+
+        // Configurador (solo el administrador): accesorios, ubicaciones y la configuración por categoría o por producto.
+        Route::get('accessory-categories', [ControladorAdministracionAccesorios::class, 'categorias'])->name('api.v1.admin.accessory-categories.index');
+        Route::post('accessory-categories', [ControladorAdministracionAccesorios::class, 'crearCategoria'])->name('api.v1.admin.accessory-categories.store');
+        Route::put('accessory-categories/{id}', [ControladorAdministracionAccesorios::class, 'actualizarCategoria'])->whereNumber('id')->name('api.v1.admin.accessory-categories.update');
+        Route::delete('accessory-categories/{id}', [ControladorAdministracionAccesorios::class, 'eliminarCategoria'])->whereNumber('id')->name('api.v1.admin.accessory-categories.destroy');
+        Route::get('accessories', [ControladorAdministracionAccesorios::class, 'index'])->name('api.v1.admin.accessories.index');
+        Route::post('accessories', [ControladorAdministracionAccesorios::class, 'store'])->name('api.v1.admin.accessories.store');
+        Route::put('accessories/{id}', [ControladorAdministracionAccesorios::class, 'update'])->whereNumber('id')->name('api.v1.admin.accessories.update');
+        Route::post('accessories/{id}/image', [ControladorAdministracionAccesorios::class, 'imagen'])->whereNumber('id')->name('api.v1.admin.accessories.image');
+        Route::delete('accessories/{id}', [ControladorAdministracionAccesorios::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.accessories.destroy');
+        Route::get('locations', [ControladorAdministracionUbicaciones::class, 'index'])->name('api.v1.admin.locations.index');
+        Route::post('locations', [ControladorAdministracionUbicaciones::class, 'store'])->name('api.v1.admin.locations.store');
+        Route::put('locations/{id}', [ControladorAdministracionUbicaciones::class, 'update'])->whereNumber('id')->name('api.v1.admin.locations.update');
+        Route::delete('locations/{id}', [ControladorAdministracionUbicaciones::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.locations.destroy');
+        Route::get('configurator/categories/{slug}', [ControladorAdministracionConfigurador::class, 'categoria'])->name('api.v1.admin.configurator.categories.show');
+        Route::put('configurator/categories/{slug}', [ControladorAdministracionConfigurador::class, 'guardarCategoria'])->name('api.v1.admin.configurator.categories.update');
+        Route::get('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'producto'])->name('api.v1.admin.configurator.products.show');
+        Route::put('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'guardarProducto'])->name('api.v1.admin.configurator.products.update');
+        Route::put('configurator/products/{sku}/mode', [ControladorAdministracionConfigurador::class, 'modo'])->name('api.v1.admin.configurator.products.mode');
     });
 
     Route::get('health', ControladorSalud::class)->name('api.v1.health');

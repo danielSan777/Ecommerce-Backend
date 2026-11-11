@@ -196,3 +196,35 @@ Errores comunes: `401 unauthenticated`, `403 forbidden` (cliente), `422 validati
 
 ### Vista previa de campañas (administrador)
 `GET /api/v1/admin/campaigns/{slug}/preview` (solo rol administrador, caso de uso `PrevisualizarCampana`) devuelve la campaña con el mismo contrato público pero siempre como `active` y con los productos elegidos, aunque esté inactiva o fuera de fechas. Angular la usa para que solo el administrador entre a la URL de una campaña no publicada; el público es llevado a la página principal.
+
+## 11. Configurador (accesorios y ubicaciones; todo sale de la base de datos)
+
+Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre la maceta) deja de leer un archivo fijo: accesorios, ubicaciones y configuraciones viven en MySQL con llaves foráneas reales. Todo lo que se configura es **solo del administrador** (`/api/v1/admin/*`, middleware `admin`); el cliente solo lee.
+
+**Tablas** (migración `2026_11_12_100001_create_configurador_tables`):
+
+| Tabla | Qué guarda |
+| --- | --- |
+| `accessory_categories` | Categorías de accesorios (Moda, Personalización, Objetos, Animales, Flores…). |
+| `accessories` | Accesorio: nombre, categoría (FK), `type` `imagen` o `texto`, texto de ejemplo, `image_variants` (rutas relativas de la imagen grande de 1080 px y la miniatura de 160 px, ambas WebP con transparencia), `alt`, `is_active`. |
+| `locations` | Ubicaciones (slots): Cabeza, Pie izquierdo… |
+| `location_category_rules` | Qué categorías admite cada ubicación: `allow` (solo esas) o `exclude` (todas menos esas). |
+| `configurator_configs` | Una configuración por **categoría de producto** (`category_id`) o **por producto** (`product_id`). |
+| `configurator_config_locations` | Por ubicación en esa configuración: `state` (libre, fija, deshabilitada), `priority` (1 = la primera que se propone al cliente), `layer` (z-index), accesorio fijo (FK) y los valores por defecto (`x`, `y`, `width`, `height` en % del visor; `rot_x`, `rot_y`, `rot_z` en grados; `mirror`). Sin valores = nulos. |
+| `configurator_config_accessories` | Accesorios marcados (los que el cliente puede elegir). |
+| `configurator_config_exceptions` | Valores propios de UN accesorio en UNA ubicación. |
+| `products.uses_own_configurator` | `false` = el producto usa la configuración de su categoría; `true` = tiene la suya. |
+
+**Regla de resolución:** el producto usa la configuración de su categoría hasta que el administrador marca «configuración propia». Al marcarla se puede partir de una copia de la de la categoría (`copy_from_category`). Volver a la categoría no borra la propia: queda guardada y deja de usarse. Si el producto es propio y aún no se guardó nada, el cliente ve el configurador vacío (`configured: false`).
+
+**API del administrador**
+- `GET|POST /admin/accessory-categories`, `PUT|DELETE /admin/accessory-categories/{id}` (con accesorios no se elimina: 409 `in_use`).
+- `GET|POST /admin/accessories`, `PUT|DELETE /admin/accessories/{id}`, `POST /admin/accessories/{id}/image` (multipart `image` + `alt` obligatorio; valida el contenido real, PNG/JPG/WebP, de 64 × 64 px a 8 MB; reemplaza y borra la anterior). Un accesorio que está en alguna configuración no se elimina (409): se desactiva (`is_active=false`) y deja de ofrecerse.
+- `GET|POST /admin/locations`, `PUT|DELETE /admin/locations/{id}` con `allowed_category_ids` y `excluded_category_ids` (una categoría no puede estar en ambas). Una ubicación usada en alguna configuración no se elimina.
+- `GET|PUT /admin/configurator/categories/{slug}` y `GET|PUT /admin/configurator/products/{sku}`. El `PUT` reemplaza todo: `{locations:[{location_id,state,priority,layer,fixed_accessory_id,preset}], accessory_ids:[], exceptions:[{accessory_id,location_id,x,y,width,height,rot_x,rot_y,rot_z,mirror}]}`. Reglas (422 en español): una ubicación `fija` necesita elemento fijo marcado y valores; una excepción es de un accesorio marcado, no repetida y no en una ubicación deshabilitada; rangos: x/y 0–100, ancho/alto 1–100, `rot_x` ±90, `rot_y`/`rot_z` ±180, prioridad 1–99, capa 0–99. Guardar la configuración propia de un producto que usa la de su categoría responde 409.
+- `PUT /admin/configurator/products/{sku}/mode` con `{uses_own_configurator, copy_from_category?}`.
+
+**API pública:** `GET /api/v1/products/{slug}/configurator` →
+`{source:'product'|'category', configured, locations:[{location_id,name,allowed_categories,excluded_categories,state,priority,layer,fixed_accessory_id,preset}], accessories:[{id,name,type,text,category,image,thumb,alt}], exceptions:[…]}`. Solo accesorios marcados y activos. Caché de 60 s.
+
+**Datos de muestra** (los del prototipo VentaPruebaApp: 5 ubicaciones, 11 accesorios con imagen y, si existe la categoría `profesiones-y-hobbies` sin configuración, una configuración de ejemplo): `php artisan db:seed --class=ConfiguradorDeMuestra` (idempotente, no pisa lo que el administrador editó).
