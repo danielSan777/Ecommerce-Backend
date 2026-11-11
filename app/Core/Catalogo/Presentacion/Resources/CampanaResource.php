@@ -26,7 +26,7 @@ final class CampanaResource
             'slug' => $c->slug,
             'name' => $c->nombre,
             'state' => $c->estado,
-            'closing_message' => $c->mensajeDeCierre,
+            'closing_message' => $c->estado === 'closing' ? $c->mensajeDeCierre : null, // el banner solo lo muestra durante la despedida
             'url' => "/{$c->slug}",
             'season_year' => $c->anioTemporada,
             'event_date' => $c->fechaEvento,

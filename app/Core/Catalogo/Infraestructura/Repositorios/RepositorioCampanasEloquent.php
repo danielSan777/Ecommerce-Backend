@@ -90,7 +90,7 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
             emoji: $modelo->emoji,
             portada: ($m = $modelo->medios->firstWhere('type', 'image')) ? $this->medio($m) : null,
             video: ($v = $modelo->medios->firstWhere('type', 'video')) ? $this->medio($v) : null,
-            mensajeDeCierre: $t['estado'] === 'closing' ? $modelo->closing_message : null,
+            mensajeDeCierre: $modelo->closing_message, // la página de la campaña lo muestra siempre que no esté en temporada
         );
     }
 

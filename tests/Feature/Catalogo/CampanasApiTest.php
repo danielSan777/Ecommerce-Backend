@@ -87,7 +87,7 @@ final class CampanasApiTest extends TestCase
 
         $this->hoyEs('2027-03-11 15:00:00'); // pasó la fecha: no se ve nada
         $this->getJson('/api/v1/campaigns/current')->assertOk()->assertJsonPath('data', null);
-        $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('state', 'upcoming')->assertJsonPath('closing_message', null);
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('state', 'upcoming')->assertJsonPath('closing_message', 'San Valentín regresará pronto'); // la página sigue diciendo que terminó
     }
 
     public function test_sin_mensaje_de_cierre_no_hay_despedida_aunque_tenga_fecha(): void

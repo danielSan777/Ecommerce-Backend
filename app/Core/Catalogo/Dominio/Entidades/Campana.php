@@ -22,7 +22,7 @@ final readonly class Campana
         public ?string $emoji = null,
         public ?Medio $portada = null,
         public ?Medio $video = null,
-        /** Texto de despedida: solo viene lleno cuando la campaña está en `closing`. */
+        /** Mensaje de cierre que escribió el administrador (si lo hay): se muestra en la página de la campaña siempre que no esté en temporada. */
         public ?string $mensajeDeCierre = null,
     ) {}
 }
