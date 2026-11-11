@@ -38,6 +38,7 @@ Route::prefix('v1')->group(function () {
     // Administración (Angular del administrador): solo rol administrador.
     Route::prefix('admin')->middleware('admin')->group(function () {
         Route::get('campaigns', [ControladorAdministracionCampanas::class, 'index'])->name('api.v1.admin.campaigns.index');
+        Route::get('campaigns/{slug}/preview', [ControladorAdministracionCampanas::class, 'preview'])->name('api.v1.admin.campaigns.preview');
         Route::post('campaigns', [ControladorAdministracionCampanas::class, 'store'])->name('api.v1.admin.campaigns.store');
         Route::get('campaigns/{slug}', [ControladorAdministracionCampanas::class, 'show'])->name('api.v1.admin.campaigns.show');
         Route::put('campaigns/{slug}', [ControladorAdministracionCampanas::class, 'update'])->name('api.v1.admin.campaigns.update');

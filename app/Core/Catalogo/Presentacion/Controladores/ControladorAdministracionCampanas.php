@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Core\Catalogo\Presentacion\Controladores;
 
 use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarCampanas;
+use App\Core\Catalogo\Aplicacion\CasosDeUso\PrevisualizarCampana;
+use App\Core\Catalogo\Presentacion\Resources\CampanaResource;
 use App\Core\Catalogo\Dominio\Servicios\TemporadaDeCampana;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Http\Controllers\Controller;
@@ -49,6 +51,12 @@ final class ControladorAdministracionCampanas extends Controller
     public function show(string $slug, AdministrarCampanas $campanas): JsonResponse
     {
         return response()->json($campanas->obtener($slug));
+    }
+
+    /** La página completa de la campaña, como se verá en temporada, aunque aún esté inactiva o fuera de fechas. */
+    public function preview(string $slug, PrevisualizarCampana $previsualizar): JsonResponse
+    {
+        return response()->json(CampanaResource::formato($previsualizar($slug)));
     }
 
     public function store(Request $request, AdministrarCampanas $campanas): JsonResponse

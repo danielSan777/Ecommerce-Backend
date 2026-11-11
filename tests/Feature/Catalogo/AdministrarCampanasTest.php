@@ -59,6 +59,23 @@ final class AdministrarCampanasTest extends TestCase
         $this->assertSame(1, CampanaModelo::query()->count());
     }
 
+    public function test_la_vista_previa_muestra_la_campana_completa_aunque_este_inactiva_y_fuera_de_fechas(): void
+    {
+        $campana = CampanaModelo::query()->where('slug', 'san-valentin')->firstOrFail();
+        $campana->update(['is_active' => false]);
+        $campana->productos()->attach(ProductoModelo::query()->where('slug', 'doctor')->value('id'), ['sort_order' => 0]);
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertNotFound(); // el público no la ve
+
+        $this->getJson(self::BASE.'/san-valentin/preview')->assertUnauthorized();
+        $r = $this->admin()->getJson(self::BASE.'/san-valentin/preview')->assertOk()->assertJsonPath('state', 'active');
+        $this->assertNotEmpty($r->json('products'));
+    }
+
+    public function test_la_vista_previa_de_una_campana_inexistente_responde_404(): void
+    {
+        $this->admin()->getJson(self::BASE.'/no-existe/preview')->assertNotFound();
+    }
+
     public function test_el_listado_trae_todas_con_su_estado_de_hoy_incluso_las_inactivas(): void
     {
         CampanaModelo::query()->where('slug', 'san-valentin')->update(['is_active' => false]);

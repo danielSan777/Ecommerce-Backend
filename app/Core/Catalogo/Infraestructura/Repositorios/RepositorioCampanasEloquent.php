@@ -26,6 +26,14 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
         return $this->armar($modelo, $hoy);
     }
 
+    public function vistaPrevia(string $slug, string $hoy): Campana
+    {
+        $modelo = CampanaModelo::query()->where('slug', $slug)->with(['categoriaRelacionada', 'medios'])->first()
+            ?? throw CatalogoNoEncontrado::campana($slug);
+
+        return $this->armar($modelo, $hoy, enTemporada: true);
+    }
+
     public function vigente(string $hoy): ?Campana
     {
         $elegida = null;
@@ -47,9 +55,12 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
         return $elegida ? $this->armar($elegida->load(['categoriaRelacionada', 'medios']), $hoy) : null;
     }
 
-    private function armar(CampanaModelo $modelo, string $hoy): Campana
+    private function armar(CampanaModelo $modelo, string $hoy, bool $enTemporada = false): Campana
     {
         $t = $this->temporada->calcular($modelo->start_md, $modelo->end_md, $modelo->event_md, $hoy, $modelo->closing_until_md);
+        if ($enTemporada) {
+            $t['estado'] = 'active'; // vista previa del administrador: se ve como en temporada
+        }
 
         // En temporada: los productos que eligió Josué, en su orden. Fuera de temporada: los de la categoría relacionada.
         // Mientras nadie haya elegido productos, la temporada tampoco queda vacía: se muestran los de la categoría relacionada.

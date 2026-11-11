@@ -193,3 +193,6 @@ Errores comunes: `401 unauthenticated`, `403 forbidden` (cliente), `422 validati
   - Servidor: el límite de PHP `upload_max_filesize` (2 MB por defecto) y `post_max_size` deben subirse a 10 MB y 12 MB en hPanel (Avanzado → Configuración de PHP).
 - Pendiente (cuando termine la subida en el panel): campos de Google (`seo_title`, `seo_description`, `intro_html`) en categorías y productos.
 - **Pendiente de avisar:** campos de Google (`seo_title`, `seo_description`, `intro_html`) en el formulario de categorías y productos del panel; ya existen en la base de datos.
+
+### Vista previa de campañas (administrador)
+`GET /api/v1/admin/campaigns/{slug}/preview` (solo rol administrador, caso de uso `PrevisualizarCampana`) devuelve la campaña con el mismo contrato público pero siempre como `active` y con los productos elegidos, aunque esté inactiva o fuera de fechas. Angular la usa para que solo el administrador entre a la URL de una campaña no publicada; el público es llevado a la página principal.
