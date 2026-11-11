@@ -364,4 +364,20 @@ final class VideosTest extends TestCase
         $this->admin()->postJson('/api/v1/admin/home/hero', ['alt' => 'x'])->assertUnprocessable()
             ->assertJsonPath('errors.image.0', 'Elige una imagen o un video.');
     }
+
+    public function test_al_eliminar_una_campana_se_borran_sus_fotos_y_videos_del_disco(): void
+    {
+        $this->seed(\Database\Seeders\CampanasIniciales::class);
+        $this->admin();
+        $this->postJson('/api/v1/admin/campaigns/san-valentin/video', ['video' => Mp4DePrueba::archivo()])->assertCreated();
+        $this->postJson('/api/v1/admin/campaigns/san-valentin/media', ['image' => $this->imagen(), 'alt' => 'Portada', 'role' => 'front'])->assertCreated();
+        $this->assertNotEmpty(Storage::disk('media')->allFiles('campaigns/san-valentin'));
+        $this->assertNotEmpty(Storage::disk('private')->allFiles());
+
+        $this->deleteJson('/api/v1/admin/campaigns/san-valentin')->assertNoContent();
+
+        $this->assertSame([], Storage::disk('media')->allFiles('campaigns/san-valentin'));
+        $this->assertSame([], Storage::disk('private')->allFiles());
+        $this->assertSame(0, MedioModelo::query()->count());
+    }
 }

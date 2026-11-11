@@ -50,7 +50,17 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
 
     public function eliminar(string $slug): void
     {
-        $this->campana($slug)->delete(); // sus productos elegidos se borran con ella; los productos no se tocan
+        $campana = $this->campana($slug);
+        // Las fotos y los videos de la campaña se borran del disco (sus filas se van con ella); los productos no se tocan.
+        foreach ($campana->medios as $medio) {
+            foreach ($medio->variants ?? [] as $ruta) {
+                Storage::disk($medio->disk)->delete($ruta);
+            }
+            if ($medio->original_path) {
+                Storage::disk('private')->delete($medio->original_path);
+            }
+        }
+        $campana->delete(); // sus productos elegidos y sus filas de medios se borran con ella
     }
 
     private function campana(string $slug): CampanaModelo
