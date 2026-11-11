@@ -1,0 +1,5 @@
+# Las fotos y accesorios son públicos. El personalizador de la tienda (otro dominio) los dibuja en un canvas para
+# generar la foto de la maceta personalizada, y el navegador solo lo permite si el archivo trae este encabezado.
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
