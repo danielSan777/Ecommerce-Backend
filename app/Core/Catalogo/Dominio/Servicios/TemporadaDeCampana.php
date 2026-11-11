@@ -53,7 +53,10 @@ final class TemporadaDeCampana
     {
         $hasta = $this->diasDesde($finMd, $hastaMd);
 
-        return $hasta >= 1 && $hasta < $this->diasDesde($finMd, $inicioMd);
+        // Si la temporada dura un solo día (inicio = fin), la siguiente empieza dentro de un año completo.
+        $siguiente = $this->diasDesde($finMd, $inicioMd) ?: 366;
+
+        return $hasta >= 1 && $hasta < $siguiente;
     }
 
     /** Entre el día siguiente al fin y la fecha límite (inclusive); funciona también cuando el rango cruza el año. */

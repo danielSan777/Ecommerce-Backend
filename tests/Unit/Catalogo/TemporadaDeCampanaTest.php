@@ -78,5 +78,8 @@ final class TemporadaDeCampanaTest extends TestCase
         $this->assertFalse($t->despedidaValida('01-02', '02-14', '02-14')); // el mismo día que termina
         $this->assertFalse($t->despedidaValida('01-02', '02-14', '01-20')); // dentro de la temporada
         $this->assertTrue($t->despedidaValida('11-15', '12-25', '01-10')); // cruza el año
+        $this->assertTrue($t->despedidaValida('11-10', '11-10', '11-12')); // temporada de un solo día
+        $this->assertFalse($t->despedidaValida('11-10', '11-10', '11-10'));
+        $this->assertSame('closing', $t->calcular('11-10', '11-10', '11-10', '2026-11-11', '11-12')['estado']);
     }
 }
