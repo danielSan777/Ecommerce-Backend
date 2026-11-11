@@ -23,5 +23,8 @@ final readonly class Campana
         public ?string $colorTema = null,
         public ?string $emoji = null,
         public ?Medio $portada = null,
+        public ?Medio $video = null,
+        /** Texto de despedida: solo viene lleno cuando la campaña está en `closing`. */
+        public ?string $mensajeDeCierre = null,
     ) {}
 }

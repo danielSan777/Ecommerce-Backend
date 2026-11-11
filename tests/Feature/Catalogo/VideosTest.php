@@ -254,6 +254,22 @@ final class VideosTest extends TestCase
         $this->deleteJson('/api/v1/admin/home/hero/no-existe')->assertNotFound();
     }
 
+    public function test_la_portada_de_una_campana_puede_ser_un_video_de_hasta_un_minuto(): void
+    {
+        $this->seed(\Database\Seeders\ProductosDePrueba::class);
+        $this->seed(\Database\Seeders\CampanasIniciales::class);
+        $url = '/api/v1/admin/campaigns/san-valentin/video';
+
+        $this->admin()->postJson($url, ['video' => Mp4DePrueba::archivo(61)])->assertUnprocessable()->assertJsonValidationErrors('video');
+        $this->postJson($url, ['video' => Mp4DePrueba::archivo(45), 'poster' => $this->imagen()])->assertCreated()->assertJsonPath('type', 'video');
+        $this->postJson('/api/v1/admin/campaigns/san-valentin/media', ['image' => $this->imagen(), 'alt' => 'Portada', 'role' => 'front'])->assertCreated();
+
+        $this->getJson('/api/v1/admin/campaigns/san-valentin')->assertOk()->assertJsonPath('video_url', fn ($u) => str_ends_with($u, '.mp4'))->assertJsonPath('cover_url', fn ($u) => $u !== null);
+        $r = $this->getJson('/api/v1/campaigns/san-valentin')->assertOk();
+        $r->assertJsonPath('theme.video.type', 'video')->assertJsonPath('theme.cover.type', 'image'); // la foto no se confunde con el video
+        $this->assertNotEmpty(Storage::disk('media')->allFiles('campaigns/san-valentin'));
+    }
+
     public function test_la_pagina_de_categorias_tiene_su_propia_portada_y_texto_editables(): void
     {
         $this->getJson('/api/v1/categories-page')->assertOk()->assertExactJson(['title' => null, 'subtitle' => null, 'items' => []]);

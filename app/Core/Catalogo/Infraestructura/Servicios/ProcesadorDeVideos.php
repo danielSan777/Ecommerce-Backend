@@ -19,6 +19,8 @@ final class ProcesadorDeVideos
 
     public const PERFIL_INICIO = 'inicio';
 
+    public const PERFIL_CAMPANA = 'campana';
+
     /**
      * Duración máxima en segundos y peso máximo en bytes por perfil. Pedido de Josué: todo video (producto, banner de categoría y
      * página principal) dura 1 minuto como máximo; por eso los pesos permitidos son mayores que los de la tabla del Paso 6,
@@ -28,6 +30,7 @@ final class ProcesadorDeVideos
         self::PERFIL_PRODUCTO => ['segundos' => 60, 'bytes' => 100 * 1024 * 1024, 'nombre' => 'del producto'],
         self::PERFIL_CATEGORIA => ['segundos' => 60, 'bytes' => 100 * 1024 * 1024, 'nombre' => 'del banner de la categoría'],
         self::PERFIL_INICIO => ['segundos' => 60, 'bytes' => 100 * 1024 * 1024, 'nombre' => 'de la página principal'],
+        self::PERFIL_CAMPANA => ['segundos' => 60, 'bytes' => 100 * 1024 * 1024, 'nombre' => 'de la campaña'],
     ];
 
     /** Un video "de 1 minuto" suele medir 60,02 s: se tolera un cuarto de segundo. */

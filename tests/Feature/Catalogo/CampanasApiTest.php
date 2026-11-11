@@ -75,6 +75,31 @@ final class CampanasApiTest extends TestCase
         $this->assertSame(['bob-corazon-hombre'], array_column($r->json('products'), 'slug'));
     }
 
+    public function test_al_terminar_la_campana_se_muestra_su_mensaje_de_cierre_hasta_la_fecha_elegida_y_luego_nada(): void
+    {
+        CampanaModelo::query()->where('slug', 'san-valentin')->update(['closing_message' => 'San Valentín regresará pronto', 'closing_until_md' => '03-10']);
+
+        $this->hoyEs('2027-01-20 15:00:00'); // en temporada: sin mensaje
+        $this->getJson('/api/v1/campaigns/current')->assertJsonPath('data.state', 'active')->assertJsonPath('data.closing_message', null);
+
+        $this->hoyEs('2027-02-20 15:00:00'); // terminó: se despide
+        $this->getJson('/api/v1/campaigns/current')->assertOk()->assertJsonPath('data.state', 'closing')->assertJsonPath('data.closing_message', 'San Valentín regresará pronto')
+            ->assertJsonPath('data.slug', 'san-valentin');
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('state', 'closing')->assertJsonPath('closing_message', 'San Valentín regresará pronto');
+
+        $this->hoyEs('2027-03-11 15:00:00'); // pasó la fecha: no se ve nada
+        $this->getJson('/api/v1/campaigns/current')->assertOk()->assertJsonPath('data', null);
+        $this->getJson('/api/v1/campaigns/san-valentin')->assertOk()->assertJsonPath('state', 'upcoming')->assertJsonPath('closing_message', null);
+    }
+
+    public function test_sin_mensaje_de_cierre_no_hay_despedida_aunque_tenga_fecha(): void
+    {
+        CampanaModelo::query()->where('slug', 'san-valentin')->update(['closing_message' => null, 'closing_until_md' => '03-10']);
+        $this->hoyEs('2027-02-20 15:00:00');
+
+        $this->getJson('/api/v1/campaigns/current')->assertJsonPath('data', null);
+    }
+
     public function test_la_fecha_de_negocio_es_la_de_guayaquil_no_la_de_utc(): void
     {
         // 2027-02-15 03:00 UTC = 14 de febrero 22:00 en Guayaquil: todavía es el último día de la temporada

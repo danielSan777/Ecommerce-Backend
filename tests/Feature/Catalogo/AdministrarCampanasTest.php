@@ -173,4 +173,19 @@ final class AdministrarCampanasTest extends TestCase
         $this->admin()->deleteJson(self::BASE.'/dia-de-la-madre')->assertNoContent();
         $this->admin()->deleteJson('/api/v1/admin/categories/familia')->assertNoContent();
     }
+
+    public function test_guarda_el_mensaje_de_cierre_y_su_fecha_limite(): void
+    {
+        $this->admin()->putJson(self::BASE.'/san-valentin', ['closing_message' => '  San Valentín regresará pronto ', 'closing_until_md' => '03-10'])
+            ->assertOk()->assertJsonPath('closing_message', 'San Valentín regresará pronto')->assertJsonPath('closing_until_md', '03-10');
+        $this->getJson(self::BASE.'/san-valentin')->assertJsonPath('closing_until_md', '03-10');
+    }
+
+    public function test_el_mensaje_de_cierre_exige_fecha_y_la_fecha_debe_caer_despues_del_fin_de_la_temporada(): void
+    {
+        $this->admin()->putJson(self::BASE.'/san-valentin', ['closing_message' => 'Hasta pronto'])->assertUnprocessable()->assertJsonValidationErrors('closing_until_md');
+        $this->putJson(self::BASE.'/san-valentin', ['closing_message' => 'Hasta pronto', 'closing_until_md' => '01-20'])->assertUnprocessable()->assertJsonValidationErrors('closing_until_md'); // dentro de la temporada
+        $this->putJson(self::BASE.'/san-valentin', ['closing_message' => str_repeat('a', 161), 'closing_until_md' => '03-10'])->assertUnprocessable()->assertJsonValidationErrors('closing_message');
+        $this->putJson(self::BASE.'/san-valentin', ['closing_message' => 'Hasta pronto', 'closing_until_md' => '02-30'])->assertUnprocessable()->assertJsonValidationErrors('closing_until_md');
+    }
 }

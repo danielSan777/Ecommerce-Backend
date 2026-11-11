@@ -71,6 +71,11 @@ final class ControladorAdministracionMedios extends Controller
         return $this->subirVideo('categoria', $slug, $request, $medios);
     }
 
+    public function storeCampanaVideo(string $slug, Request $request, AdministrarMedios $medios): JsonResponse
+    {
+        return $this->subirVideo('campana', $slug, $request, $medios);
+    }
+
     public function update(int $id, Request $request, AdministrarMedios $medios): JsonResponse
     {
         $validos = ValidacionFallida::validar($request->all(), [

@@ -67,7 +67,7 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
      */
     private function columnas(array $datos): array
     {
-        $columnas = array_intersect_key($datos, array_flip(['name', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'is_active', 'seo_title', 'seo_description']));
+        $columnas = array_intersect_key($datos, array_flip(['name', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'closing_message', 'closing_until_md', 'is_active', 'seo_title', 'seo_description']));
         if (isset($datos['related_category'])) {
             $columnas['related_category_id'] = CategoriaModelo::query()->where('slug', $datos['related_category'])->value('id');
         }
@@ -102,7 +102,10 @@ final class RepositorioAdministracionCampanasEloquent implements RepositorioAdmi
             'slogan' => $c->slogan,
             'theme_color' => $c->theme_color,
             'emoji' => $c->emoji,
-            'cover_url' => ($m = $c->medios->first()) ? ($m->variants['600'] ?? null ? Storage::disk($m->disk)->url($m->variants['600']) : null) : null,
+            'closing_message' => $c->closing_message,
+            'closing_until_md' => $c->closing_until_md,
+            'cover_url' => ($m = $c->medios->firstWhere('type', 'image')) ? ($m->variants['600'] ?? null ? Storage::disk($m->disk)->url($m->variants['600']) : null) : null,
+            'video_url' => ($v = $c->medios->firstWhere('type', 'video')) ? Storage::disk($v->disk)->url($v->variants['url']) : null,
             'is_active' => $c->is_active,
             'seo_title' => $c->seo_title,
             'seo_description' => $c->seo_description,

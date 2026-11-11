@@ -12,7 +12,11 @@ final class CampanaResource
     /** Diseño propio de la campaña: color principal, emoji y portada (cualquiera puede faltar; Angular usa los suyos por defecto). @return array<string, mixed> */
     private static function tema(Campana $c): array
     {
-        return ['color' => $c->colorTema, 'emoji' => $c->emoji, 'cover' => $c->portada ? MedioResource::formato($c->portada) : null];
+        return [
+            'color' => $c->colorTema, 'emoji' => $c->emoji,
+            'cover' => $c->portada ? MedioResource::formato($c->portada) : null,
+            'video' => $c->video ? MedioResource::formato($c->video) : null,
+        ];
     }
 
     /** Resumen para el banner de la página principal. @return array<string, mixed> */
@@ -21,6 +25,8 @@ final class CampanaResource
         return [
             'slug' => $c->slug,
             'name' => $c->nombre,
+            'state' => $c->estado,
+            'closing_message' => $c->mensajeDeCierre,
             'url' => "/{$c->slug}",
             'season_year' => $c->anioTemporada,
             'event_date' => $c->fechaEvento,
@@ -37,6 +43,7 @@ final class CampanaResource
             'slug' => $c->slug,
             'name' => $c->nombre,
             'state' => $c->estado,
+            'closing_message' => $c->mensajeDeCierre,
             'season_year' => $c->anioTemporada,
             'event_date' => $c->fechaEvento,
             // La fecha límite depende del calendario operativo y la capacidad (Paso 9); hasta entonces no se informa.

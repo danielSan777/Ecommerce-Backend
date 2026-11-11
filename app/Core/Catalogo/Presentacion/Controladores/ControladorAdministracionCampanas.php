@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Catalogo\Presentacion\Controladores;
 
 use App\Core\Catalogo\Aplicacion\CasosDeUso\AdministrarCampanas;
+use App\Core\Catalogo\Dominio\Servicios\TemporadaDeCampana;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
@@ -30,6 +31,8 @@ final class ControladorAdministracionCampanas extends Controller
         'slogan.max' => 'La frase del banner no puede pasar de 255 caracteres.',
         'theme_color.regex' => 'El color debe ser como #C2185B (almohadilla y 6 letras o números).',
         'emoji.max' => 'El emoji no puede pasar de 16 caracteres.',
+        'closing_message.max' => 'El mensaje de cierre no puede pasar de 160 caracteres.',
+        'closing_until_md.required_with' => 'Elige hasta qué fecha se muestra el mensaje de cierre.',
         'is_active.boolean' => 'Indica si la campaña está activa o no.',
         'seo_title.max' => 'El título para Google no puede pasar de 255 caracteres.',
         'seo_description.max' => 'La descripción para Google no puede pasar de 320 caracteres.',
@@ -62,6 +65,8 @@ final class ControladorAdministracionCampanas extends Controller
             ...$this->reglasComunes(requeridos: true),
         ], self::MENSAJES);
 
+        $this->verificarDespedida($this->limpiar($validos), $validos);
+
         return response()->json($campanas->crear($this->limpiar($validos)), 201);
     }
 
@@ -72,6 +77,9 @@ final class ControladorAdministracionCampanas extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:150'],
             ...$this->reglasComunes(requeridos: false),
         ], self::MENSAJES);
+
+        $actual = $campanas->obtener($slug);
+        $this->verificarDespedida($this->limpiar($validos), $validos + ['start_md' => $actual['start_md'], 'end_md' => $actual['end_md']]);
 
         return response()->json($campanas->actualizar($slug, $this->limpiar($validos)));
     }
@@ -91,7 +99,7 @@ final class ControladorAdministracionCampanas extends Controller
      */
     private function limpiar(array $validos): array
     {
-        foreach (['tagline', 'slogan', 'emoji', 'seo_title', 'seo_description'] as $campo) {
+        foreach (['tagline', 'slogan', 'emoji', 'closing_message', 'seo_title', 'seo_description'] as $campo) {
             if (isset($validos[$campo]) && is_string($validos[$campo])) {
                 $limpio = trim(strip_tags($validos[$campo]));
                 $validos[$campo] = $limpio === '' ? null : $limpio;
@@ -102,6 +110,23 @@ final class ControladorAdministracionCampanas extends Controller
         }
 
         return $validos;
+    }
+
+    /**
+     * La fecha límite del mensaje de cierre debe caer después del fin de la temporada y antes de que empiece la siguiente.
+     *
+     * @param  array<string, mixed>  $limpios
+     * @param  array<string, mixed>  $fechas  trae `start_md` y `end_md` (los nuevos o, al editar, los que ya tenía)
+     */
+    private function verificarDespedida(array $limpios, array $fechas): void
+    {
+        $hasta = $limpios['closing_until_md'] ?? null;
+        if (! is_string($hasta) || ! isset($fechas['start_md'], $fechas['end_md'])) {
+            return;
+        }
+        if (! (new TemporadaDeCampana)->despedidaValida($fechas['start_md'], $fechas['end_md'], $hasta)) {
+            throw new ValidacionFallida(['closing_until_md' => ['La fecha debe ser después de que termina la temporada y antes de que empiece la siguiente.']]);
+        }
     }
 
     /** Fecha anual "MM-DD" que existe en el calendario (se acepta 02-29). */
@@ -128,6 +153,8 @@ final class ControladorAdministracionCampanas extends Controller
             'slogan' => ['nullable', 'string', 'max:255'],
             'theme_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'emoji' => ['nullable', 'string', 'max:16'],
+            'closing_message' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'closing_until_md' => ['nullable', 'required_with:closing_message', $this->fechaAnual()],
             'is_active' => ['sometimes', 'boolean'],
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],

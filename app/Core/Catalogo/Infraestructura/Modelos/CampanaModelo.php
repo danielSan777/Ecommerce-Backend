@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['slug', 'name', 'related_category_id', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'is_active', 'seo_title', 'seo_description'])]
+#[Fillable(['slug', 'name', 'related_category_id', 'start_md', 'end_md', 'event_md', 'tagline', 'slogan', 'theme_color', 'emoji', 'closing_message', 'closing_until_md', 'is_active', 'seo_title', 'seo_description'])]
 class CampanaModelo extends Model
 {
     protected $table = 'campaigns';

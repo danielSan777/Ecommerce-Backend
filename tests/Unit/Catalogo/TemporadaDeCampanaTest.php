@@ -36,4 +36,47 @@ final class TemporadaDeCampanaTest extends TestCase
         $this->assertSame($anio, $r['anio']);
         $this->assertSame($fechaEvento, $r['fechaEvento']);
     }
+
+    /** @return array<string, array{string, string, string}> temporada 01-02 a 02-14; el mensaje se muestra hasta el 10-03 */
+    public static function despedida(): array
+    {
+        return [
+            'el último día de temporada sigue activa' => ['2027-02-14', 'active', ''],
+            'el día siguiente empieza la despedida' => ['2027-02-15', 'closing', ''],
+            'el último día de la despedida' => ['2027-03-10', 'closing', ''],
+            'pasada la fecha ya no se muestra nada' => ['2027-03-11', 'upcoming', ''],
+            'en noviembre sigue sin mostrarse' => ['2026-11-06', 'upcoming', ''],
+            'otra vez en temporada' => ['2027-01-02', 'active', ''],
+        ];
+    }
+
+    #[DataProvider('despedida')]
+    public function test_la_despedida_va_desde_el_dia_siguiente_al_fin_hasta_la_fecha_elegida(string $hoy, string $estado, string $_): void
+    {
+        $this->assertSame($estado, (new TemporadaDeCampana)->calcular('01-02', '02-14', '02-14', $hoy, '03-10')['estado']);
+    }
+
+    public function test_sin_fecha_de_despedida_nunca_hay_estado_closing(): void
+    {
+        $this->assertSame('upcoming', (new TemporadaDeCampana)->calcular('01-02', '02-14', '02-14', '2027-02-20')['estado']);
+    }
+
+    public function test_la_despedida_puede_cruzar_el_ano(): void
+    {
+        // Navidad: 11-15 a 12-25; el mensaje se muestra hasta el 01-10
+        $t = new TemporadaDeCampana;
+        $this->assertSame('closing', $t->calcular('11-15', '12-25', '12-25', '2027-01-05', '01-10')['estado']);
+        $this->assertSame('closing', $t->calcular('11-15', '12-25', '12-25', '2026-12-28', '01-10')['estado']);
+        $this->assertSame('upcoming', $t->calcular('11-15', '12-25', '12-25', '2027-01-11', '01-10')['estado']);
+    }
+
+    public function test_valida_que_la_fecha_limite_caiga_entre_el_fin_y_el_siguiente_inicio(): void
+    {
+        $t = new TemporadaDeCampana;
+        $this->assertTrue($t->despedidaValida('01-02', '02-14', '03-10'));
+        $this->assertTrue($t->despedidaValida('01-02', '02-14', '01-01')); // el día antes de empezar la siguiente
+        $this->assertFalse($t->despedidaValida('01-02', '02-14', '02-14')); // el mismo día que termina
+        $this->assertFalse($t->despedidaValida('01-02', '02-14', '01-20')); // dentro de la temporada
+        $this->assertTrue($t->despedidaValida('11-15', '12-25', '01-10')); // cruza el año
+    }
 }

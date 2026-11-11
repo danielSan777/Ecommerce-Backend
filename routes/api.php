@@ -76,6 +76,7 @@ Route::prefix('v1')->group(function () {
         Route::put('categories-page/text', [ControladorAdministracionInicio::class, 'guardarTexto'])->name('api.v1.admin.categories-page.text.update');
         // Video (MP4 H.264): producto de máx. 6 s, banner de categoría de máx. 10 s. Campos `video` y `poster` (opcional).
         Route::post('products/{sku}/video', [ControladorAdministracionMedios::class, 'storeProductoVideo'])->name('api.v1.admin.products.video.store');
+        Route::post('campaigns/{slug}/video', [ControladorAdministracionMedios::class, 'storeCampanaVideo'])->name('api.v1.admin.campaigns.video.store');
         Route::post('categories/{slug}/video', [ControladorAdministracionMedios::class, 'storeCategoriaVideo'])->name('api.v1.admin.categories.video.store');
         Route::put('media/{id}', [ControladorAdministracionMedios::class, 'update'])->whereNumber('id')->name('api.v1.admin.media.update');
         Route::delete('media/{id}', [ControladorAdministracionMedios::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.media.destroy');

@@ -108,7 +108,7 @@ final class AdministrarMedios
     }
 
     /**
-     * Sube el video (MP4 H.264) de un producto o del banner de una categoría (máx. 1 minuto cada uno). Se guarda tal cual, sin
+     * Sube el video (MP4 H.264) de un producto, del banner de una categoría o de la portada de una campaña (máx. 1 minuto cada uno). Se guarda tal cual, sin
      * transcodificar; la portada (imagen del primer cuadro) es opcional y se convierte a WebP. Sin límite de cantidad de videos.
      *
      * @return array<string, mixed>
@@ -116,15 +116,23 @@ final class AdministrarMedios
     public function subirVideo(string $tipo, string $clave, string $video, ?string $portada, ?string $alt): array
     {
         $dueno = $this->dueno($tipo, $clave);
-        if (! in_array($tipo, ['producto', 'categoria'], true)) {
+        if (! in_array($tipo, ['producto', 'categoria', 'campana'], true)) {
             throw new ImagenInvalida('Este elemento no admite video.', 'video');
         }
 
         // Todo se valida antes de guardar: un rechazo no deja archivos sueltos
-        $datos = $this->videos->procesar($video, $tipo === 'producto' ? ProcesadorDeVideos::PERFIL_PRODUCTO : ProcesadorDeVideos::PERFIL_CATEGORIA);
+        $datos = $this->videos->procesar($video, match ($tipo) {
+            'producto' => ProcesadorDeVideos::PERFIL_PRODUCTO,
+            'campana' => ProcesadorDeVideos::PERFIL_CAMPANA,
+            default => ProcesadorDeVideos::PERFIL_CATEGORIA,
+        });
         $imagen = $portada !== null && $portada !== '' ? $this->procesador->procesar($portada) : null;
 
-        $carpeta = $tipo === 'producto' ? 'products/'.$dueno->sku : 'categories/'.$dueno->slug;
+        $carpeta = match ($tipo) {
+            'producto' => 'products/'.$dueno->sku,
+            'campana' => 'campaigns/'.$dueno->slug,
+            default => 'categories/'.$dueno->slug,
+        };
         $nombre = Str::lower(Str::random(16));
         $rutaVideo = "{$carpeta}/{$nombre}.mp4";
         Storage::disk('media')->put($rutaVideo, $video);

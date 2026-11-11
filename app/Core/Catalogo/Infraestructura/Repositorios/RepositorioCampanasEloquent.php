@@ -30,20 +30,26 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
     {
         $elegida = null;
         $fecha = null;
+        $despidiendose = null;
         foreach (CampanaModelo::query()->where('is_active', true)->get() as $m) {
-            $t = $this->temporada->calcular($m->start_md, $m->end_md, $m->event_md, $hoy);
+            $t = $this->temporada->calcular($m->start_md, $m->end_md, $m->event_md, $hoy, $m->closing_until_md);
             if ($t['estado'] === 'active' && ($fecha === null || $t['fechaEvento'] < $fecha)) {
                 $elegida = $m;
                 $fecha = $t['fechaEvento'];
             }
+            if ($t['estado'] === 'closing' && $m->closing_message) {
+                $despidiendose ??= $m;
+            }
         }
+        // Una campaña en temporada siempre manda; si no hay ninguna, se muestra el mensaje de despedida de la que acaba de terminar
+        $elegida ??= $despidiendose;
 
         return $elegida ? $this->armar($elegida->load(['categoriaRelacionada', 'medios']), $hoy) : null;
     }
 
     private function armar(CampanaModelo $modelo, string $hoy): Campana
     {
-        $t = $this->temporada->calcular($modelo->start_md, $modelo->end_md, $modelo->event_md, $hoy);
+        $t = $this->temporada->calcular($modelo->start_md, $modelo->end_md, $modelo->event_md, $hoy, $modelo->closing_until_md);
 
         // En temporada: los productos que eligió Josué, en su orden. Fuera de temporada: los de la categoría relacionada.
         // Mientras nadie haya elegido productos, la temporada tampoco queda vacía: se muestran los de la categoría relacionada.
@@ -67,7 +73,9 @@ final class RepositorioCampanasEloquent implements RepositorioCampanas
             seoDescripcion: $modelo->seo_description,
             colorTema: $modelo->theme_color,
             emoji: $modelo->emoji,
-            portada: ($m = $modelo->medios->first()) ? $this->medio($m) : null,
+            portada: ($m = $modelo->medios->firstWhere('type', 'image')) ? $this->medio($m) : null,
+            video: ($v = $modelo->medios->firstWhere('type', 'video')) ? $this->medio($v) : null,
+            mensajeDeCierre: $t['estado'] === 'closing' ? $modelo->closing_message : null,
         );
     }
 
