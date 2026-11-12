@@ -10,6 +10,7 @@ use App\Core\Catalogo\Dominio\ValueObjects\Precio;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\SubcategoriaModelo;
+use Illuminate\Support\Facades\Storage;
 
 final class RepositorioAdministracionProductosEloquent implements RepositorioAdministracionProductos
 {
@@ -114,6 +115,7 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
             'seo_description' => $p->seo_description,
             'is_available' => (bool) $p->is_available,
             'is_active' => (bool) $p->is_active,
+            'personalization_image' => isset($p->personalization_image['1080']) ? Storage::disk('media')->url($p->personalization_image['1080']) : null,
             'search_synonyms' => $p->search_synonyms ?? [],
             'updated_at' => $p->updated_at->toIso8601String(),
         ];

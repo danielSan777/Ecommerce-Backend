@@ -64,6 +64,8 @@ Route::prefix('v1')->group(function () {
         Route::delete('categories/{categoria}/subcategories/{slug}', [ControladorAdministracionSubcategorias::class, 'destroy'])->name('api.v1.admin.subcategories.destroy');
         Route::delete('categories/{slug}', [ControladorAdministracionCategorias::class, 'destroy'])->name('api.v1.admin.categories.destroy');
         // Imágenes: se suben una por una (multipart, campo `image`); Laravel genera las versiones WebP.
+        // Imagen para personalizar: obligatoria en los productos personalizables; se sube desde el producto, nunca desde el configurador.
+        Route::post('products/{sku}/personalization-image', [ControladorAdministracionConfigurador::class, 'subirImagenBase'])->name('api.v1.admin.products.personalization-image.store');
         Route::get('products/{sku}/media', [ControladorAdministracionMedios::class, 'indexProducto'])->name('api.v1.admin.products.media.index');
         Route::post('products/{sku}/media', [ControladorAdministracionMedios::class, 'storeProducto'])->name('api.v1.admin.products.media.store');
         Route::get('campaigns/{slug}/media', [ControladorAdministracionMedios::class, 'indexCampana'])->name('api.v1.admin.campaigns.media.index');
@@ -105,8 +107,6 @@ Route::prefix('v1')->group(function () {
         Route::put('configurator/categories/{slug}', [ControladorAdministracionConfigurador::class, 'guardarCategoria'])->name('api.v1.admin.configurator.categories.update');
         Route::get('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'producto'])->name('api.v1.admin.configurator.products.show');
         Route::put('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'guardarProducto'])->name('api.v1.admin.configurator.products.update');
-        Route::post('configurator/products/{sku}/base-image', [ControladorAdministracionConfigurador::class, 'subirImagenBase'])->name('api.v1.admin.configurator.products.base-image.store');
-        Route::delete('configurator/products/{sku}/base-image', [ControladorAdministracionConfigurador::class, 'quitarImagenBase'])->name('api.v1.admin.configurator.products.base-image.destroy');
         Route::put('configurator/products/{sku}/mode', [ControladorAdministracionConfigurador::class, 'modo'])->name('api.v1.admin.configurator.products.mode');
     });
 

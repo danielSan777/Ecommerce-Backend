@@ -56,7 +56,7 @@ final class ControladorAdministracionConfigurador extends Controller
         return response()->json($configuracion->cambiarModo($sku, (bool) $validos['uses_own_configurator'], (bool) ($validos['copy_from_category'] ?? false)));
     }
 
-    /** Imagen para personalizar del producto (multipart, campo `image`). Reemplaza la anterior. */
+    /** Imagen para personalizar del producto (multipart, campo `image`). Reemplaza la anterior. Es obligatoria y se sube desde el producto. */
     public function subirImagenBase(string $sku, Request $request, AdministrarImagenParaPersonalizar $imagen): JsonResponse
     {
         ArchivoSubido::verificar($request, ['image']);
@@ -66,15 +66,12 @@ final class ControladorAdministracionConfigurador extends Controller
         ]);
 
         try {
-            return response()->json($imagen->subir($sku, (string) file_get_contents($request->file('image')->getRealPath())), 201);
+            $guardada = $imagen->subir($sku, (string) file_get_contents($request->file('image')->getRealPath()));
+
+            return response()->json(['personalization_image' => $guardada['base_image']], 201);
         } catch (ImagenInvalida $e) {
             throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
         }
-    }
-
-    public function quitarImagenBase(string $sku, AdministrarImagenParaPersonalizar $imagen): JsonResponse
-    {
-        return response()->json($imagen->quitar($sku));
     }
 
     /** @return array{locations: list<array<string, mixed>>, accessory_ids: list<int>, exceptions: list<array<string, mixed>>} */

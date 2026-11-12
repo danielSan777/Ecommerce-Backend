@@ -88,6 +88,9 @@ final class ControladorAdministracionProductos extends Controller
             'subcategory' => ['required', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? null))],
         ], self::MENSAJES);
 
+        // Un producto personalizable no se activa sin su imagen para personalizar, y la imagen se sube después de crearlo
+        $this->exigirImagenParaActivar($validos['type'] ?? 'personalizable', (bool) ($validos['is_active'] ?? true), false);
+
         return response()->json($productos->crear($this->sinNulos($validos)), 201);
     }
 
@@ -105,6 +108,9 @@ final class ControladorAdministracionProductos extends Controller
 
         $validos = ValidacionFallida::validar($datos, $reglas, self::MENSAJES);
 
+        $actual = $productos->ver($sku);
+        $this->exigirImagenParaActivar($validos['type'] ?? $actual['type'], (bool) ($validos['is_active'] ?? $actual['is_active']), $actual['personalization_image'] !== null);
+
         return response()->json($productos->actualizar($sku, $this->sinNulos($validos)));
     }
 
@@ -113,6 +119,14 @@ final class ControladorAdministracionProductos extends Controller
         $productos->eliminar($sku);
 
         return response()->noContent();
+    }
+
+    /** La imagen para personalizar es obligatoria: sin ella un producto personalizable solo puede estar inactivo. */
+    private function exigirImagenParaActivar(string $tipo, bool $activo, bool $tieneImagen): void
+    {
+        if ($tipo === 'personalizable' && $activo && ! $tieneImagen) {
+            throw new ValidacionFallida(['is_active' => ['Sube la imagen para personalizar antes de activar un producto personalizable.']]);
+        }
     }
 
     private function idCategoria(mixed $slug): int

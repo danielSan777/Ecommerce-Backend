@@ -41,14 +41,4 @@ final class AdministrarImagenParaPersonalizar
 
         return $resultado;
     }
-
-    /** @return array<string, mixed> */
-    public function quitar(string $sku): array
-    {
-        $anteriores = $this->configurador->rutasDeImagenParaPersonalizar($sku);
-        $resultado = $this->configurador->guardarImagenParaPersonalizar($sku, null);
-        Storage::disk('media')->delete($anteriores);
-
-        return $resultado;
-    }
 }

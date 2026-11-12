@@ -8,6 +8,8 @@ use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Models\User;
 use Database\Seeders\ProductosDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class AdministrarProductosTest extends TestCase
@@ -33,7 +35,7 @@ final class AdministrarProductosTest extends TestCase
         return [...[
             'name' => 'Abuela jardinera', 'category' => 'profesiones-y-hobbies', 'subcategory' => 'salud', 'base_price_cents' => 2350, 'cost_cents' => 900,
             'size_text' => '12 cm', 'material_text' => 'Cerámica', 'includes' => ['Plantita natural', 'Funda kraft'],
-            'description_html' => '<p>Una maceta para abuela.</p>', 'is_available' => true, 'is_active' => true,
+            'description_html' => '<p>Una maceta para abuela.</p>', 'is_available' => true, 'is_active' => false, // un producto personalizable no se activa sin su imagen para personalizar
         ], ...$cambios];
     }
 
@@ -97,7 +99,13 @@ final class AdministrarProductosTest extends TestCase
 
         $r->assertJsonPath('slug', 'abuela-jardinera')->assertJsonPath('base_price_cents', 2350)->assertJsonPath('cost_cents', 900)
             ->assertJsonPath('includes', ['Plantita natural', 'Funda kraft'])->assertJsonPath('category_slug', 'profesiones-y-hobbies')
-            ->assertJsonPath('subcategory_slug', 'salud')->assertJsonPath('is_active', true)->assertJsonPath('sku', 'JDS-001');
+            ->assertJsonPath('subcategory_slug', 'salud')->assertJsonPath('is_active', false)->assertJsonPath('personalization_image', null)->assertJsonPath('sku', 'JDS-001');
+        $this->getJson('/api/v1/products/abuela-jardinera')->assertNotFound(); // inactivo hasta tener su imagen
+
+        // Con la imagen se puede activar y la tienda ya lo muestra
+        Storage::fake('media');
+        $this->postJson(self::BASE.'/JDS-001/personalization-image', ['image' => UploadedFile::fake()->image('base.png', 400, 400)])->assertCreated();
+        $this->putJson(self::BASE.'/JDS-001', ['is_active' => true])->assertOk()->assertJsonPath('is_active', true);
         $this->getJson('/api/v1/products/abuela-jardinera')->assertOk()->assertJsonMissingPath('cost_cents');
     }
 
@@ -174,6 +182,7 @@ final class AdministrarProductosTest extends TestCase
 
     public function test_cambiar_de_categoria_exige_elegir_una_subcategoria_de_la_nueva(): void
     {
+        ProductoModelo::query()->where('sku', 'PRO-DOCTOR')->update(['personalization_image' => ['1080' => 'personalization/x-1080.webp']]);
         $this->admin()->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'amor'])->assertStatus(422)->assertJsonPath('errors.subcategory.0', 'Elige la subcategoría.');
         $this->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'profesiones-y-hobbies', 'subcategory' => 'cocina-y-hobbies'])->assertOk()->assertJsonPath('subcategory_slug', 'cocina-y-hobbies');
         $this->putJson(self::BASE.'/PRO-DOCTOR', ['category' => 'amor', 'subcategory' => 'salud'])->assertStatus(422)->assertJsonPath('errors.subcategory.0', 'La subcategoría elegida no existe en esa categoría.');
@@ -202,7 +211,10 @@ final class AdministrarProductosTest extends TestCase
         // 2150 × 12.5 % = 268.75 → 269 centavos (mitad hacia arriba)
         $r->assertJsonPath('discount_percent', 12.5)->assertJsonPath('discount_cents', 269)->assertJsonPath('final_price_cents', 1881);
 
-        // La tienda también muestra el precio con descuento
+        // La tienda también muestra el precio con descuento (una vez activo, con su imagen para personalizar)
+        Storage::fake('media');
+        $this->postJson(self::BASE.'/'.$r->json('sku').'/personalization-image', ['image' => UploadedFile::fake()->image('base.png', 400, 400)])->assertCreated();
+        $this->putJson(self::BASE.'/'.$r->json('sku'), ['is_active' => true])->assertOk();
         $precio = $this->getJson('/api/v1/products/abuela-jardinera')->assertOk()->json('price');
         $this->assertSame([2150, 1881, 269, 13, '13% OFF'], [$precio['base_cents'], $precio['final_cents'], $precio['discount_cents'], $precio['discount_percent'], $precio['badge']]);
 
@@ -251,5 +263,40 @@ final class AdministrarProductosTest extends TestCase
         $this->admin()->deleteJson(self::BASE.'/PRO-HOMERO')->assertNoContent();
 
         $this->deleteJson('/api/v1/admin/categories/familia')->assertNoContent();
+    }
+
+    public function test_un_producto_personalizable_no_se_activa_sin_imagen_para_personalizar(): void
+    {
+        // Crear activo sin imagen es imposible: la imagen se sube después de crearlo
+        $this->admin()->postJson(self::BASE, $this->datos(['is_active' => true]))->assertStatus(422)
+            ->assertJsonPath('errors.is_active.0', 'Sube la imagen para personalizar antes de activar un producto personalizable.');
+        // Un producto ya activo sin imagen no puede seguir editándose activo; desactivarlo sí se puede
+        $this->putJson(self::BASE.'/PRO-DOCTOR', ['name' => 'Doctor 2'])->assertStatus(422)->assertJsonPath('errors.is_active.0', 'Sube la imagen para personalizar antes de activar un producto personalizable.');
+        $this->putJson(self::BASE.'/PRO-DOCTOR', ['is_active' => false])->assertOk();
+
+        // Un complemento no necesita imagen para personalizar
+        $this->postJson(self::BASE, $this->datos(['name' => 'Tarjeta', 'type' => 'complemento', 'is_active' => true]))->assertCreated();
+    }
+
+    public function test_la_imagen_para_personalizar_se_sube_desde_el_producto_se_valida_y_se_reemplaza(): void
+    {
+        Storage::fake('media');
+        $ruta = self::BASE.'/PRO-DOCTOR/personalization-image';
+
+        $this->admin()->getJson(self::BASE.'/PRO-DOCTOR')->assertOk()->assertJsonPath('personalization_image', null);
+        $this->postJson($ruta, [])->assertUnprocessable()->assertJsonPath('errors.image.0', 'Elige la imagen para personalizar.');
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->createWithContent('a.png', 'no soy una imagen')])->assertUnprocessable();
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->image('a.png', 40, 40)])->assertUnprocessable();
+        $this->postJson(self::BASE.'/NO-EXISTE/personalization-image', ['image' => UploadedFile::fake()->image('a.png', 400, 400)])->assertNotFound();
+
+        $r = $this->postJson($ruta, ['image' => UploadedFile::fake()->image('a.png', 400, 400)])->assertCreated();
+        $this->assertIsString($r->json('personalization_image'));
+        $this->assertCount(2, Storage::disk('media')->allFiles('personalization'));
+        $this->getJson(self::BASE.'/PRO-DOCTOR')->assertJsonPath('personalization_image', $r->json('personalization_image'));
+        $this->assertContains($r->json('personalization_image'), array_column($this->getJson(self::BASE)->json('data') ?? $this->getJson(self::BASE)->json(), 'personalization_image'));
+
+        // Reemplazar borra los archivos anteriores
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->image('b.png', 400, 400)])->assertCreated();
+        $this->assertCount(2, Storage::disk('media')->allFiles('personalization'));
     }
 }
