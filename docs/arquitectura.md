@@ -227,4 +227,6 @@ Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre
 **API pública:** `GET /api/v1/products/{slug}/configurator` →
 `{source:'product'|'category', configured, locations:[{location_id,name,allowed_categories,excluded_categories,state,priority,layer,fixed_accessory_id,preset}], accessories:[{id,name,type,behavior,text,category,image,thumb,alt}], exceptions:[…]}`. Solo accesorios marcados y activos. Caché de 60 s.
 
+**Imagen para personalizar** (migración `2026_11_13_100001`): cada producto tiene la suya (`products.personalization_image`, rutas WebP de 1080 y 160 px). Solo administrador: `POST|DELETE /api/v1/admin/configurator/products/{sku}/base-image` (multipart, campo `image`). Se entrega como `base_image` en la configuración del producto, en cada producto de la configuración de la categoría y en `GET /products/{slug}/configurator`; es `null` si el producto aún no la tiene.
+
 **Sin datos de muestra:** el administrador crea todo desde el panel (categorías de accesorios, accesorios, ubicaciones y configuraciones). El cliente recibe **todos los accesorios activos**; los «marcados» y las excepciones solo definen dónde se coloca cada uno.

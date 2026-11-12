@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Core\Configurador\Presentacion\Controladores;
 
+use App\Core\Catalogo\Dominio\Excepciones\ImagenInvalida;
+use App\Core\Catalogo\Presentacion\ArchivoSubido;
 use App\Core\Configurador\Aplicacion\CasosDeUso\AdministrarConfiguracion;
+use App\Core\Configurador\Aplicacion\CasosDeUso\AdministrarImagenParaPersonalizar;
 use App\Core\Configurador\Dominio\ReglasDeConfiguracion;
 use App\Core\Configurador\Presentacion\ReglasDeGeometria;
 use App\Http\Controllers\Controller;
@@ -51,6 +54,27 @@ final class ControladorAdministracionConfigurador extends Controller
         ]);
 
         return response()->json($configuracion->cambiarModo($sku, (bool) $validos['uses_own_configurator'], (bool) ($validos['copy_from_category'] ?? false)));
+    }
+
+    /** Imagen para personalizar del producto (multipart, campo `image`). Reemplaza la anterior. */
+    public function subirImagenBase(string $sku, Request $request, AdministrarImagenParaPersonalizar $imagen): JsonResponse
+    {
+        ArchivoSubido::verificar($request, ['image']);
+        ValidacionFallida::validar($request->all(), ['image' => ['required', 'file']], [
+            'image.required' => 'Elige la imagen para personalizar.',
+            'image.file' => 'Elige la imagen para personalizar.',
+        ]);
+
+        try {
+            return response()->json($imagen->subir($sku, (string) file_get_contents($request->file('image')->getRealPath())), 201);
+        } catch (ImagenInvalida $e) {
+            throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
+        }
+    }
+
+    public function quitarImagenBase(string $sku, AdministrarImagenParaPersonalizar $imagen): JsonResponse
+    {
+        return response()->json($imagen->quitar($sku));
     }
 
     /** @return array{locations: list<array<string, mixed>>, accessory_ids: list<int>, exceptions: list<array<string, mixed>>} */

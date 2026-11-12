@@ -93,4 +93,15 @@ interface RepositorioConfigurador
 
     /** Lo que ve el cliente: la configuración propia del producto o la de su categoría. @return array<string, mixed> */
     public function paraElCliente(string $slugDelProducto): array;
+
+    /** Rutas de la imagen para personalizar del producto (también comprueba que exista). @return list<string> */
+    public function rutasDeImagenParaPersonalizar(string $sku): array;
+
+    /**
+     * Guarda (o quita, con null) la imagen para personalizar del producto.
+     *
+     * @param  array<string, string>|null  $variantes
+     * @return array<string, mixed>
+     */
+    public function guardarImagenParaPersonalizar(string $sku, ?array $variantes): array;
 }

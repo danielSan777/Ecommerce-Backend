@@ -404,4 +404,42 @@ final class ConfiguradorTest extends TestCase
         $this->assertNotContains($oculto, array_column($r->json('accessories'), 'id'));
         $this->assertContains($gafas, array_column($r->json('accessories'), 'id'));
     }
+
+    public function test_cada_producto_tiene_su_imagen_para_personalizar_y_se_reemplaza_y_se_quita(): void
+    {
+        $ruta = '/api/v1/admin/configurator/products/PRO-DOCTOR/base-image';
+
+        $this->admin()->getJson('/api/v1/admin/configurator/products/PRO-DOCTOR')->assertOk()->assertJsonPath('base_image', null);
+        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('base_image', null);
+
+        $r = $this->postJson($ruta, ['image' => $this->imagen()])->assertCreated();
+        $this->assertNotNull($r->json('base_image'));
+        $this->assertCount(2, Storage::disk('media')->allFiles('personalization'));
+
+        // Reemplazar borra los archivos anteriores
+        $this->postJson($ruta, ['image' => $this->imagen()])->assertCreated();
+        $this->assertCount(2, Storage::disk('media')->allFiles('personalization'));
+
+        // La ven el listado de la categoría, el producto y el cliente; otro producto no la tiene
+        $categoria = $this->getJson(self::CATEGORIA)->assertOk();
+        $this->assertNotNull(collect($categoria->json('products'))->firstWhere('sku', 'PRO-DOCTOR')['base_image']);
+        $this->assertNull(collect($categoria->json('products'))->firstWhere('sku', 'PRO-ENFERMERA')['base_image']);
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('base_image', fn ($v) => is_string($v) && $v !== '');
+        $this->getJson('/api/v1/products/enfermera/configurator')->assertOk()->assertJsonPath('base_image', null);
+
+        $this->admin()->deleteJson($ruta)->assertOk()->assertJsonPath('base_image', null);
+        $this->assertCount(0, Storage::disk('media')->allFiles('personalization'));
+    }
+
+    public function test_la_imagen_para_personalizar_se_valida_por_su_contenido(): void
+    {
+        $ruta = '/api/v1/admin/configurator/products/PRO-DOCTOR/base-image';
+
+        $this->admin()->postJson($ruta, [])->assertUnprocessable()->assertJsonPath('errors.image.0', 'Elige la imagen para personalizar.');
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->createWithContent('a.png', 'no soy una imagen')])->assertUnprocessable();
+        $this->postJson($ruta, ['image' => $this->imagen(40, 40)])->assertUnprocessable();
+        $this->postJson('/api/v1/admin/configurator/products/PRO-NO-EXISTE/base-image', ['image' => $this->imagen()])->assertNotFound();
+        $this->assertCount(0, Storage::disk('media')->allFiles('personalization'));
+    }
 }
