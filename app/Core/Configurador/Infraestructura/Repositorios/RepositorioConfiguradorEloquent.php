@@ -231,7 +231,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
     public function configuracionDeCategoria(string $slug): array
     {
         $categoria = CategoriaModelo::query()->where('slug', $slug)->first() ?? throw CatalogoNoEncontrado::categoria($slug);
-        $productos = ProductoModelo::query()->where('category_id', $categoria->id)->where('type', 'personalizable')->orderBy('name')->get(['sku', 'name', 'uses_own_configurator', 'personalization_image', 'personalization_scale', 'personalization_offset_x', 'personalization_offset_y']);
+        $productos = ProductoModelo::query()->where('category_id', $categoria->id)->where('type', 'personalizable')->orderByDesc('created_at')->orderByDesc('id')->get(['sku', 'name', 'uses_own_configurator', 'personalization_image', 'personalization_scale', 'personalization_offset_x', 'personalization_offset_y']);
 
         return [
             'scope' => 'category',

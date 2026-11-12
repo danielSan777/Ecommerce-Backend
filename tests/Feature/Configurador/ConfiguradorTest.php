@@ -229,11 +229,15 @@ final class ConfiguradorTest extends TestCase
     public function test_una_categoria_sin_configurar_muestra_todas_las_ubicaciones_libres_y_sin_valores(): void
     {
         $this->base();
+        // Los productos de la categoría salen del más reciente al más antiguo (por fecha y hora de creación)
+        foreach (['PRO-ABOGADA' => '2026-01-01 08:00:00', 'PRO-ABOGADO' => '2026-01-02 08:00:00', 'PRO-DOCTOR' => '2026-01-03 08:00:00', 'PRO-ENFERMERA' => '2026-01-03 09:30:00'] as $sku => $fecha) {
+            ProductoModelo::query()->where('sku', $sku)->update(['created_at' => $fecha]);
+        }
 
         $r = $this->getJson(self::CATEGORIA)->assertOk()->assertJsonPath('scope', 'category')->assertJsonPath('has_config', false)->assertJsonPath('config.accessory_ids', []);
         $this->assertSame('libre', $r->json('config.locations.0.state'));
         $this->assertNull($r->json('config.locations.0.preset'));
-        $this->assertSame(['Abogada', 'Abogado', 'Doctor', 'Enfermera'], array_column($r->json('products'), 'name'));
+        $this->assertSame(['Enfermera', 'Doctor', 'Abogado', 'Abogada'], array_column($r->json('products'), 'name'));
         $this->getJson('/api/v1/admin/configurator/categories/no-existe')->assertNotFound();
     }
 
@@ -329,7 +333,8 @@ final class ConfiguradorTest extends TestCase
 
         $this->putJson($producto, $this->configuracion($ubicacion, $accesorio, ['priority' => 9]))->assertOk()->assertJsonPath('config.locations.0.priority', 9);
         // La de la categoría y la de otro producto de la misma categoría no cambian
-        $this->getJson(self::CATEGORIA)->assertJsonPath('config.locations.0.priority', 4)->assertJsonPath('products.2.sku', 'PRO-DOCTOR')->assertJsonPath('products.2.uses_own_configurator', true);
+        $lista = $this->getJson(self::CATEGORIA)->assertJsonPath('config.locations.0.priority', 4)->json('products');
+        $this->assertTrue(collect($lista)->firstWhere('sku', 'PRO-DOCTOR')['uses_own_configurator']);
         $this->getJson('/api/v1/admin/configurator/products/PRO-ENFERMERA')->assertJsonPath('config.locations.0.priority', 4);
 
         // Volver a la categoría conserva la configuración propia guardada, pero deja de usarse
