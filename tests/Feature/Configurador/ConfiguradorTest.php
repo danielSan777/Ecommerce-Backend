@@ -430,4 +430,34 @@ final class ConfiguradorTest extends TestCase
         $this->deleteJson('/api/v1/admin/configurator/products/PRO-DOCTOR/base-image')->assertStatus(404);
         $this->assertCount(0, Storage::disk('media')->allFiles('personalization'));
     }
+
+    public function test_el_ajuste_de_la_imagen_se_guarda_por_producto_y_lo_ve_el_cliente(): void
+    {
+        $ruta = '/api/v1/admin/configurator/products/PRO-DOCTOR/base-adjust';
+        $this->admin()->getJson('/api/v1/admin/configurator/products/PRO-DOCTOR')->assertJsonPath('base_adjust', ['scale' => 100, 'x' => 0, 'y' => 0]);
+
+        // Se puede ajustar aunque el producto use la configuración de su categoría
+        $this->putJson($ruta, ['scale' => 112.5, 'x' => -3.25, 'y' => 4])->assertOk()
+            ->assertJsonPath('base_adjust.scale', 112.5)->assertJsonPath('base_adjust.x', -3.25)->assertJsonPath('uses_own_configurator', false);
+
+        $categoria = $this->getJson(self::CATEGORIA)->assertOk();
+        $this->assertSame(112.5, collect($categoria->json('products'))->firstWhere('sku', 'PRO-DOCTOR')['base_adjust']['scale']);
+        $this->assertSame(100.0, (float) collect($categoria->json('products'))->firstWhere('sku', 'PRO-ENFERMERA')['base_adjust']['scale']);
+
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('base_adjust.scale', 112.5)->assertJsonPath('base_adjust.y', 4);
+        $this->getJson('/api/v1/products/enfermera/configurator')->assertOk()->assertJsonPath('base_adjust.scale', 100);
+    }
+
+    public function test_el_ajuste_de_la_imagen_valida_rangos_en_espanol_y_solo_lo_hace_el_administrador(): void
+    {
+        $ruta = '/api/v1/admin/configurator/products/PRO-DOCTOR/base-adjust';
+        $this->putJson($ruta, ['scale' => 100, 'x' => 0, 'y' => 0])->assertUnauthorized();
+
+        $this->admin()->putJson($ruta, [])->assertUnprocessable()->assertJsonPath('errors.scale.0', 'Indica la escala de la imagen.');
+        $this->putJson($ruta, ['scale' => 10, 'x' => 0, 'y' => 0])->assertUnprocessable()->assertJsonPath('errors.scale.0', 'La escala debe estar entre 50 % y 200 %.');
+        $this->putJson($ruta, ['scale' => 100, 'x' => 80, 'y' => 0])->assertUnprocessable()->assertJsonPath('errors.x.0', 'El desplazamiento horizontal debe estar entre -50 y 50.');
+        $this->putJson($ruta, ['scale' => 100, 'x' => 0, 'y' => 'mucho'])->assertUnprocessable()->assertJsonPath('errors.y.0', 'El desplazamiento vertical debe ser un número.');
+        $this->putJson('/api/v1/admin/configurator/products/PRO-NO-EXISTE/base-adjust', ['scale' => 100, 'x' => 0, 'y' => 0])->assertNotFound();
+    }
 }

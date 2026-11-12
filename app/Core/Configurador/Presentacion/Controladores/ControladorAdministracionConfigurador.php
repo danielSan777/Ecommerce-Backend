@@ -74,6 +74,28 @@ final class ControladorAdministracionConfigurador extends Controller
         }
     }
 
+    /** Encuadre de la imagen para personalizar del producto: escala (%) y desplazamiento (% del visor). */
+    public function ajustarImagenBase(string $sku, Request $request, AdministrarConfiguracion $configuracion): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->all(), [
+            'scale' => ['required', 'numeric', 'between:50,200'],
+            'x' => ['required', 'numeric', 'between:-50,50'],
+            'y' => ['required', 'numeric', 'between:-50,50'],
+        ], [
+            'scale.required' => 'Indica la escala de la imagen.',
+            'scale.numeric' => 'La escala debe ser un número.',
+            'scale.between' => 'La escala debe estar entre 50 % y 200 %.',
+            'x.required' => 'Indica el desplazamiento horizontal.',
+            'x.numeric' => 'El desplazamiento horizontal debe ser un número.',
+            'x.between' => 'El desplazamiento horizontal debe estar entre -50 y 50.',
+            'y.required' => 'Indica el desplazamiento vertical.',
+            'y.numeric' => 'El desplazamiento vertical debe ser un número.',
+            'y.between' => 'El desplazamiento vertical debe estar entre -50 y 50.',
+        ]);
+
+        return response()->json($configuracion->ajustarImagen($sku, (float) $validos['scale'], (float) $validos['x'], (float) $validos['y']));
+    }
+
     /** @return array{locations: list<array<string, mixed>>, accessory_ids: list<int>, exceptions: list<array<string, mixed>>} */
     private function validar(Request $request): array
     {

@@ -49,6 +49,12 @@ final class AdministrarConfiguracion
         return $this->configurador->cambiarModoDelProducto($sku, $propia, $copiarDeLaCategoria);
     }
 
+    /** @return array<string, mixed> */
+    public function ajustarImagen(string $sku, float $escala, float $x, float $y): array
+    {
+        return $this->configurador->guardarAjusteDeImagen($sku, $escala, $x, $y);
+    }
+
     /** @param array<string, mixed> $configuracion */
     private function validar(array $configuracion): void
     {

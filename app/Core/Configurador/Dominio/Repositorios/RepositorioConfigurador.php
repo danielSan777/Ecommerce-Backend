@@ -104,4 +104,11 @@ interface RepositorioConfigurador
      * @return array<string, mixed>
      */
     public function guardarImagenParaPersonalizar(string $sku, ?array $variantes): array;
+
+    /**
+     * Ajusta el encuadre de la imagen para personalizar del producto: escala (%) y desplazamiento (% del visor).
+     *
+     * @return array<string, mixed> la configuración del producto
+     */
+    public function guardarAjusteDeImagen(string $sku, float $escala, float $x, float $y): array;
 }

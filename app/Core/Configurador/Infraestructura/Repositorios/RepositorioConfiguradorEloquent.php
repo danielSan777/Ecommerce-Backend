@@ -231,14 +231,14 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
     public function configuracionDeCategoria(string $slug): array
     {
         $categoria = CategoriaModelo::query()->where('slug', $slug)->first() ?? throw CatalogoNoEncontrado::categoria($slug);
-        $productos = ProductoModelo::query()->where('category_id', $categoria->id)->where('type', 'personalizable')->orderBy('name')->get(['sku', 'name', 'uses_own_configurator', 'personalization_image']);
+        $productos = ProductoModelo::query()->where('category_id', $categoria->id)->where('type', 'personalizable')->orderBy('name')->get(['sku', 'name', 'uses_own_configurator', 'personalization_image', 'personalization_scale', 'personalization_offset_x', 'personalization_offset_y']);
 
         return [
             'scope' => 'category',
             'slug' => $categoria->slug,
             'name' => $categoria->name,
             'has_config' => $this->idDeConfiguracion('category_id', $categoria->id) !== null,
-            'products' => $productos->map(fn ($p): array => ['sku' => $p->sku, 'name' => $p->name, 'uses_own_configurator' => (bool) $p->uses_own_configurator, 'base_image' => $this->url($p->personalization_image, (string) ProcesadorDeAccesorios::GRANDE)])->all(),
+            'products' => $productos->map(fn ($p): array => ['sku' => $p->sku, 'name' => $p->name, 'uses_own_configurator' => (bool) $p->uses_own_configurator, 'base_image' => $this->url($p->personalization_image, (string) ProcesadorDeAccesorios::GRANDE), 'base_adjust' => $this->ajuste($p)])->all(),
             'config' => $this->armar($this->idDeConfiguracion('category_id', $categoria->id)),
         ];
     }
@@ -261,6 +261,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'source' => $propia ? 'product' : 'category',
             'has_config' => $id !== null,
             'base_image' => $this->url($producto->personalization_image, (string) ProcesadorDeAccesorios::GRANDE),
+            'base_adjust' => $this->ajuste($producto),
             'config' => $this->armar($id),
         ];
     }
@@ -278,6 +279,20 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
         $producto->update(['personalization_image' => $variantes]);
 
         return $this->configuracionDeProducto($sku);
+    }
+
+    public function guardarAjusteDeImagen(string $sku, float $escala, float $x, float $y): array
+    {
+        $producto = ProductoModelo::query()->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
+        $producto->update(['personalization_scale' => $escala, 'personalization_offset_x' => $x, 'personalization_offset_y' => $y]);
+
+        return $this->configuracionDeProducto($sku);
+    }
+
+    /** @return array{scale: float, x: float, y: float} */
+    private function ajuste(object $p): array
+    {
+        return ['scale' => (float) ($p->personalization_scale ?? 100), 'x' => (float) ($p->personalization_offset_x ?? 0), 'y' => (float) ($p->personalization_offset_y ?? 0)];
     }
 
     public function guardarConfiguracionDeCategoria(string $slug, array $configuracion): array
@@ -335,6 +350,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'source' => $propia ? 'product' : 'category',
             'configured' => $id !== null,
             'base_image' => $this->url($producto->personalization_image, (string) ProcesadorDeAccesorios::GRANDE),
+            'base_adjust' => $this->ajuste($producto),
             'locations' => $armada['locations'],
             'accessories' => $marcados->map(function (AccesorioModelo $a): array {
                 $f = $this->formatoAccesorio($a);

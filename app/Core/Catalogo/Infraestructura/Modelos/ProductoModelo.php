@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 #[Fillable(['sku', 'slug', 'type', 'name', 'category_id', 'subcategory_id', 'base_price_cents', 'cost_cents', 'discount_percent', 'size_text',
-    'material_text', 'includes', 'description_html', 'is_available', 'is_active', 'uses_own_configurator', 'personalization_image', 'search_synonyms', 'seo_title', 'seo_description'])]
+    'material_text', 'includes', 'description_html', 'is_available', 'is_active', 'uses_own_configurator', 'personalization_image', 'personalization_scale', 'personalization_offset_x', 'personalization_offset_y', 'search_synonyms', 'seo_title', 'seo_description'])]
 #[Hidden(['cost_cents'])]
 class ProductoModelo extends Model
 {
@@ -30,7 +30,7 @@ class ProductoModelo extends Model
 
     protected function casts(): array
     {
-        return ['includes' => 'array', 'search_synonyms' => 'array', 'is_available' => 'boolean', 'is_active' => 'boolean', 'uses_own_configurator' => 'boolean', 'personalization_image' => 'array', 'discount_percent' => 'decimal:2'];
+        return ['includes' => 'array', 'search_synonyms' => 'array', 'is_available' => 'boolean', 'is_active' => 'boolean', 'uses_own_configurator' => 'boolean', 'personalization_image' => 'array', 'personalization_scale' => 'float', 'personalization_offset_x' => 'float', 'personalization_offset_y' => 'float', 'discount_percent' => 'decimal:2'];
     }
 
     public function categoria(): BelongsTo

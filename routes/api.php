@@ -107,6 +107,7 @@ Route::prefix('v1')->group(function () {
         Route::put('configurator/categories/{slug}', [ControladorAdministracionConfigurador::class, 'guardarCategoria'])->name('api.v1.admin.configurator.categories.update');
         Route::get('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'producto'])->name('api.v1.admin.configurator.products.show');
         Route::put('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'guardarProducto'])->name('api.v1.admin.configurator.products.update');
+        Route::put('configurator/products/{sku}/base-adjust', [ControladorAdministracionConfigurador::class, 'ajustarImagenBase'])->name('api.v1.admin.configurator.products.base-adjust');
         Route::put('configurator/products/{sku}/mode', [ControladorAdministracionConfigurador::class, 'modo'])->name('api.v1.admin.configurator.products.mode');
     });
 
