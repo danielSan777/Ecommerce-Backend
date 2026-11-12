@@ -14,6 +14,7 @@ use App\Core\Configurador\Infraestructura\Modelos\AccesorioModelo;
 use App\Core\Configurador\Infraestructura\Modelos\CategoriaDeAccesorioModelo;
 use App\Core\Configurador\Infraestructura\Modelos\ConfiguracionModelo;
 use App\Core\Configurador\Infraestructura\Modelos\UbicacionModelo;
+use App\Core\Configurador\Infraestructura\Modelos\UltimaEdicionModelo;
 use App\Core\Configurador\Infraestructura\Servicios\ProcesadorDeAccesorios;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -264,6 +265,28 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'base_adjust' => $this->ajuste($producto),
             'config' => $this->armar($id),
         ];
+    }
+
+    public function ultimaEdicion(int $idAdministrador): array
+    {
+        $fila = UltimaEdicionModelo::query()->where('user_id', $idAdministrador)->first();
+        $categoria = $fila?->category_id ? CategoriaModelo::query()->find($fila->category_id) : null;
+        $producto = $fila?->product_id ? ProductoModelo::query()->find($fila->product_id) : null;
+
+        return ['category_slug' => $categoria?->slug, 'product_sku' => $categoria && $producto ? $producto->sku : null];
+    }
+
+    public function recordarUltimaEdicion(int $idAdministrador, ?string $slugDeCategoria, ?string $sku): void
+    {
+        $categoria = $slugDeCategoria ? (CategoriaModelo::query()->where('slug', $slugDeCategoria)->first() ?? throw CatalogoNoEncontrado::categoria($slugDeCategoria)) : null;
+        $producto = null;
+        if ($sku) {
+            $producto = ProductoModelo::query()->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
+            if ($categoria === null || $producto->category_id !== $categoria->id) {
+                throw CatalogoNoEncontrado::producto($sku);
+            }
+        }
+        UltimaEdicionModelo::query()->updateOrCreate(['user_id' => $idAdministrador], ['category_id' => $categoria?->id, 'product_id' => $producto?->id]);
     }
 
     public function rutasDeImagenParaPersonalizar(string $sku): array

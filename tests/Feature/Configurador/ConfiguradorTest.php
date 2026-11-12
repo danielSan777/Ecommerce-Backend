@@ -465,4 +465,33 @@ final class ConfiguradorTest extends TestCase
         $this->putJson($ruta, ['scale' => 100, 'x' => 0, 'y' => 'mucho'])->assertUnprocessable()->assertJsonPath('errors.y.0', 'El desplazamiento vertical debe ser un número.');
         $this->putJson('/api/v1/admin/configurator/products/PRO-NO-EXISTE/base-adjust', ['scale' => 100, 'x' => 0, 'y' => 0])->assertNotFound();
     }
+    public function test_la_ultima_edicion_se_guarda_en_la_base_por_administrador(): void
+    {
+        $ruta = '/api/v1/admin/configurator/last-edit';
+        $this->getJson($ruta)->assertUnauthorized();
+
+        $this->admin()->getJson($ruta)->assertOk()->assertExactJson(['category_slug' => null, 'product_sku' => null]);
+
+        $this->putJson($ruta, ['category_slug' => 'profesiones-y-hobbies', 'product_sku' => 'PRO-DOCTOR'])->assertOk()
+            ->assertExactJson(['category_slug' => 'profesiones-y-hobbies', 'product_sku' => 'PRO-DOCTOR']);
+        $this->getJson($ruta)->assertOk()->assertJsonPath('product_sku', 'PRO-DOCTOR');
+
+        // Solo la categoría: «toda la categoría»
+        $this->putJson($ruta, ['category_slug' => 'profesiones-y-hobbies', 'product_sku' => null])->assertOk()->assertJsonPath('product_sku', null);
+        $this->assertDatabaseCount('configurator_last_edits', 1);
+
+        // Otro administrador no ve lo de este
+        $this->putJson($ruta, ['category_slug' => 'profesiones-y-hobbies', 'product_sku' => 'PRO-DOCTOR'])->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->admin()->getJson($ruta)->assertOk()->assertJsonPath('category_slug', null);
+    }
+
+    public function test_la_ultima_edicion_rechaza_categorias_o_productos_que_no_existen(): void
+    {
+        $ruta = '/api/v1/admin/configurator/last-edit';
+        $this->admin()->putJson($ruta, ['category_slug' => 'no-existe'])->assertNotFound();
+        $this->putJson($ruta, ['category_slug' => 'profesiones-y-hobbies', 'product_sku' => 'PRO-NO-EXISTE'])->assertNotFound();
+        // Un producto sin su categoría no se puede recordar
+        $this->putJson($ruta, ['product_sku' => 'PRO-DOCTOR'])->assertNotFound();
+    }
 }

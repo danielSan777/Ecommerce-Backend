@@ -22,6 +22,27 @@ use Illuminate\Validation\Rule;
  */
 final class ControladorAdministracionConfigurador extends Controller
 {
+    /** Lo último que este administrador estaba configurando: se reabre ahí desde cualquier equipo. */
+    public function ultimaEdicion(Request $request, AdministrarConfiguracion $configuracion): JsonResponse
+    {
+        return response()->json($configuracion->ultimaEdicion((int) $request->user('api')->getAuthIdentifier()));
+    }
+
+    public function recordarUltimaEdicion(Request $request, AdministrarConfiguracion $configuracion): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->all(), [
+            'category_slug' => ['nullable', 'string', 'max:160'],
+            'product_sku' => ['nullable', 'string', 'max:80'],
+        ], [
+            'category_slug.string' => 'La categoría no es válida.',
+            'product_sku.string' => 'El producto no es válido.',
+        ]);
+        $id = (int) $request->user('api')->getAuthIdentifier();
+        $configuracion->recordarUltimaEdicion($id, $validos['category_slug'] ?? null, $validos['product_sku'] ?? null);
+
+        return response()->json($configuracion->ultimaEdicion($id));
+    }
+
     public function categoria(string $slug, AdministrarConfiguracion $configuracion): JsonResponse
     {
         return response()->json($configuracion->deCategoria($slug));

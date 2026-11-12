@@ -103,6 +103,8 @@ Route::prefix('v1')->group(function () {
         Route::post('locations', [ControladorAdministracionUbicaciones::class, 'store'])->name('api.v1.admin.locations.store');
         Route::put('locations/{id}', [ControladorAdministracionUbicaciones::class, 'update'])->whereNumber('id')->name('api.v1.admin.locations.update');
         Route::delete('locations/{id}', [ControladorAdministracionUbicaciones::class, 'destroy'])->whereNumber('id')->name('api.v1.admin.locations.destroy');
+        Route::get('configurator/last-edit', [ControladorAdministracionConfigurador::class, 'ultimaEdicion'])->name('api.v1.admin.configurator.last-edit.show');
+        Route::put('configurator/last-edit', [ControladorAdministracionConfigurador::class, 'recordarUltimaEdicion'])->name('api.v1.admin.configurator.last-edit.update');
         Route::get('configurator/categories/{slug}', [ControladorAdministracionConfigurador::class, 'categoria'])->name('api.v1.admin.configurator.categories.show');
         Route::put('configurator/categories/{slug}', [ControladorAdministracionConfigurador::class, 'guardarCategoria'])->name('api.v1.admin.configurator.categories.update');
         Route::get('configurator/products/{sku}', [ControladorAdministracionConfigurador::class, 'producto'])->name('api.v1.admin.configurator.products.show');

@@ -15,6 +15,17 @@ final class AdministrarConfiguracion
 {
     public function __construct(private readonly RepositorioConfigurador $configurador) {}
 
+    /** @return array{category_slug: ?string, product_sku: ?string} */
+    public function ultimaEdicion(int $idAdministrador): array
+    {
+        return $this->configurador->ultimaEdicion($idAdministrador);
+    }
+
+    public function recordarUltimaEdicion(int $idAdministrador, ?string $slugDeCategoria, ?string $sku): void
+    {
+        $this->configurador->recordarUltimaEdicion($idAdministrador, $slugDeCategoria, $sku);
+    }
+
     /** @return array<string, mixed> */
     public function deCategoria(string $slug): array
     {

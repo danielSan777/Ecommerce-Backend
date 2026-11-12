@@ -91,6 +91,12 @@ interface RepositorioConfigurador
     /** @return array<string, mixed> */
     public function cambiarModoDelProducto(string $sku, bool $propia, bool $copiarDeLaCategoria): array;
 
+    /** Categoría y producto que el administrador estaba configurando (null si no hay o ya no existen). @return array{category_slug: ?string, product_sku: ?string} */
+    public function ultimaEdicion(int $idAdministrador): array;
+
+    /** Recuerda lo que el administrador está configurando; el producto debe ser de esa categoría. */
+    public function recordarUltimaEdicion(int $idAdministrador, ?string $slugDeCategoria, ?string $sku): void;
+
     /** Lo que ve el cliente: la configuración propia del producto o la de su categoría. @return array<string, mixed> */
     public function paraElCliente(string $slugDelProducto): array;
 
