@@ -311,7 +311,8 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             : $this->idDeConfiguracion('category_id', $producto->category_id);
 
         $armada = $this->armar($id);
-        $marcados = AccesorioModelo::query()->with('categoria')->whereIn('id', $armada['accessory_ids'])->where('is_active', true)
+        // El cliente ve todos los accesorios activos que crea el administrador; "marcados" y excepciones solo definen dónde van.
+        $marcados = AccesorioModelo::query()->with('categoria')->where('is_active', true)
             ->orderBy('sort_order')->orderBy('id')->get();
 
         return [

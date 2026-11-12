@@ -227,4 +227,4 @@ Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre
 **API pública:** `GET /api/v1/products/{slug}/configurator` →
 `{source:'product'|'category', configured, locations:[{location_id,name,allowed_categories,excluded_categories,state,priority,layer,fixed_accessory_id,preset}], accessories:[{id,name,type,behavior,text,category,image,thumb,alt}], exceptions:[…]}`. Solo accesorios marcados y activos. Caché de 60 s.
 
-**Datos de muestra** (los del prototipo VentaPruebaApp: 5 ubicaciones, 11 accesorios con imagen y, si existe la categoría `profesiones-y-hobbies` sin configuración, una configuración de ejemplo): `php artisan db:seed --class=ConfiguradorDeMuestra` (idempotente, no pisa lo que el administrador editó).
+**Sin datos de muestra:** el administrador crea todo desde el panel (categorías de accesorios, accesorios, ubicaciones y configuraciones). El cliente recibe **todos los accesorios activos**; los «marcados» y las excepciones solo definen dónde se coloca cada uno.

@@ -7,7 +7,6 @@ namespace Tests\Feature\Configurador;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Core\Configurador\Infraestructura\Modelos\AccesorioModelo;
 use App\Models\User;
-use Database\Seeders\ConfiguradorDeMuestra;
 use Database\Seeders\ProductosDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -373,7 +372,7 @@ final class ConfiguradorTest extends TestCase
         // Un producto con configuración propia recibe la suya
         $this->admin()->putJson('/api/v1/admin/configurator/products/PRO-DOCTOR/mode', ['uses_own_configurator' => true])->assertOk();
         $this->app['auth']->forgetGuards();
-        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('source', 'product')->assertJsonPath('configured', false)->assertJsonPath('accessories', []);
+        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('source', 'product')->assertJsonPath('configured', false)->assertJsonCount(1, 'accessories');
         $this->getJson('/api/v1/products/enfermera/configurator')->assertOk()->assertJsonPath('source', 'category')->assertJsonCount(1, 'accessories');
     }
 
@@ -385,36 +384,24 @@ final class ConfiguradorTest extends TestCase
         $this->getJson('/api/v1/products/doctor/configurator')->assertNotFound();
     }
 
-    public function test_un_producto_sin_configuracion_devuelve_las_ubicaciones_libres_y_sin_accesorios(): void
+    public function test_un_producto_sin_configuracion_devuelve_las_ubicaciones_libres_y_todos_los_accesorios_activos(): void
     {
         $this->base();
 
-        $this->getJson('/api/v1/products/homero/configurator')->assertOk()->assertJsonPath('configured', false)->assertJsonPath('accessories', [])
+        $this->getJson('/api/v1/products/homero/configurator')->assertOk()->assertJsonPath('configured', false)->assertJsonCount(1, 'accessories')
             ->assertJsonPath('locations.0.state', 'libre')->assertJsonPath('locations.0.preset', null);
     }
 
-    // ------------------------------------------------------------ datos de muestra
-
-    public function test_el_seeder_de_muestra_carga_todo_y_se_puede_repetir(): void
+    public function test_el_cliente_ve_todos_los_accesorios_activos_aunque_no_esten_marcados(): void
     {
-        $this->seed(ConfiguradorDeMuestra::class);
-        $this->seed(ConfiguradorDeMuestra::class);
+        [$categoria, , $gafas] = $this->base();
+        $this->admin()->postJson('/api/v1/admin/accessories', ['name' => 'Regalo', 'accessory_category_id' => $categoria])->assertCreated();
+        $oculto = $this->postJson('/api/v1/admin/accessories', ['name' => 'Oculto', 'accessory_category_id' => $categoria, 'is_active' => false])->assertCreated()->json('id');
 
-        $r = $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('configured', true);
-        $this->assertCount(11, $r->json('accessories'));
-        $this->assertCount(5, $r->json('locations'));
-        $this->assertSame(['Cabeza', 'Pie izquierdo', 'Pie derecho', 'Entre las piernas', 'Base'], array_column($r->json('locations'), 'name'));
-        $this->assertSame(['Moda'], $r->json('locations.0.allowed_categories'));
-        $this->assertSame(['Moda', 'Personalización'], $r->json('locations.1.excluded_categories'));
-        $this->assertSame('fija', $r->json('locations.1.state'));
-        $this->assertCount(1, $r->json('exceptions'));
-        $nombre = collect($r->json('accessories'))->firstWhere('name', 'Nombre');
-        $this->assertEqualsCanonicalizing(['lentes', 'gafas', 'marco_foto', 'marco_frase'], array_values(array_filter(array_column($r->json('accessories'), 'behavior'))));
-        $this->assertSame('gafas', collect($r->json('accessories'))->firstWhere('name', 'Gafas')['behavior']);
-        $this->assertSame('texto', $nombre['type']);
-        $this->assertSame('Ingrese su nombre.', $nombre['text']);
-        $this->assertNull($nombre['image']);
-        $this->assertNotNull(collect($r->json('accessories'))->firstWhere('name', 'Gafas')['image']);
-        $this->assertCount(20, Storage::disk('media')->allFiles('accessories'));
+        $r = $this->getJson('/api/v1/products/doctor/configurator')->assertOk();
+
+        $this->assertSame(['Gafas', 'Regalo'], array_column($r->json('accessories'), 'name'));
+        $this->assertNotContains($oculto, array_column($r->json('accessories'), 'id'));
+        $this->assertContains($gafas, array_column($r->json('accessories'), 'id'));
     }
 }
