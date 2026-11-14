@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['accessory_category_id', 'name', 'type', 'behavior', 'default_text', 'image_variants', 'alt', 'sort_order', 'is_active', 'is_exclusive'])]
+#[Fillable(['accessory_category_id', 'name', 'type', 'behavior', 'default_text', 'image_variants', 'image_original_name', 'alt', 'sort_order', 'is_active', 'is_exclusive'])]
 class AccesorioModelo extends Model
 {
     protected $table = 'accessories';

@@ -91,10 +91,10 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
         return array_values($a->image_variants ?? []);
     }
 
-    public function guardarImagenDelAccesorio(int $id, array $variantes, string $alt): array
+    public function guardarImagenDelAccesorio(int $id, array $variantes, string $alt, ?string $nombreOriginal = null): array
     {
         $a = AccesorioModelo::query()->find($id) ?? throw ConfiguradorNoEncontrado::accesorio($id);
-        $a->update(['image_variants' => $variantes, 'alt' => $alt]);
+        $a->update(['image_variants' => $variantes, 'image_original_name' => $nombreOriginal, 'alt' => $alt]);
 
         return $this->formatoAccesorio($a->load('categoria'));
     }
@@ -129,6 +129,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'category_id' => $a->accessory_category_id,
             'category' => $a->categoria?->name,
             'image' => $this->url($a->image_variants, (string) ProcesadorDeAccesorios::GRANDE),
+            'image_name' => $a->image_variants ? $a->image_original_name : null,
             'thumb' => $this->url($a->image_variants, (string) ProcesadorDeAccesorios::MINIATURA),
             'alt' => $a->alt,
             'sort_order' => (int) $a->sort_order,

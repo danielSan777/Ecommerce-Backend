@@ -60,7 +60,7 @@ final class AdministrarAccesorios
     }
 
     /** @throws ImagenInvalida */
-    public function subirImagen(int $id, string $contenido, string $alt): array
+    public function subirImagen(int $id, string $contenido, string $alt, ?string $nombreOriginal = null): array
     {
         $anteriores = $this->configurador->rutasDeImagenDelAccesorio($id); // también comprueba que el accesorio exista
         $versiones = $this->imagenes->procesar($contenido);
@@ -73,7 +73,7 @@ final class AdministrarAccesorios
             $rutas[(string) $ancho] = $ruta;
         }
 
-        $accesorio = $this->configurador->guardarImagenDelAccesorio($id, $rutas, $alt);
+        $accesorio = $this->configurador->guardarImagenDelAccesorio($id, $rutas, $alt, $nombreOriginal);
         Storage::disk('media')->delete($anteriores);
 
         return $accesorio;

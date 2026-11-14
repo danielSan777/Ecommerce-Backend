@@ -116,8 +116,11 @@ final class ControladorAdministracionAccesorios extends Controller
             'alt' => ['required', 'string', 'max:200'],
         ], self::MENSAJES);
 
+        // Nombre con el que se subió: solo el nombre (sin carpetas ni caracteres de control), para mostrarlo en el panel
+        $nombre = trim((string) preg_replace('/[\x00-\x1F\x7F]+/u', '', basename(str_replace('\\', '/', $request->file('image')->getClientOriginalName()))));
+
         try {
-            return response()->json($accesorios->subirImagen($id, (string) file_get_contents($request->file('image')->getRealPath()), $validos['alt']), 201);
+            return response()->json($accesorios->subirImagen($id, (string) file_get_contents($request->file('image')->getRealPath()), $validos['alt'], $nombre === '' ? null : mb_substr($nombre, 0, 255)), 201);
         } catch (ImagenInvalida $e) {
             throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
         }

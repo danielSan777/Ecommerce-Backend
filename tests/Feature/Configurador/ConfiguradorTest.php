@@ -142,6 +142,13 @@ final class ConfiguradorTest extends TestCase
         $this->assertStringEndsWith('-160.webp', $r->json('thumb'));
         $this->assertSame('Gafas negras', $r->json('alt'));
 
+        // Guarda el nombre con el que se subió y lo devuelve (solo el nombre, sin carpetas)
+        $this->assertSame('accesorio.png', $r->json('image_name'));
+        $this->assertSame('accesorio.png', AccesorioModelo::query()->findOrFail($accesorio)->image_original_name);
+        $this->postJson("/api/v1/admin/accessories/$accesorio/image", ['image' => UploadedFile::fake()->image('C:\\fotos\\mi balanza.png', 90, 90), 'alt' => 'x'])->assertCreated()->assertJsonPath('image_name', 'mi balanza.png');
+        $this->postJson("/api/v1/admin/accessories/$accesorio/image", ['image' => $this->imagen(), 'alt' => 'Gafas negras'])->assertCreated();
+        $variantes = AccesorioModelo::query()->findOrFail($accesorio)->image_variants;
+
         // Al reemplazarla, los archivos anteriores se borran
         $this->postJson("/api/v1/admin/accessories/$accesorio/image", ['image' => $this->imagen(90, 90), 'alt' => 'Gafas nuevas'])->assertCreated();
         foreach ($variantes as $ruta) {

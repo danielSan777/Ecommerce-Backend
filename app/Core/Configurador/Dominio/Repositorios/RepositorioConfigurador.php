@@ -49,7 +49,7 @@ interface RepositorioConfigurador
      * @param  array<int|string, string>  $variantes  ancho => ruta relativa
      * @return array<string, mixed>
      */
-    public function guardarImagenDelAccesorio(int $id, array $variantes, string $alt): array;
+    public function guardarImagenDelAccesorio(int $id, array $variantes, string $alt, ?string $nombreOriginal = null): array;
 
     public function eliminarAccesorio(int $id): void;
 

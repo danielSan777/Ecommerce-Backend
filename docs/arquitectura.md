@@ -233,6 +233,8 @@ Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre
 
 **Accesorio exclusivo:** un accesorio marcado `is_exclusive` (el corazón del Doctor, la balanza del Abogado) no aparece en la lista de accesorios del cliente; solo le llega al producto que lo tiene como accesorio fijo. Se marca al crear o editar el accesorio.
 
+**Nombre original de la imagen:** al subir la imagen de un accesorio se guarda también el nombre con el que se subió (`accessories.image_original_name`, solo el nombre, sin carpetas) y el panel lo muestra al editar (`image_name`). Las imágenes subidas antes de este cambio no lo tienen y el panel muestra el nombre del archivo guardado.
+
 **Última edición:** la categoría y el producto que cada administrador estaba configurando se guardan en `configurator_last_edits` (una fila por administrador; `GET/PUT /admin/configurator/last-edit`). Así el configurador se reabre en el mismo sitio desde cualquier equipo; nada de esto vive en el navegador.
 
 **Sin datos de muestra:** el administrador crea todo desde el panel (categorías de accesorios, accesorios, ubicaciones y configuraciones). El cliente recibe **todos los accesorios activos**; los «marcados» y las excepciones solo definen dónde se coloca cada uno.
