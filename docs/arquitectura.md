@@ -231,6 +231,8 @@ Módulo `app/Core/Configurador`. El configurador (dónde va cada accesorio sobre
 
 **Accesorio fijo por producto:** un producto que usa la configuración de su categoría puede tener su propio accesorio en una ubicación (corazón a la izquierda del Doctor, balanza en el Abogado). Se guarda en `product_fixed_accessories` (`PUT /admin/configurator/products/{sku}/fixed-accessories/{ubicacion}` con `accessory_id`, o `null` para quitarlo). La posición y el tamaño los sigue definiendo la categoría; para el cliente y el panel la ubicación sale `fija` con ese accesorio. Exige que la categoría ya tenga valores en esa ubicación y que la ubicación admita la categoría del accesorio. Un producto con configuración propia lo define dentro de ella.
 
+**Accesorio exclusivo:** un accesorio marcado `is_exclusive` (el corazón del Doctor, la balanza del Abogado) no aparece en la lista de accesorios del cliente; solo le llega al producto que lo tiene como accesorio fijo. Se marca al crear o editar el accesorio.
+
 **Última edición:** la categoría y el producto que cada administrador estaba configurando se guardan en `configurator_last_edits` (una fila por administrador; `GET/PUT /admin/configurator/last-edit`). Así el configurador se reabre en el mismo sitio desde cualquier equipo; nada de esto vive en el navegador.
 
 **Sin datos de muestra:** el administrador crea todo desde el panel (categorías de accesorios, accesorios, ubicaciones y configuraciones). El cliente recibe **todos los accesorios activos**; los «marcados» y las excepciones solo definen dónde se coloca cada uno.

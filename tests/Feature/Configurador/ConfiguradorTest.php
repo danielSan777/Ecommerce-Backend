@@ -561,4 +561,29 @@ final class ConfiguradorTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->putJson($ruta, ['accessory_id' => $gafas])->assertUnauthorized();
     }
+
+    public function test_un_accesorio_exclusivo_solo_lo_ve_el_cliente_en_el_producto_que_lo_tiene_fijo(): void
+    {
+        [$categoria, $ubicacion, $gafas] = $this->base();
+        $corazon = $this->postJson('/api/v1/admin/accessories', ['name' => 'Corazón', 'accessory_category_id' => $categoria, 'is_exclusive' => true])->assertCreated()->assertJsonPath('is_exclusive', true)->json('id');
+        $balanza = $this->postJson('/api/v1/admin/accessories', ['name' => 'Balanza', 'accessory_category_id' => $categoria, 'is_exclusive' => true])->json('id');
+        $this->assertFalse($this->getJson('/api/v1/admin/accessories')->json('data.0.is_exclusive'));
+        $this->putJson(self::CATEGORIA, $this->configuracion($ubicacion, $gafas))->assertOk();
+        $this->putJson("/api/v1/admin/configurator/products/PRO-DOCTOR/fixed-accessories/$ubicacion", ['accessory_id' => $corazon])->assertOk();
+        $this->putJson("/api/v1/admin/configurator/products/PRO-ENFERMERA/fixed-accessories/$ubicacion", ['accessory_id' => $balanza])->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $nombres = fn (string $slug): array => array_column($this->getJson("/api/v1/products/$slug/configurator")->assertOk()->json('accessories'), 'name');
+        $this->assertSame(['Gafas', 'Corazón'], $nombres('doctor'));
+        $this->assertSame(['Gafas', 'Balanza'], $nombres('enfermera'));
+
+        // Sin accesorio fijo asignado, un exclusivo no sale para nadie; al dejar de ser exclusivo, sale para todos
+        $this->admin()->putJson("/api/v1/admin/configurator/products/PRO-DOCTOR/fixed-accessories/$ubicacion", ['accessory_id' => null])->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->assertSame(['Gafas'], $nombres('doctor'));
+        $this->admin()->putJson("/api/v1/admin/accessories/$corazon", ['is_exclusive' => false])->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->assertSame(['Gafas', 'Corazón'], $nombres('doctor'));
+        $this->admin()->putJson("/api/v1/admin/accessories/$corazon", ['is_exclusive' => 'quizá'])->assertUnprocessable();
+    }
 }

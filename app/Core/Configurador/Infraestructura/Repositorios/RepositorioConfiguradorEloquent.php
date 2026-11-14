@@ -133,6 +133,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'alt' => $a->alt,
             'sort_order' => (int) $a->sort_order,
             'is_active' => (bool) $a->is_active,
+            'is_exclusive' => (bool) $a->is_exclusive,
         ];
     }
 
@@ -448,7 +449,10 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
 
         $armada = $propia ? $this->armar($id) : $this->conFijosDelProducto($this->armar($id), $producto->id);
         // El cliente ve todos los accesorios activos que crea el administrador; "marcados" y excepciones solo definen dónde van.
+        // Los exclusivos (el corazón del Doctor, la balanza del Abogado) solo llegan si son el accesorio fijo de este producto.
+        $fijosDelProducto = collect($armada['locations'])->where('state', 'fija')->pluck('fixed_accessory_id')->filter()->all();
         $marcados = AccesorioModelo::query()->with('categoria')->where('is_active', true)
+            ->where(fn ($q) => $q->where('is_exclusive', false)->orWhereIn('id', $fijosDelProducto))
             ->orderBy('sort_order')->orderBy('id')->get();
 
         return [

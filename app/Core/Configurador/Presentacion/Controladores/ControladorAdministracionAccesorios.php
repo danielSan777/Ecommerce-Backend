@@ -32,6 +32,7 @@ final class ControladorAdministracionAccesorios extends Controller
         'default_text.required_if' => 'Escribe el texto de ejemplo del accesorio de tipo texto.',
         'default_text.max' => 'El texto de ejemplo no puede pasar de 150 caracteres.',
         'is_active.boolean' => 'Indica si el accesorio está activo o no.',
+        'is_exclusive.boolean' => 'Indica si el accesorio es exclusivo de un producto o no.',
         'image.required' => 'Elige la imagen del accesorio.',
         'alt.required' => 'Escribe el texto alternativo de la imagen (lo que se ve en ella).',
         'alt.max' => 'El texto alternativo no puede pasar de 200 caracteres.',
@@ -84,6 +85,7 @@ final class ControladorAdministracionAccesorios extends Controller
             'default_text' => ['required_if:type,texto', 'nullable', 'string', 'max:150'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_exclusive' => ['sometimes', 'boolean'],
         ], self::MENSAJES);
 
         return response()->json($accesorios->crear($validos), 201);
@@ -99,6 +101,7 @@ final class ControladorAdministracionAccesorios extends Controller
             'default_text' => ['required_if:type,texto', 'nullable', 'string', 'max:150'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_exclusive' => ['sometimes', 'boolean'],
         ], self::MENSAJES);
 
         return response()->json($accesorios->actualizar($id, $validos));
