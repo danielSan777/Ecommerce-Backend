@@ -117,6 +117,19 @@ final class ControladorAdministracionConfigurador extends Controller
         return response()->json($configuracion->ajustarImagen($sku, (float) $validos['scale'], (float) $validos['x'], (float) $validos['y']));
     }
 
+    /** Accesorio propio del producto en una ubicación (null lo quita y vuelve a lo que diga la categoría). */
+    public function accesorioFijoDelProducto(string $sku, int $ubicacion, Request $request, AdministrarConfiguracion $configuracion): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->all(), [
+            'accessory_id' => ['present', 'nullable', 'integer'],
+        ], [
+            'accessory_id.present' => 'Indica el accesorio (o null para quitarlo).',
+            'accessory_id.integer' => 'El accesorio no es válido.',
+        ]);
+
+        return response()->json($configuracion->accesorioFijoDelProducto($sku, $ubicacion, $validos['accessory_id'] === null ? null : (int) $validos['accessory_id']));
+    }
+
     /** @return array{locations: list<array<string, mixed>>, accessory_ids: list<int>, exceptions: list<array<string, mixed>>} */
     private function validar(Request $request): array
     {

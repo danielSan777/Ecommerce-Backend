@@ -7,6 +7,7 @@ namespace App\Core\Configurador\Infraestructura\Repositorios;
 use App\Core\Catalogo\Dominio\Excepciones\CatalogoNoEncontrado;
 use App\Core\Catalogo\Infraestructura\Modelos\CategoriaModelo;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
+use App\Core\Configurador\Dominio\Excepciones\ConfiguracionInvalida;
 use App\Core\Configurador\Dominio\Excepciones\ConfiguradorEnUso;
 use App\Core\Configurador\Dominio\Excepciones\ConfiguradorNoEncontrado;
 use App\Core\Configurador\Dominio\Repositorios\RepositorioConfigurador;
@@ -106,6 +107,10 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             ->merge(DB::table('configurator_config_locations')->where('fixed_accessory_id', $id)->pluck('config_id'))
             ->merge(DB::table('configurator_config_exceptions')->where('accessory_id', $id)->pluck('config_id'))
             ->unique()->count();
+        $productos = DB::table('product_fixed_accessories')->where('accessory_id', $id)->distinct()->count('product_id');
+        if ($configuraciones === 0 && $productos > 0) {
+            throw new ConfiguradorEnUso("No se puede eliminar el accesorio '{$a->name}' porque es el accesorio fijo de {$productos} producto(s). Cámbialo en ellos o, si solo quieres ocultarlo, desactívalo.");
+        }
         if ($configuraciones > 0) {
             throw new ConfiguradorEnUso("No se puede eliminar el accesorio '{$a->name}' porque está en {$configuraciones} configuración(es). Quítalo de ellas o, si solo quieres ocultarlo, desactívalo.");
         }
@@ -263,7 +268,8 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             'has_config' => $id !== null,
             'base_image' => $this->url($producto->personalization_image, (string) ProcesadorDeAccesorios::GRANDE),
             'base_adjust' => $this->ajuste($producto),
-            'config' => $this->armar($id),
+            'fixed_accessories' => $propia ? [] : $this->fijosDelProducto($producto->id),
+            'config' => $propia ? $this->armar($id) : $this->conFijosDelProducto($this->armar($id), $producto->id),
         ];
     }
 
@@ -337,6 +343,82 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
         return $this->configuracionDeProducto($sku);
     }
 
+    /** @return list<array{location_id: int, accessory_id: int}> */
+    private function fijosDelProducto(int $idProducto): array
+    {
+        return DB::table('product_fixed_accessories')->where('product_id', $idProducto)->orderBy('location_id')->get()
+            ->map(fn ($f): array => ['location_id' => (int) $f->location_id, 'accessory_id' => (int) $f->accessory_id])->all();
+    }
+
+    /**
+     * Sobre la configuración de la categoría, la ubicación pasa a ser fija con el accesorio del producto
+     * (misma posición y tamaño que define la categoría). Si la categoría ya no define esa ubicación, no se aplica.
+     *
+     * @param  array{locations: list<array<string, mixed>>, accessory_ids: list<int>, exceptions: list<array<string, mixed>>}  $armada
+     * @return array{locations: list<array<string, mixed>>, accessory_ids: list<int>, exceptions: list<array<string, mixed>>}
+     */
+    private function conFijosDelProducto(array $armada, int $idProducto): array
+    {
+        $fijos = collect($this->fijosDelProducto($idProducto))->pluck('accessory_id', 'location_id');
+        if ($fijos->isEmpty()) {
+            return $armada;
+        }
+        foreach ($armada['locations'] as $i => $u) {
+            $idAccesorio = $fijos->get($u['location_id']);
+            if ($idAccesorio === null || $u['preset'] === null || $u['state'] === 'deshabilitada') {
+                continue;
+            }
+            $armada['locations'][$i]['state'] = 'fija';
+            $armada['locations'][$i]['fixed_accessory_id'] = $idAccesorio;
+            if (! in_array($idAccesorio, $armada['accessory_ids'], true)) {
+                $armada['accessory_ids'][] = $idAccesorio;
+            }
+        }
+
+        return $armada;
+    }
+
+    public function guardarAccesorioFijoDelProducto(string $sku, int $idUbicacion, ?int $idAccesorio): array
+    {
+        $producto = ProductoModelo::query()->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
+        $ubicacion = $this->todasLasUbicaciones()->get($idUbicacion) ?? throw ConfiguradorNoEncontrado::ubicacion($idUbicacion);
+
+        if ($producto->uses_own_configurator) {
+            throw new ConfiguracionInvalida(['location_id' => ['Este producto usa configuración propia: define el elemento fijo dentro de su propia configuración.']]);
+        }
+        if ($idAccesorio === null) {
+            DB::table('product_fixed_accessories')->where('product_id', $producto->id)->where('location_id', $idUbicacion)->delete();
+
+            return $this->configuracionDeProducto($sku);
+        }
+
+        $deLaCategoria = $this->idDeConfiguracion('category_id', $producto->category_id);
+        $fila = $deLaCategoria === null ? null : DB::table('configurator_config_locations')->where('config_id', $deLaCategoria)->where('location_id', $idUbicacion)->first();
+        if ($fila === null || $fila->x === null) {
+            throw new ConfiguracionInvalida(['location_id' => ["La categoría aún no define la posición y el tamaño de «{$ubicacion['name']}». Configúrala primero en «Toda la categoría»."]]);
+        }
+        if ($fila->state === 'deshabilitada') {
+            throw new ConfiguracionInvalida(['location_id' => ["La ubicación «{$ubicacion['name']}» está deshabilitada en la categoría."]]);
+        }
+
+        $accesorio = AccesorioModelo::query()->with('categoria')->find($idAccesorio) ?? throw ConfiguradorNoEncontrado::accesorio($idAccesorio);
+        $categoriaDelAccesorio = $accesorio->categoria?->name ?? 'Otros';
+        $permitidas = $ubicacion['allowed_categories'];
+        if (! $accesorio->is_active) {
+            throw new ConfiguracionInvalida(['accessory_id' => ["El accesorio «{$accesorio->name}» está desactivado."]]);
+        }
+        if (($permitidas !== [] && ! in_array($categoriaDelAccesorio, $permitidas, true)) || in_array($categoriaDelAccesorio, $ubicacion['excluded_categories'], true)) {
+            throw new ConfiguracionInvalida(['accessory_id' => ["«{$ubicacion['name']}» no admite accesorios de la categoría «{$categoriaDelAccesorio}»."]]);
+        }
+
+        DB::table('product_fixed_accessories')->updateOrInsert(
+            ['product_id' => $producto->id, 'location_id' => $idUbicacion],
+            ['accessory_id' => $idAccesorio, 'updated_at' => now(), 'created_at' => now()],
+        );
+
+        return $this->configuracionDeProducto($sku);
+    }
+
     public function cambiarModoDelProducto(string $sku, bool $propia, bool $copiarDeLaCategoria): array
     {
         $producto = ProductoModelo::query()->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
@@ -364,7 +446,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
             ? $this->idDeConfiguracion('product_id', $producto->id)
             : $this->idDeConfiguracion('category_id', $producto->category_id);
 
-        $armada = $this->armar($id);
+        $armada = $propia ? $this->armar($id) : $this->conFijosDelProducto($this->armar($id), $producto->id);
         // El cliente ve todos los accesorios activos que crea el administrador; "marcados" y excepciones solo definen dónde van.
         $marcados = AccesorioModelo::query()->with('categoria')->where('is_active', true)
             ->orderBy('sort_order')->orderBy('id')->get();

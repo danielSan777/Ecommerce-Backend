@@ -66,6 +66,12 @@ final class AdministrarConfiguracion
         return $this->configurador->guardarAjusteDeImagen($sku, $escala, $x, $y);
     }
 
+    /** @return array<string, mixed> */
+    public function accesorioFijoDelProducto(string $sku, int $idUbicacion, ?int $idAccesorio): array
+    {
+        return $this->configurador->guardarAccesorioFijoDelProducto($sku, $idUbicacion, $idAccesorio);
+    }
+
     /** @param array<string, mixed> $configuracion */
     private function validar(array $configuracion): void
     {

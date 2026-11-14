@@ -494,4 +494,71 @@ final class ConfiguradorTest extends TestCase
         // Un producto sin su categoría no se puede recordar
         $this->putJson($ruta, ['product_sku' => 'PRO-DOCTOR'])->assertNotFound();
     }
+
+    public function test_cada_producto_puede_tener_su_propio_accesorio_fijo_en_una_ubicacion_de_la_categoria(): void
+    {
+        [$categoria, $ubicacion, $gafas] = $this->base();
+        $corazon = $this->postJson('/api/v1/admin/accessories', ['name' => 'Corazón', 'accessory_category_id' => $categoria])->json('id');
+        $balanza = $this->postJson('/api/v1/admin/accessories', ['name' => 'Balanza', 'accessory_category_id' => $categoria])->json('id');
+        $this->putJson(self::CATEGORIA, $this->configuracion($ubicacion, $gafas))->assertOk();
+        $doctor = '/api/v1/admin/configurator/products/PRO-DOCTOR';
+        $ruta = fn (string $sku): string => "/api/v1/admin/configurator/products/$sku/fixed-accessories/$ubicacion";
+
+        $this->putJson($ruta('PRO-DOCTOR'), ['accessory_id' => $corazon])->assertOk()
+            ->assertJsonPath('config.locations.0.state', 'fija')->assertJsonPath('config.locations.0.fixed_accessory_id', $corazon)
+            ->assertJsonPath('fixed_accessories', [['location_id' => $ubicacion, 'accessory_id' => $corazon]]);
+        $this->putJson($ruta('PRO-ENFERMERA'), ['accessory_id' => $balanza])->assertOk();
+
+        // Cambiarlo reemplaza; la posición y el tamaño siguen siendo los de la categoría
+        $this->putJson($ruta('PRO-DOCTOR'), ['accessory_id' => $balanza])->assertOk()->assertJsonPath('config.locations.0.fixed_accessory_id', $balanza);
+        $this->assertDatabaseCount('product_fixed_accessories', 2);
+        $this->putJson($ruta('PRO-DOCTOR'), ['accessory_id' => $corazon])->assertOk();
+        $this->getJson($doctor)->assertJsonPath('config.locations.0.preset.x', 40);
+
+        // La categoría y los demás productos no cambian
+        $this->getJson(self::CATEGORIA)->assertJsonPath('config.locations.0.state', 'libre');
+        $this->getJson('/api/v1/admin/configurator/products/PRO-ENFERMERA')->assertJsonPath('config.locations.0.fixed_accessory_id', $balanza);
+
+        // El cliente recibe la ubicación fija con el accesorio de su producto
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()
+            ->assertJsonPath('locations.0.state', 'fija')->assertJsonPath('locations.0.fixed_accessory_id', $corazon);
+        $this->getJson('/api/v1/products/enfermera/configurator')->assertJsonPath('locations.0.fixed_accessory_id', $balanza);
+
+        // Quitarlo vuelve a lo que diga la categoría; un accesorio en uso por un producto no se elimina
+        $this->admin()->deleteJson("/api/v1/admin/accessories/$balanza")->assertStatus(409)->assertJsonPath('code', 'in_use');
+        $this->putJson($ruta('PRO-DOCTOR'), ['accessory_id' => null])->assertOk()->assertJsonPath('config.locations.0.state', 'libre')->assertJsonPath('fixed_accessories', []);
+    }
+
+    public function test_el_accesorio_fijo_del_producto_valida_ubicacion_accesorio_y_modo(): void
+    {
+        [$categoria, $ubicacion, $gafas] = $this->base();
+        $otra = $this->admin()->postJson('/api/v1/admin/accessory-categories', ['name' => 'Objetos'])->json('id');
+        $regalo = $this->postJson('/api/v1/admin/accessories', ['name' => 'Regalo', 'accessory_category_id' => $otra])->json('id');
+        $ruta = "/api/v1/admin/configurator/products/PRO-DOCTOR/fixed-accessories/$ubicacion";
+
+        // La categoría aún no define la ubicación
+        $this->putJson($ruta, ['accessory_id' => $gafas])->assertUnprocessable()->assertJsonPath('errors.location_id.0', fn ($m) => str_contains($m, 'aún no define'));
+
+        $this->putJson(self::CATEGORIA, $this->configuracion($ubicacion, $gafas))->assertOk();
+        // «Cabeza» solo admite Moda
+        $this->putJson($ruta, ['accessory_id' => $regalo])->assertUnprocessable()->assertJsonPath('errors.accessory_id.0', fn ($m) => str_contains($m, 'no admite'));
+        $this->putJson($ruta, [])->assertUnprocessable();
+        $this->putJson($ruta, ['accessory_id' => 99999])->assertNotFound();
+        $this->putJson("/api/v1/admin/configurator/products/PRO-NO-EXISTE/fixed-accessories/$ubicacion", ['accessory_id' => $gafas])->assertNotFound();
+        $this->putJson("/api/v1/admin/configurator/products/PRO-DOCTOR/fixed-accessories/99999", ['accessory_id' => $gafas])->assertNotFound();
+
+        // Ubicación deshabilitada en la categoría
+        $this->putJson(self::CATEGORIA, $this->configuracion($ubicacion, $gafas, ['state' => 'deshabilitada']))->assertOk();
+        $this->putJson($ruta, ['accessory_id' => $gafas])->assertUnprocessable();
+
+        // Con configuración propia se define dentro de ella
+        $this->putJson(self::CATEGORIA, $this->configuracion($ubicacion, $gafas))->assertOk();
+        $this->putJson('/api/v1/admin/configurator/products/PRO-DOCTOR/mode', ['uses_own_configurator' => true])->assertOk();
+        $this->putJson($ruta, ['accessory_id' => $gafas])->assertUnprocessable();
+
+        // Solo el administrador
+        $this->app['auth']->forgetGuards();
+        $this->putJson($ruta, ['accessory_id' => $gafas])->assertUnauthorized();
+    }
 }
