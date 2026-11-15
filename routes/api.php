@@ -10,6 +10,7 @@ use App\Core\Catalogo\Presentacion\Controladores\ControladorCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorCategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorInicio;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorProductos;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorLimitesDeSubida;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionAccesorios;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionConfigurador;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
@@ -94,6 +95,7 @@ Route::prefix('v1')->group(function () {
         Route::post('accessory-categories', [ControladorAdministracionAccesorios::class, 'crearCategoria'])->name('api.v1.admin.accessory-categories.store');
         Route::put('accessory-categories/{id}', [ControladorAdministracionAccesorios::class, 'actualizarCategoria'])->whereNumber('id')->name('api.v1.admin.accessory-categories.update');
         Route::delete('accessory-categories/{id}', [ControladorAdministracionAccesorios::class, 'eliminarCategoria'])->whereNumber('id')->name('api.v1.admin.accessory-categories.destroy');
+        Route::get('upload-limits', ControladorLimitesDeSubida::class)->name('api.v1.admin.upload-limits');
         Route::get('accessories', [ControladorAdministracionAccesorios::class, 'index'])->name('api.v1.admin.accessories.index');
         Route::post('accessories', [ControladorAdministracionAccesorios::class, 'store'])->name('api.v1.admin.accessories.store');
         Route::put('accessories/{id}', [ControladorAdministracionAccesorios::class, 'update'])->whereNumber('id')->name('api.v1.admin.accessories.update');

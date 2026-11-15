@@ -187,6 +187,16 @@ final class ConfiguradorTest extends TestCase
         }
     }
 
+    public function test_el_panel_puede_consultar_cuanto_pesa_como_maximo_un_archivo(): void
+    {
+        $r = $this->admin()->getJson('/api/v1/admin/upload-limits')->assertOk();
+        $this->assertIsInt($r->json('max_file_bytes'));
+        $this->assertGreaterThanOrEqual(0, $r->json('max_file_bytes'));
+
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/v1/admin/upload-limits')->assertUnauthorized();
+    }
+
     public function test_la_imagen_pide_texto_alternativo_y_se_valida_por_su_contenido(): void
     {
         [, , $accesorio] = $this->base();

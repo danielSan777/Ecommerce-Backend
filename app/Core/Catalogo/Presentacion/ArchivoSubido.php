@@ -34,6 +34,20 @@ final class ArchivoSubido
         }
     }
 
+    /**
+     * Lo más que puede pesar un archivo subido en este servidor: el menor de upload_max_filesize y post_max_size
+     * (con un margen para el resto de los campos del formulario). 0 si el servidor no declara un límite.
+     */
+    public static function limiteEnBytes(): int
+    {
+        $limites = array_filter([
+            self::bytes((string) ini_get('upload_max_filesize')),
+            ($post = self::bytes((string) ini_get('post_max_size'))) > 0 ? max($post - 65536, 0) : 0,
+        ], fn (int $b): bool => $b > 0);
+
+        return $limites === [] ? 0 : min($limites);
+    }
+
     private static function mensaje(string $ajuste, string $limite): string
     {
         return "El archivo pesa más de lo que permite este servidor (límite actual: {$limite}). Sube un archivo más liviano o pide aumentar {$ajuste} de PHP.";
