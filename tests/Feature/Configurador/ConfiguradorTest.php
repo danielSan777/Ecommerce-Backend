@@ -191,7 +191,9 @@ final class ConfiguradorTest extends TestCase
     {
         $r = $this->admin()->getJson('/api/v1/admin/upload-limits')->assertOk();
         $this->assertIsInt($r->json('max_file_bytes'));
-        $this->assertGreaterThanOrEqual(0, $r->json('max_file_bytes'));
+        $this->assertGreaterThan(0, $r->json('max_file_bytes'));
+        $this->assertLessThanOrEqual(8 * 1024 * 1024, $r->json('max_file_bytes'));
+        $r->assertJsonPath('min_image_side', 64)->assertJsonPath('max_image_pixels', 40_000_000);
 
         $this->app['auth']->forgetGuards();
         $this->getJson('/api/v1/admin/upload-limits')->assertUnauthorized();

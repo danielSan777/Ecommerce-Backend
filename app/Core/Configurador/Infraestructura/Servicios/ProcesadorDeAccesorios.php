@@ -19,7 +19,11 @@ final class ProcesadorDeAccesorios
 
     private const TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
 
-    private const MAX_BYTES = 8 * 1024 * 1024;
+    public const MAX_BYTES = 8 * 1024 * 1024;
+
+    public const LADO_MINIMO = 64;
+
+    public const MAX_PIXELES = 40_000_000;
 
     public function __construct(private readonly ProcesadorDeImagenes $imagenes) {}
 
@@ -42,10 +46,10 @@ final class ProcesadorDeAccesorios
             throw new ImagenInvalida('El archivo no es una imagen válida. Usa PNG, JPG o WebP.');
         }
         [$ancho, $alto] = $info;
-        if ($ancho < 64 || $alto < 64) {
+        if ($ancho < self::LADO_MINIMO || $alto < self::LADO_MINIMO) {
             throw new ImagenInvalida('La imagen es muy pequeña. Debe medir al menos 64 × 64 píxeles.');
         }
-        if ($ancho * $alto > 40_000_000) {
+        if ($ancho * $alto > self::MAX_PIXELES) {
             throw new ImagenInvalida('La imagen es demasiado grande en píxeles. Redúcela a menos de 40 megapíxeles.');
         }
 
