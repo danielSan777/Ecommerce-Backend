@@ -176,6 +176,17 @@ final class ConfiguradorTest extends TestCase
         $this->assertCount(2, Storage::disk('media')->allFiles('accessories'));
     }
 
+    public function test_el_nombre_original_se_guarda_con_tildes_espacios_y_aunque_venga_en_otra_codificacion(): void
+    {
+        [, , $accesorio] = $this->base();
+        $ruta = "/api/v1/admin/accessories/$accesorio/image";
+
+        foreach (['Balanza dorada (1) ñandú.PNG' => 'Balanza dorada (1) ñandú.PNG', "bal\xE1nza.png" => "bal?nza.png"] as $subido => $esperado) {
+            $this->postJson($ruta, ['image' => UploadedFile::fake()->image($subido, 100, 100), 'alt' => 'x'])->assertCreated()->assertJsonPath('image_name', $esperado);
+            $this->assertSame($esperado, AccesorioModelo::query()->findOrFail($accesorio)->image_original_name);
+        }
+    }
+
     public function test_la_imagen_pide_texto_alternativo_y_se_valida_por_su_contenido(): void
     {
         [, , $accesorio] = $this->base();
