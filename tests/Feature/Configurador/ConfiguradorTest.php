@@ -156,6 +156,26 @@ final class ConfiguradorTest extends TestCase
         }
     }
 
+    public function test_editar_un_accesorio_y_cambiarle_la_imagen_deja_en_la_lista_la_nueva_imagen_con_su_nombre(): void
+    {
+        [, , $accesorio] = $this->base();
+        $ruta = "/api/v1/admin/accessories/$accesorio";
+        $this->postJson("$ruta/image", ['image' => UploadedFile::fake()->image('primera.png', 120, 120), 'alt' => 'Primera'])->assertCreated();
+        $antes = collect($this->getJson('/api/v1/admin/accessories')->json('data'))->firstWhere('id', $accesorio);
+        $this->assertSame('primera.png', $antes['image_name']);
+
+        // Lo mismo que hace el panel: guarda los datos y luego sube la imagen nueva
+        $this->putJson($ruta, ['name' => 'Gafas renovadas'])->assertOk()->assertJsonPath('image_name', 'primera.png');
+        $this->postJson("$ruta/image", ['image' => UploadedFile::fake()->image('segunda.jpg', 140, 140), 'alt' => 'Segunda'])->assertCreated();
+
+        $despues = collect($this->getJson('/api/v1/admin/accessories')->json('data'))->firstWhere('id', $accesorio);
+        $this->assertSame('segunda.jpg', $despues['image_name']);
+        $this->assertSame('Segunda', $despues['alt']);
+        $this->assertSame('Gafas renovadas', $despues['name']);
+        $this->assertNotSame($antes['image'], $despues['image']);
+        $this->assertCount(2, Storage::disk('media')->allFiles('accessories'));
+    }
+
     public function test_la_imagen_pide_texto_alternativo_y_se_valida_por_su_contenido(): void
     {
         [, , $accesorio] = $this->base();
