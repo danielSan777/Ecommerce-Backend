@@ -274,8 +274,10 @@ final class AdministrarProductosTest extends TestCase
         $this->putJson(self::BASE.'/PRO-DOCTOR', ['name' => 'Doctor 2'])->assertStatus(422)->assertJsonPath('errors.is_active.0', 'Sube la imagen para personalizar antes de activar un producto personalizable.');
         $this->putJson(self::BASE.'/PRO-DOCTOR', ['is_active' => false])->assertOk();
 
-        // Un complemento no necesita imagen para personalizar
-        $this->postJson(self::BASE, $this->datos(['name' => 'Tarjeta', 'type' => 'complemento', 'is_active' => true]))->assertCreated();
+        // Un complemento no usa imagen para personalizar: lo que necesita es su foto
+        $this->postJson(self::BASE, $this->datos(['name' => 'Tarjeta', 'type' => 'complemento', 'is_active' => true]))->assertStatus(422)
+            ->assertJsonPath('errors.is_active.0', 'Sube la foto del complemento antes de activarlo.');
+        $this->postJson(self::BASE, $this->datos(['name' => 'Tarjeta', 'type' => 'complemento', 'is_active' => false]))->assertCreated();
     }
 
     public function test_la_imagen_para_personalizar_se_sube_desde_el_producto_se_valida_y_se_reemplaza(): void
@@ -302,11 +304,15 @@ final class AdministrarProductosTest extends TestCase
 
     public function test_un_complemento_se_crea_sin_categoria_ni_subcategoria_y_sale_solo_en_su_lista(): void
     {
+        Storage::fake('media');
+        Storage::fake('private');
         $r = $this->admin()->postJson(self::BASE, [
-            'name' => 'Tarjeta de regalo', 'type' => 'complemento', 'base_price_cents' => 300, 'is_active' => true, 'is_available' => true,
+            'name' => 'Tarjeta de regalo', 'type' => 'complemento', 'base_price_cents' => 300, 'is_active' => false, 'is_available' => true,
         ])->assertCreated()->assertJsonPath('type', 'complemento')->assertJsonPath('category_slug', null);
 
         $this->assertDatabaseHas('products', ['sku' => $r->json('sku'), 'category_id' => null, 'subcategory_id' => null]);
+        $this->postJson(self::BASE.'/'.$r->json('sku').'/complement-photo', ['image' => UploadedFile::fake()->image('t.png', 400, 400)])->assertCreated();
+        $this->putJson(self::BASE.'/'.$r->json('sku'), ['is_active' => true])->assertOk();
 
         $slugs = fn (string $url) => array_column($this->getJson($url)->assertOk()->json('data'), 'slug');
 
@@ -334,12 +340,40 @@ final class AdministrarProductosTest extends TestCase
 
     public function test_la_lista_del_panel_se_filtra_por_tipo(): void
     {
-        $this->admin()->postJson(self::BASE, ['name' => 'Tarjeta de regalo', 'type' => 'complemento', 'base_price_cents' => 300, 'is_active' => true]);
+        Storage::fake('media');
+        Storage::fake('private');
+        $sku = $this->admin()->postJson(self::BASE, ['name' => 'Tarjeta de regalo', 'type' => 'complemento', 'base_price_cents' => 300, 'is_active' => false])->json('sku');
+        $this->postJson(self::BASE.'/'.$sku.'/complement-photo', ['image' => UploadedFile::fake()->image('t.png', 400, 400)])->assertCreated();
 
         $tipos = fn (string $url) => array_unique(array_column($this->admin()->getJson($url)->assertOk()->json('data'), 'type'));
 
         $this->assertSame(['complemento'], $tipos(self::BASE.'?type=complemento'));
         $this->assertSame(['personalizable'], $tipos(self::BASE.'?type=personalizable'));
         $this->assertContains('complemento', $tipos(self::BASE));
+    }
+
+    public function test_la_foto_del_complemento_es_unica_obligatoria_y_se_reemplaza(): void
+    {
+        Storage::fake('media');
+        Storage::fake('private');
+        $sku = $this->admin()->postJson(self::BASE, ['name' => 'Llavero', 'type' => 'complemento', 'base_price_cents' => 550, 'is_active' => false])->json('sku');
+        $ruta = self::BASE.'/'.$sku.'/complement-photo';
+
+        $this->getJson(self::BASE.'/'.$sku)->assertJsonPath('complement_image', null);
+        $this->postJson($ruta, [])->assertUnprocessable();
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->createWithContent('a.png', 'no soy una imagen')])->assertUnprocessable();
+
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->image('a.png', 400, 400)])->assertCreated();
+        $primera = $this->getJson(self::BASE.'/'.$sku)->json('complement_image');
+        $this->assertNotNull($primera);
+
+        // otra foto reemplaza a la anterior: siempre queda una sola
+        $this->postJson($ruta, ['image' => UploadedFile::fake()->image('b.png', 500, 500)])->assertCreated();
+        $this->assertNotSame($primera, $this->getJson(self::BASE.'/'.$sku)->json('complement_image'));
+        $this->assertSame(1, $this->getJson(self::BASE.'/'.$sku.'/media')->assertOk()->json('data') ? count($this->getJson(self::BASE.'/'.$sku.'/media')->json('data')) : 0);
+
+        // sin galería ni video, y los personalizables no usan esta ruta
+        $this->postJson(self::BASE.'/'.$sku.'/media', ['image' => UploadedFile::fake()->image('c.png', 400, 400), 'alt' => 'x'])->assertUnprocessable();
+        $this->postJson(self::BASE.'/PRO-DOCTOR/complement-photo', ['image' => UploadedFile::fake()->image('d.png', 400, 400)])->assertUnprocessable();
     }
 }

@@ -56,6 +56,19 @@ final class ControladorAdministracionMedios extends Controller
         return $this->subir('producto', $sku, $request, $medios);
     }
 
+    /** La foto (única y obligatoria) de un complemento; reemplaza la anterior. */
+    public function storeFotoComplemento(string $sku, Request $request, AdministrarMedios $medios): JsonResponse
+    {
+        ArchivoSubido::verificar($request, ['image']);
+        ValidacionFallida::validar($request->all(), ['image' => ['required', 'file']], self::MENSAJES);
+
+        try {
+            return response()->json($medios->reemplazarFotoDeComplemento($sku, (string) file_get_contents($request->file('image')->getRealPath())), 201);
+        } catch (ImagenInvalida $e) {
+            throw new ValidacionFallida([$e->campo => [$e->getMessage()]]);
+        }
+    }
+
     public function storeCategoria(string $slug, Request $request, AdministrarMedios $medios): JsonResponse
     {
         return $this->subir('categoria', $slug, $request, $medios);

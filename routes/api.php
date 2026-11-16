@@ -70,6 +70,7 @@ Route::prefix('v1')->group(function () {
         // Imagen para personalizar: obligatoria en los productos personalizables; se sube desde el producto, nunca desde el configurador.
         Route::post('products/{sku}/personalization-image', [ControladorAdministracionConfigurador::class, 'subirImagenBase'])->name('api.v1.admin.products.personalization-image.store');
         Route::get('products/{sku}/media', [ControladorAdministracionMedios::class, 'indexProducto'])->name('api.v1.admin.products.media.index');
+        Route::post('products/{sku}/complement-photo', [ControladorAdministracionMedios::class, 'storeFotoComplemento'])->name('api.v1.admin.products.complement-photo.store');
         Route::post('products/{sku}/media', [ControladorAdministracionMedios::class, 'storeProducto'])->name('api.v1.admin.products.media.store');
         Route::get('campaigns/{slug}/media', [ControladorAdministracionMedios::class, 'indexCampana'])->name('api.v1.admin.campaigns.media.index');
         Route::post('campaigns/{slug}/media', [ControladorAdministracionMedios::class, 'storeCampana'])->name('api.v1.admin.campaigns.media.store');

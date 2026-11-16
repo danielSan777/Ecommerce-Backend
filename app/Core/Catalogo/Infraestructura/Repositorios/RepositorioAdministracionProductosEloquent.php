@@ -16,7 +16,7 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
 {
     public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array
     {
-        return ProductoModelo::query()->with(['categoria', 'subcategoria'])
+        return ProductoModelo::query()->with(['categoria', 'subcategoria', 'medios'])
             ->when($tipo, fn ($q) => $q->where('type', $tipo))
             ->when($categoria, fn ($q) => $q->whereHas('categoria', fn ($c) => $c->where('slug', $categoria)))
             ->when($texto, fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', '%'.addcslashes($texto, '%_\\').'%')->orWhere('sku', 'like', '%'.addcslashes($texto, '%_\\').'%')))
@@ -32,7 +32,7 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
     {
         $producto = ProductoModelo::query()->create($this->columnas($datos))->refresh();
 
-        return $this->formato($producto->load(['categoria', 'subcategoria']));
+        return $this->formato($producto->load(['categoria', 'subcategoria', 'medios']));
     }
 
     public function actualizar(string $sku, array $datos): array
@@ -40,7 +40,7 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
         $producto = $this->producto($sku);
         $producto->update($this->columnas($datos));
 
-        return $this->formato($producto->refresh()->load(['categoria', 'subcategoria']));
+        return $this->formato($producto->refresh()->load(['categoria', 'subcategoria', 'medios']));
     }
 
     public function eliminar(string $sku): void
@@ -60,7 +60,7 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
 
     private function producto(string $sku): ProductoModelo
     {
-        return ProductoModelo::query()->with(['categoria', 'subcategoria'])->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
+        return ProductoModelo::query()->with(['categoria', 'subcategoria', 'medios'])->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
     }
 
     /**
@@ -99,6 +99,19 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
         return $datos;
     }
 
+    /** URL de la única foto de un complemento; null si aún no se sube (o si no es un complemento). */
+    private function fotoDeComplemento(ProductoModelo $p): ?string
+    {
+        if ($p->type !== 'complemento') {
+            return null;
+        }
+        $medio = $p->medios->firstWhere('type', 'image');
+        $variantes = $medio?->variants ?? [];
+        $ruta = $variantes['600'] ?? ($variantes === [] ? null : end($variantes));
+
+        return $ruta ? Storage::disk($medio->disk)->url($ruta) : null;
+    }
+
     /** @return array<string, mixed> */
     private function formato(ProductoModelo $p): array
     {
@@ -126,6 +139,7 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
             'is_available' => (bool) $p->is_available,
             'is_active' => (bool) $p->is_active,
             'personalization_image' => isset($p->personalization_image['1080']) ? Storage::disk('media')->url($p->personalization_image['1080']) : null,
+            'complement_image' => $this->fotoDeComplemento($p),
             'search_synonyms' => $p->search_synonyms ?? [],
             'updated_at' => $p->updated_at->toIso8601String(),
         ];

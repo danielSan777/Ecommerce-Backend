@@ -105,7 +105,7 @@ final class ControladorAdministracionProductos extends Controller
         $reglas['base_price_cents'] = ['sometimes', ...$reglas['base_price_cents']];
 
         // Un complemento no lleva categoría ni subcategoría; para los demás, si cambia de categoría tiene que elegir también una subcategoría de la nueva
-        if (! $this->esComplemento($datos)) {
+        if (! $this->esComplemento(['type' => $datos['type'] ?? $productos->ver($sku)['type']])) {
             // Si antes era un complemento (sin categoría), al volverse personalizable la categoría ya es obligatoria
             $reglas['category'] = [$productos->ver($sku)['category_slug'] === null ? 'required' : 'sometimes', 'required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')];
             $reglas['subcategory'] = ['required_with:category', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? $productos->ver($sku)['category_slug']))];
@@ -114,7 +114,7 @@ final class ControladorAdministracionProductos extends Controller
         $validos = ValidacionFallida::validar($datos, $reglas, self::MENSAJES);
 
         $actual = $productos->ver($sku);
-        $this->exigirImagenParaActivar($validos['type'] ?? $actual['type'], (bool) ($validos['is_active'] ?? $actual['is_active']), $actual['personalization_image'] !== null);
+        $this->exigirImagenParaActivar($validos['type'] ?? $actual['type'], (bool) ($validos['is_active'] ?? $actual['is_active']), $actual['personalization_image'] !== null, $actual['complement_image'] !== null);
 
         return response()->json($productos->actualizar($sku, $this->sinNulos($validos)));
     }
@@ -126,11 +126,14 @@ final class ControladorAdministracionProductos extends Controller
         return response()->noContent();
     }
 
-    /** La imagen para personalizar es obligatoria: sin ella un producto personalizable solo puede estar inactivo. */
-    private function exigirImagenParaActivar(string $tipo, bool $activo, bool $tieneImagen): void
+    /** La imagen para personalizar (personalizables) o la foto (complementos) es obligatoria: sin ella el producto solo puede estar inactivo. */
+    private function exigirImagenParaActivar(string $tipo, bool $activo, bool $tieneImagen, bool $tieneFoto = false): void
     {
         if ($tipo === 'personalizable' && $activo && ! $tieneImagen) {
             throw new ValidacionFallida(['is_active' => ['Sube la imagen para personalizar antes de activar un producto personalizable.']]);
+        }
+        if ($tipo === 'complemento' && $activo && ! $tieneFoto) {
+            throw new ValidacionFallida(['is_active' => ['Sube la foto del complemento antes de activarlo.']]);
         }
     }
 

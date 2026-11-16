@@ -34,10 +34,49 @@ final class AdministrarMedios
         return $this->dueno($tipo, $clave)->medios()->get()->map(fn (MedioModelo $m) => $this->formato($m))->all();
     }
 
+    /**
+     * La única foto de un complemento: reemplaza la anterior (si había) y queda como imagen principal.
+     *
+     * @return array<string, mixed>
+     */
+    public function reemplazarFotoDeComplemento(string $sku, string $contenido): array
+    {
+        $producto = $this->dueno('producto', $sku);
+        if ($producto->type !== 'complemento') {
+            throw new ImagenInvalida('Solo un complemento lleva una única foto.', 'image');
+        }
+
+        $resultado = $this->procesador->procesar($contenido); // si falla, la foto anterior se conserva
+
+        $anteriores = $producto->medios()->get();
+        $nombre = Str::lower(Str::random(16));
+        $carpeta = 'products/'.$producto->sku;
+        $variantes = [];
+        foreach ($resultado['versiones'] as $ancho => $webp) {
+            $ruta = "{$carpeta}/{$nombre}-{$ancho}.webp";
+            Storage::disk('media')->put($ruta, $webp);
+            $variantes[(string) $ancho] = $ruta;
+        }
+        $original = "originals/{$carpeta}/{$nombre}.{$resultado['extension']}";
+        Storage::disk('private')->put($original, $contenido);
+
+        $medio = $producto->medios()->create([
+            'type' => 'image', 'role' => 'front', 'disk' => 'media', 'variants' => $variantes, 'original_path' => $original,
+            'width' => $resultado['ancho'], 'height' => $resultado['alto'], 'alt' => $producto->name, 'sort_order' => 1,
+        ]);
+
+        foreach ($anteriores as $anterior) {
+            $this->eliminar($anterior->id);
+        }
+
+        return $this->formato($medio);
+    }
+
     /** @return array<string, mixed> */
     public function subir(string $tipo, string $clave, string $contenido, string $rol, ?string $alt): array
     {
         $dueno = $this->dueno($tipo, $clave);
+        $this->rechazarSiEsComplemento($dueno);
         if ($rol === 'video') {
             throw new ImagenInvalida('Un video se sube con "Subir video", no como imagen.', 'role');
         }
@@ -116,6 +155,7 @@ final class AdministrarMedios
     public function subirVideo(string $tipo, string $clave, string $video, ?string $portada, ?string $alt): array
     {
         $dueno = $this->dueno($tipo, $clave);
+        $this->rechazarSiEsComplemento($dueno);
         if (! in_array($tipo, ['producto', 'categoria', 'campana'], true)) {
             throw new ImagenInvalida('Este elemento no admite video.', 'video');
         }
@@ -161,6 +201,14 @@ final class AdministrarMedios
         $hayOtra = $dueno->medios()->where('role', 'front')->when($excepto, fn ($q) => $q->where('id', '!=', $excepto))->exists();
         if ($hayOtra) {
             throw new ImagenInvalida('Ya hay una imagen principal. Cambia primero su tipo (por ejemplo a "Otro ángulo") para marcar otra.', 'role');
+        }
+    }
+
+    /** Un complemento lleva una sola foto (ni galería ni video): se sube con su propio formulario. */
+    private function rechazarSiEsComplemento(Model $dueno): void
+    {
+        if ($dueno instanceof ProductoModelo && $dueno->type === 'complemento') {
+            throw new ImagenInvalida('Un complemento lleva una sola foto, sin galería ni video. Súbela desde el formulario del complemento.', 'image');
         }
     }
 
