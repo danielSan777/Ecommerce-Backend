@@ -1,3 +1,11 @@
+# Las imágenes de /media son públicas: el personalizador las dibuja en un canvas para armar la foto del pedido,
+# y para eso el navegador exige esta cabecera (CORS). Solo lectura y solo imágenes.
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#^/media/#">
+        Header set Access-Control-Allow-Origin "*"
+    </If>
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
