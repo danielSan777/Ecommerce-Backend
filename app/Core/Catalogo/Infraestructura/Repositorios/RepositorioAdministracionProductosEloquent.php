@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\Storage;
 
 final class RepositorioAdministracionProductosEloquent implements RepositorioAdministracionProductos
 {
-    public function listar(?string $categoria, ?string $texto): array
+    public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array
     {
         return ProductoModelo::query()->with(['categoria', 'subcategoria'])
+            ->when($tipo, fn ($q) => $q->where('type', $tipo))
             ->when($categoria, fn ($q) => $q->whereHas('categoria', fn ($c) => $c->where('slug', $categoria)))
             ->when($texto, fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', '%'.addcslashes($texto, '%_\\').'%')->orWhere('sku', 'like', '%'.addcslashes($texto, '%_\\').'%')))
             ->orderBy('name')->get()->map(fn (ProductoModelo $p) => $this->formato($p))->all();

@@ -331,4 +331,15 @@ final class AdministrarProductosTest extends TestCase
         // y al volverlo personalizable otra vez, la categoría vuelve a ser obligatoria
         $this->admin()->putJson(self::BASE.'/'.$sku, ['type' => 'personalizable', 'is_active' => false])->assertStatus(422)->assertJsonValidationErrors(['category']);
     }
+
+    public function test_la_lista_del_panel_se_filtra_por_tipo(): void
+    {
+        $this->admin()->postJson(self::BASE, ['name' => 'Tarjeta de regalo', 'type' => 'complemento', 'base_price_cents' => 300, 'is_active' => true]);
+
+        $tipos = fn (string $url) => array_unique(array_column($this->admin()->getJson($url)->assertOk()->json('data'), 'type'));
+
+        $this->assertSame(['complemento'], $tipos(self::BASE.'?type=complemento'));
+        $this->assertSame(['personalizable'], $tipos(self::BASE.'?type=personalizable'));
+        $this->assertContains('complemento', $tipos(self::BASE));
+    }
 }

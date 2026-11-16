@@ -47,7 +47,7 @@ final class ControladorAdministracionProductos extends Controller
 
     public function index(Request $request, AdministrarProductos $productos): JsonResponse
     {
-        return response()->json(['data' => $productos->listar($request->query('category') ?: null, $request->query('q') ?: null)]);
+        return response()->json(['data' => $productos->listar($request->query('category') ?: null, $request->query('q') ?: null, in_array($request->query('type'), ['personalizable', 'complemento'], true) ? $request->query('type') : null)]);
     }
 
     /** Código que se asignaría al próximo producto (solo para mostrarlo; el definitivo lo asigna Laravel al guardar). */

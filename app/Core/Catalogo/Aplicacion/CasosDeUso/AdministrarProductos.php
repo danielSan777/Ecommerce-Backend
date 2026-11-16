@@ -13,9 +13,9 @@ final class AdministrarProductos
     public function __construct(private readonly RepositorioAdministracionProductos $productos) {}
 
     /** @return list<array<string, mixed>> */
-    public function listar(?string $categoria, ?string $texto): array
+    public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array
     {
-        return $this->productos->listar($categoria, $texto);
+        return $this->productos->listar($categoria, $texto, $tipo);
     }
 
     /** @return array<string, mixed> */

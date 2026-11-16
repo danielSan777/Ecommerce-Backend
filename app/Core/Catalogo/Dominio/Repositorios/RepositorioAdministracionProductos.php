@@ -16,7 +16,7 @@ interface RepositorioAdministracionProductos
      *
      * @return list<ProductoAdmin>
      */
-    public function listar(?string $categoria, ?string $texto): array;
+    public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array;
 
     /**
      * @return ProductoAdmin
