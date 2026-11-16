@@ -95,13 +95,14 @@ final class ControladorAdministracionConfigurador extends Controller
         }
     }
 
-    /** Encuadre de la imagen para personalizar del producto: escala (%) y desplazamiento (% del visor). */
+    /** Encuadre de la imagen para personalizar del producto: escala (%), desplazamiento (% del visor) y color del texto de la placa. */
     public function ajustarImagenBase(string $sku, Request $request, AdministrarConfiguracion $configuracion): JsonResponse
     {
         $validos = ValidacionFallida::validar($request->all(), [
             'scale' => ['required', 'numeric', 'between:50,200'],
             'x' => ['required', 'numeric', 'between:-50,50'],
             'y' => ['required', 'numeric', 'between:-50,50'],
+            'text_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ], [
             'scale.required' => 'Indica la escala de la imagen.',
             'scale.numeric' => 'La escala debe ser un número.',
@@ -112,9 +113,10 @@ final class ControladorAdministracionConfigurador extends Controller
             'y.required' => 'Indica el desplazamiento vertical.',
             'y.numeric' => 'El desplazamiento vertical debe ser un número.',
             'y.between' => 'El desplazamiento vertical debe estar entre -50 y 50.',
+            'text_color.regex' => 'El color del texto debe ser un código como #C7B084.',
         ]);
 
-        return response()->json($configuracion->ajustarImagen($sku, (float) $validos['scale'], (float) $validos['x'], (float) $validos['y']));
+        return response()->json($configuracion->ajustarImagen($sku, (float) $validos['scale'], (float) $validos['x'], (float) $validos['y'], $validos['text_color'] ?? null));
     }
 
     /** Accesorio propio del producto en una ubicación (null lo quita y vuelve a lo que diga la categoría). */

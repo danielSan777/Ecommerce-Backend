@@ -489,7 +489,7 @@ final class ConfiguradorTest extends TestCase
     public function test_el_ajuste_de_la_imagen_se_guarda_por_producto_y_lo_ve_el_cliente(): void
     {
         $ruta = '/api/v1/admin/configurator/products/PRO-DOCTOR/base-adjust';
-        $this->admin()->getJson('/api/v1/admin/configurator/products/PRO-DOCTOR')->assertJsonPath('base_adjust', ['scale' => 100, 'x' => 0, 'y' => 0]);
+        $this->admin()->getJson('/api/v1/admin/configurator/products/PRO-DOCTOR')->assertJsonPath('base_adjust', ['scale' => 100, 'x' => 0, 'y' => 0, 'text_color' => null]);
 
         // Se puede ajustar aunque el producto use la configuración de su categoría
         $this->putJson($ruta, ['scale' => 112.5, 'x' => -3.25, 'y' => 4])->assertOk()
@@ -502,6 +502,22 @@ final class ConfiguradorTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('base_adjust.scale', 112.5)->assertJsonPath('base_adjust.y', 4);
         $this->getJson('/api/v1/products/enfermera/configurator')->assertOk()->assertJsonPath('base_adjust.scale', 100);
+    }
+
+    public function test_el_color_del_texto_de_la_placa_se_guarda_por_producto_y_lo_ve_el_cliente(): void
+    {
+        $ruta = '/api/v1/admin/configurator/products/PRO-DOCTOR/base-adjust';
+        $this->admin()->putJson($ruta, ['scale' => 100, 'x' => 0, 'y' => 0, 'text_color' => '#1a2b3c'])->assertOk()
+            ->assertJsonPath('base_adjust.text_color', '#1A2B3C');
+
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/v1/products/doctor/configurator')->assertOk()->assertJsonPath('base_adjust.text_color', '#1A2B3C');
+        $this->getJson('/api/v1/products/enfermera/configurator')->assertOk()->assertJsonPath('base_adjust.text_color', null);
+
+        // Sin color vuelve al de por defecto; un código inválido se rechaza en español
+        $this->admin()->putJson($ruta, ['scale' => 100, 'x' => 0, 'y' => 0, 'text_color' => null])->assertOk()->assertJsonPath('base_adjust.text_color', null);
+        $this->putJson($ruta, ['scale' => 100, 'x' => 0, 'y' => 0, 'text_color' => 'rojo'])->assertUnprocessable()
+            ->assertJsonPath('errors.text_color.0', 'El color del texto debe ser un código como #C7B084.');
     }
 
     public function test_el_ajuste_de_la_imagen_valida_rangos_en_espanol_y_solo_lo_hace_el_administrador(): void

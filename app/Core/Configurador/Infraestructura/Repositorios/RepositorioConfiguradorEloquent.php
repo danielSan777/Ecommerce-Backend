@@ -239,7 +239,7 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
     public function configuracionDeCategoria(string $slug): array
     {
         $categoria = CategoriaModelo::query()->where('slug', $slug)->first() ?? throw CatalogoNoEncontrado::categoria($slug);
-        $productos = ProductoModelo::query()->where('category_id', $categoria->id)->where('type', 'personalizable')->orderByDesc('created_at')->orderByDesc('id')->get(['sku', 'name', 'uses_own_configurator', 'personalization_image', 'personalization_scale', 'personalization_offset_x', 'personalization_offset_y']);
+        $productos = ProductoModelo::query()->where('category_id', $categoria->id)->where('type', 'personalizable')->orderByDesc('created_at')->orderByDesc('id')->get(['sku', 'name', 'uses_own_configurator', 'personalization_image', 'personalization_scale', 'personalization_offset_x', 'personalization_offset_y', 'personalization_text_color']);
 
         return [
             'scope' => 'category',
@@ -312,18 +312,18 @@ final class RepositorioConfiguradorEloquent implements RepositorioConfigurador
         return $this->configuracionDeProducto($sku);
     }
 
-    public function guardarAjusteDeImagen(string $sku, float $escala, float $x, float $y): array
+    public function guardarAjusteDeImagen(string $sku, float $escala, float $x, float $y, ?string $colorTexto = null): array
     {
         $producto = ProductoModelo::query()->where('sku', $sku)->first() ?? throw CatalogoNoEncontrado::producto($sku);
-        $producto->update(['personalization_scale' => $escala, 'personalization_offset_x' => $x, 'personalization_offset_y' => $y]);
+        $producto->update(['personalization_scale' => $escala, 'personalization_offset_x' => $x, 'personalization_offset_y' => $y, 'personalization_text_color' => $colorTexto === null ? null : strtoupper($colorTexto)]);
 
         return $this->configuracionDeProducto($sku);
     }
 
-    /** @return array{scale: float, x: float, y: float} */
+    /** @return array{scale: float, x: float, y: float, text_color: ?string} */
     private function ajuste(object $p): array
     {
-        return ['scale' => (float) ($p->personalization_scale ?? 100), 'x' => (float) ($p->personalization_offset_x ?? 0), 'y' => (float) ($p->personalization_offset_y ?? 0)];
+        return ['scale' => (float) ($p->personalization_scale ?? 100), 'x' => (float) ($p->personalization_offset_x ?? 0), 'y' => (float) ($p->personalization_offset_y ?? 0), 'text_color' => $p->personalization_text_color ?? null];
     }
 
     public function guardarConfiguracionDeCategoria(string $slug, array $configuracion): array

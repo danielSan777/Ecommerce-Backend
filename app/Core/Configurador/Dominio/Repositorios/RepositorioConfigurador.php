@@ -116,7 +116,7 @@ interface RepositorioConfigurador
      *
      * @return array<string, mixed> la configuración del producto
      */
-    public function guardarAjusteDeImagen(string $sku, float $escala, float $x, float $y): array;
+    public function guardarAjusteDeImagen(string $sku, float $escala, float $x, float $y, ?string $colorTexto = null): array;
 
     /**
      * Elige (o quita, con null) el accesorio propio del producto en una ubicación de la configuración de su categoría.

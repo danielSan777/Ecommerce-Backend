@@ -61,9 +61,9 @@ final class AdministrarConfiguracion
     }
 
     /** @return array<string, mixed> */
-    public function ajustarImagen(string $sku, float $escala, float $x, float $y): array
+    public function ajustarImagen(string $sku, float $escala, float $x, float $y, ?string $colorTexto = null): array
     {
-        return $this->configurador->guardarAjusteDeImagen($sku, $escala, $x, $y);
+        return $this->configurador->guardarAjusteDeImagen($sku, $escala, $x, $y, $colorTexto);
     }
 
     /** @return array<string, mixed> */
