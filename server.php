@@ -14,8 +14,18 @@ $uri = urldecode(
 if ($uri !== '/' && file_exists($publicPath.$uri)) {
     // Solo para `php artisan serve` (en el servidor real lo hace public/.htaccess): las fotos de /media
     // llevan la cabecera CORS para que el personalizador pueda exportar la foto del carrito.
-    if (str_starts_with($uri, '/media/')) {
+    // (El servidor integrado de PHP descarta las cabeceras si devuelve `false`, así que aquí se entrega el archivo.)
+    if (str_starts_with($uri, '/media/') && is_file($publicPath.$uri) && ! str_contains($uri, '..')) {
+        $tipos = ['webp' => 'image/webp', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif',
+            'svg' => 'image/svg+xml', 'mp4' => 'video/mp4', 'webm' => 'video/webm'];
+        $tipo = $tipos[strtolower(pathinfo($uri, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
+
         header('Access-Control-Allow-Origin: *');
+        header('Content-Type: '.$tipo);
+        header('Content-Length: '.filesize($publicPath.$uri));
+        readfile($publicPath.$uri);
+
+        return true;
     }
 
     return false;
