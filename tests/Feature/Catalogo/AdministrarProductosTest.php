@@ -299,4 +299,36 @@ final class AdministrarProductosTest extends TestCase
         $this->postJson($ruta, ['image' => UploadedFile::fake()->image('b.png', 400, 400)])->assertCreated();
         $this->assertCount(2, Storage::disk('media')->allFiles('personalization'));
     }
+
+    public function test_un_complemento_se_crea_sin_categoria_ni_subcategoria_y_sale_solo_en_su_lista(): void
+    {
+        $r = $this->admin()->postJson(self::BASE, [
+            'name' => 'Tarjeta de regalo', 'type' => 'complemento', 'base_price_cents' => 300, 'is_active' => true, 'is_available' => true,
+        ])->assertCreated()->assertJsonPath('type', 'complemento')->assertJsonPath('category_slug', null);
+
+        $this->assertDatabaseHas('products', ['sku' => $r->json('sku'), 'category_id' => null, 'subcategory_id' => null]);
+
+        $slugs = fn (string $url) => array_column($this->getJson($url)->assertOk()->json('data'), 'slug');
+
+        $this->assertContains('tarjeta-de-regalo', $slugs('/api/v1/products?type=complemento'));
+        $this->assertNotContains('tarjeta-de-regalo', $slugs('/api/v1/products'));
+        $this->assertSame(['complemento'], array_unique(array_column($this->getJson('/api/v1/products?type=complemento')->json('data'), 'type')));
+    }
+
+    public function test_un_personalizable_sigue_exigiendo_categoria_y_subcategoria(): void
+    {
+        $this->admin()->postJson(self::BASE, ['name' => 'Sin categoría', 'type' => 'personalizable', 'base_price_cents' => 300, 'is_active' => false])
+            ->assertStatus(422)->assertJsonValidationErrors(['category', 'subcategory']);
+    }
+
+    public function test_al_volver_un_producto_complemento_se_le_quita_la_categoria(): void
+    {
+        $sku = $this->admin()->postJson(self::BASE, $this->datos())->json('sku');
+
+        $this->admin()->putJson(self::BASE.'/'.$sku, ['type' => 'complemento'])
+            ->assertOk()->assertJsonPath('category_slug', null)->assertJsonPath('subcategory_slug', null);
+
+        // y al volverlo personalizable otra vez, la categoría vuelve a ser obligatoria
+        $this->admin()->putJson(self::BASE.'/'.$sku, ['type' => 'personalizable', 'is_active' => false])->assertStatus(422)->assertJsonValidationErrors(['category']);
+    }
 }

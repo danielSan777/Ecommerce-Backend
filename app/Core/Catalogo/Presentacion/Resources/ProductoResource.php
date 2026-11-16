@@ -17,7 +17,7 @@ final class ProductoResource
             'slug' => $p->slug,
             'type' => $p->tipo,
             'name' => $p->nombre,
-            'category' => ['slug' => $p->categoriaSlug, 'name' => $p->categoriaNombre],
+            'category' => $p->categoriaSlug === null ? null : ['slug' => $p->categoriaSlug, 'name' => $p->categoriaNombre],
             'subcategory' => $p->subcategoria ? ['slug' => $p->subcategoria->slug, 'name' => $p->subcategoria->nombre] : null,
             'available' => $p->disponible,
             'price' => PrecioResource::formato($p->precio),
@@ -41,7 +41,8 @@ final class ProductoResource
     {
         return [
             ...self::resumen($p),
-            'category' => ['slug' => $p->categoriaSlug, 'name' => $p->categoriaNombre],
+            'type' => $p->tipo,
+            'category' => $p->categoriaSlug === null ? null : ['slug' => $p->categoriaSlug, 'name' => $p->categoriaNombre],
             'subcategory' => $p->subcategoria ? ['slug' => $p->subcategoria->slug, 'name' => $p->subcategoria->nombre] : null,
             'search_terms' => $p->sinonimos,
         ];

@@ -20,7 +20,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
 {
     public function categorias(): array
     {
-        $desde = ProductoModelo::query()->where('is_active', true)->selectRaw('category_id, MIN(base_price_cents) as desde')
+        $desde = ProductoModelo::query()->where('is_active', true)->whereNotNull('category_id')->selectRaw('category_id, MIN(base_price_cents) as desde')
             ->groupBy('category_id')->pluck('desde', 'category_id'); // una sola consulta para todas, no una por categoría
 
         return CategoriaModelo::query()->where('is_active', true)->orderBy('sort_order')
@@ -48,9 +48,10 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
         return $this->categoria_($categoria, $filtro?->slug, $productos, ProductoModelo::query()->where('is_active', true)->where('category_id', $categoria->id)->min('base_price_cents'));
     }
 
-    public function productos(?int $limite = null): array
+    /** Por defecto solo los productos personalizables; los complementos se piden con $tipo = 'complemento'. */
+    public function productos(?int $limite = null, string $tipo = 'personalizable'): array
     {
-        return ProductoModelo::query()->where('is_active', true)->with(['categoria', 'subcategoria', 'medios'])
+        return ProductoModelo::query()->where('is_active', true)->where('type', $tipo)->with(['categoria', 'subcategoria', 'medios'])
             ->orderByDesc('id')->when($limite, fn ($q) => $q->limit($limite))->get()
             ->map(fn (ProductoModelo $p) => $this->producto_($p))->all();
     }
@@ -91,8 +92,8 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             slug: $p->slug,
             tipo: $p->type,
             nombre: $p->name,
-            categoriaSlug: $p->categoria->slug,
-            categoriaNombre: $p->categoria->name,
+            categoriaSlug: $p->categoria?->slug,
+            categoriaNombre: $p->categoria?->name,
             subcategoria: $p->subcategoria ? new Subcategoria($p->subcategoria->slug, $p->subcategoria->name) : null,
             disponible: $p->is_available,
             precio: Precio::conDescuentoPorcentaje((int) $p->base_price_cents, $p->discount_percent ?? 0),
@@ -114,7 +115,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
         $base = fn () => ProductoModelo::query()->where('is_active', true)->where('id', '!=', $p->id);
 
         $mismos = $p->subcategory_id ? $base()->where('subcategory_id', $p->subcategory_id)->orderBy('id')->limit(4)->pluck('sku')->all() : [];
-        if ($mismos === []) {
+        if ($mismos === [] && $p->category_id) {
             $mismos = $base()->where('category_id', $p->category_id)->orderBy('id')->limit(4)->pluck('sku')->all();
         }
 

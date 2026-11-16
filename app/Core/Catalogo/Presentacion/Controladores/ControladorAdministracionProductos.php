@@ -84,8 +84,10 @@ final class ControladorAdministracionProductos extends Controller
             'name' => ['required', 'string', 'max:150'],
             'slug' => ['sometimes', 'required', 'string', 'max:150', Rule::unique('products', 'slug')],
             ...$this->reglasComunes(),
-            'category' => ['required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')],
-            'subcategory' => ['required', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? null))],
+            ...($this->esComplemento($datos) ? [] : [
+                'category' => ['required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')],
+                'subcategory' => ['required', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? null))],
+            ]),
         ], self::MENSAJES);
 
         // Un producto personalizable no se activa sin su imagen para personalizar, y la imagen se sube después de crearlo
@@ -101,10 +103,13 @@ final class ControladorAdministracionProductos extends Controller
         $reglas = $this->reglasComunes();
         $reglas['name'] = ['sometimes', 'required', 'string', 'max:150'];
         $reglas['base_price_cents'] = ['sometimes', ...$reglas['base_price_cents']];
-        $reglas['category'] = ['sometimes', 'required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')];
 
-        // Si cambia de categoría tiene que elegir también una subcategoría de la nueva
-        $reglas['subcategory'] = ['required_with:category', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? $productos->ver($sku)['category_slug']))];
+        // Un complemento no lleva categoría ni subcategoría; para los demás, si cambia de categoría tiene que elegir también una subcategoría de la nueva
+        if (! $this->esComplemento($datos)) {
+            // Si antes era un complemento (sin categoría), al volverse personalizable la categoría ya es obligatoria
+            $reglas['category'] = [$productos->ver($sku)['category_slug'] === null ? 'required' : 'sometimes', 'required', 'string', Rule::exists('categories', 'slug')->whereNull('deleted_at')];
+            $reglas['subcategory'] = ['required_with:category', 'string', Rule::exists(SubcategoriaModelo::class, 'slug')->where('category_id', $this->idCategoria($datos['category'] ?? $productos->ver($sku)['category_slug']))];
+        }
 
         $validos = ValidacionFallida::validar($datos, $reglas, self::MENSAJES);
 
@@ -127,6 +132,12 @@ final class ControladorAdministracionProductos extends Controller
         if ($tipo === 'personalizable' && $activo && ! $tieneImagen) {
             throw new ValidacionFallida(['is_active' => ['Sube la imagen para personalizar antes de activar un producto personalizable.']]);
         }
+    }
+
+    /** @param array<string, mixed> $datos */
+    private function esComplemento(array $datos): bool
+    {
+        return ($datos['type'] ?? null) === 'complemento';
     }
 
     private function idCategoria(mixed $slug): int

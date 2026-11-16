@@ -70,6 +70,15 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
      */
     private function columnas(array $datos): array
     {
+        // Un complemento no tiene categoría ni subcategoría
+        if (($datos['type'] ?? null) === 'complemento') {
+            $datos['category_id'] = null;
+            $datos['subcategory_id'] = null;
+            unset($datos['category'], $datos['subcategory']);
+
+            return $datos;
+        }
+
         if (array_key_exists('category', $datos)) {
             $categoria = CategoriaModelo::query()->where('slug', $datos['category'])->first() ?? throw CatalogoNoEncontrado::categoria((string) $datos['category']);
             $datos['category_id'] = $categoria->id;
@@ -99,8 +108,8 @@ final class RepositorioAdministracionProductosEloquent implements RepositorioAdm
             'slug' => $p->slug,
             'name' => $p->name,
             'type' => $p->type,
-            'category_slug' => $p->categoria->slug,
-            'category_name' => $p->categoria->name,
+            'category_slug' => $p->categoria?->slug,
+            'category_name' => $p->categoria?->name,
             'subcategory_slug' => $p->subcategoria?->slug,
             'base_price_cents' => (int) $p->base_price_cents,
             'cost_cents' => $p->cost_cents === null ? null : (int) $p->cost_cents,

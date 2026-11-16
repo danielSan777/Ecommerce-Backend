@@ -17,7 +17,7 @@ interface RepositorioCatalogo
     public function categoria(string $slug, ?string $subcategoria = null): Categoria;
 
     /** Productos activos, los más nuevos primero. @return list<Producto> */
-    public function productos(?int $limite = null): array;
+    public function productos(?int $limite = null, string $tipo = 'personalizable'): array;
 
     /** @throws CatalogoNoEncontrado */
     public function producto(string $slug): Producto;

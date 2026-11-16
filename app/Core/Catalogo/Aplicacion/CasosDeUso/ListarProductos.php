@@ -12,8 +12,8 @@ final class ListarProductos
     public function __construct(private readonly RepositorioCatalogo $catalogo) {}
 
     /** @return list<Producto> */
-    public function __invoke(?int $limite = null): array
+    public function __invoke(?int $limite = null, string $tipo = 'personalizable'): array
     {
-        return $this->catalogo->productos($limite);
+        return $this->catalogo->productos($limite, $tipo);
     }
 }

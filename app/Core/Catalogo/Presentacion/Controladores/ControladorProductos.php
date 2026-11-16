@@ -17,13 +17,14 @@ final class ControladorProductos extends Controller
     /** Productos activos, los más nuevos primero. `?limit=6` limita la cantidad (de 1 a 100; sin límite, hasta 100). */
     public function index(Request $request, ListarProductos $listar): JsonResponse
     {
-        $validos = ValidacionFallida::validar($request->query(), ['limit' => ['sometimes', 'integer', 'min:1', 'max:100']], [
+        $validos = ValidacionFallida::validar($request->query(), ['limit' => ['sometimes', 'integer', 'min:1', 'max:100'], 'type' => ['sometimes', 'in:personalizable,complemento']], [
             'limit.integer' => 'El límite debe ser un número.',
             'limit.min' => 'El límite mínimo es 1.',
             'limit.max' => 'El límite máximo es 100.',
+            'type.in' => 'El tipo debe ser "personalizable" o "complemento".',
         ]);
 
-        return response()->json(['data' => array_map(ProductoResource::listado(...), $listar((int) ($validos['limit'] ?? 100)))]);
+        return response()->json(['data' => array_map(ProductoResource::listado(...), $listar((int) ($validos['limit'] ?? 100), $validos['type'] ?? 'personalizable'))]);
     }
 
     public function show(string $slug, ObtenerProducto $obtener): JsonResponse
