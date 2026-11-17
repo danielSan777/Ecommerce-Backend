@@ -50,6 +50,7 @@ final class ConsultarPedido
             'bank_accounts' => $this->ajustes->obtener('bank_accounts', []),
             'receipt' => ['uploaded' => $p->receipt_uploaded_at !== null],
             'whatsapp_url' => url("/api/v1/orders/{$p->token}/whatsapp"),
+            'whatsapp_message' => $this->mensajeDeComprobante($p),
             'share' => $this->compartir($p),
         ];
     }
