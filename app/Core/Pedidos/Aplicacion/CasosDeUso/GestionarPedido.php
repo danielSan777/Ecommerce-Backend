@@ -8,6 +8,7 @@ use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
 use App\Core\Entrega\Dominio\MotorDeEntrega;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
+use App\Shared\Presentacion\ValidacionFallida;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -117,6 +118,51 @@ final class GestionarPedido
         $p->update(['status' => 'cancelled']);
 
         return $p->refresh();
+    }
+
+    /** «En producción»: solo un pedido pagado que todavía no salió. */
+    public function marcarEnProduccion(PedidoModelo $p, ?CarbonImmutable $ahora = null): PedidoModelo
+    {
+        $this->exigirPagadoSinCancelar($p);
+        if ($p->status === 'shipped') {
+            throw new PedidoRechazado('already_shipped', 'Este pedido ya fue enviado.', 409);
+        }
+        if ($p->status !== 'in_production') {
+            $p->update(['status' => 'in_production', 'production_started_at' => $ahora ?? CarbonImmutable::now('UTC')]);
+        }
+
+        return $p->refresh();
+    }
+
+    /**
+     * «Enviado» con la guía de Servientrega (obligatoria: es lo que el comprador ve para seguir su envío).
+     * Si ya estaba enviado, volver a llamarlo corrige la guía.
+     */
+    public function marcarEnviado(PedidoModelo $p, string $guia, ?CarbonImmutable $ahora = null): PedidoModelo
+    {
+        $this->exigirPagadoSinCancelar($p);
+        $guia = trim($guia);
+        if (preg_match('/^[A-Za-z0-9-]{5,40}$/', $guia) !== 1) {
+            throw new ValidacionFallida(['tracking_number' => ['Escribe la guía de Servientrega (solo letras, números y guiones, de 5 a 40 caracteres).']]);
+        }
+        $ahora ??= CarbonImmutable::now('UTC');
+        $p->update([
+            'status' => 'shipped', 'tracking_number' => $guia,
+            'production_started_at' => $p->production_started_at ?? $ahora,
+            'shipped_at' => $p->shipped_at ?? $ahora,
+        ]);
+
+        return $p->refresh();
+    }
+
+    private function exigirPagadoSinCancelar(PedidoModelo $p): void
+    {
+        if ($p->status === 'cancelled') {
+            throw new PedidoRechazado('order_cancelled', 'Este pedido está cancelado.', 409);
+        }
+        if ($p->payment_status !== 'paid') {
+            throw new PedidoRechazado('not_paid', 'Primero marca el pedido como pagado.', 409);
+        }
     }
 
     private function exigirPendienteVigente(PedidoModelo $p, CarbonImmutable $ahora): void

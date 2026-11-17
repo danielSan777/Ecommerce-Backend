@@ -60,10 +60,12 @@ final class ConsultarPedido
     {
         return [
             'order_number' => $p->number,
-            'visible_status' => $p->status === 'cancelled' ? 'cancelado' : 'confirmado',
+            'visible_status' => match ($p->status) {
+                'cancelled' => 'cancelado', 'in_production' => 'en_produccion', 'shipped' => 'enviado', default => 'confirmado',
+            },
             'payment' => ['method' => $p->payment_method, 'status' => $p->payment_status, 'paid_at' => $p->paid_at?->utc()->format('Y-m-d\TH:i:s\Z')],
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d')],
-            'shipment' => ['carrier' => 'Servientrega', 'tracking_number' => null],
+            'shipment' => ['carrier' => 'Servientrega', 'tracking_number' => $p->tracking_number],
             'items' => $p->items->map(fn ($i) => ['name' => $i->product_name, 'name_text' => $i->personalization['name_text'] ?? null])->all(),
             'total_cents' => $p->total_cents,
             'share' => $this->compartir($p),

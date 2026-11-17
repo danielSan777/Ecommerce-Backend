@@ -28,6 +28,8 @@ final class ControladorAdministracionPedidos extends Controller
             'receipt_uploaded_at' => $p->receipt_uploaded_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'whatsapp_clicked_at' => $p->whatsapp_clicked_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'paid_at' => $p->paid_at?->utc()->format('Y-m-d\TH:i:s\Z'),
+            'production_started_at' => $p->production_started_at?->utc()->format('Y-m-d\TH:i:s\Z'),
+            'shipped_at' => $p->shipped_at?->utc()->format('Y-m-d\TH:i:s\Z'), 'tracking_number' => $p->tracking_number,
             'created_at' => $p->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
             'items' => $p->items->map(fn ($i) => ['sku' => $i->product_sku, 'name' => $i->product_name, 'type' => $i->type, 'line_total_cents' => $i->line_total_cents, 'personalization' => $i->personalization])->all(),
             'shipping' => $p->shipping, 'billing' => $p->billing,
@@ -40,6 +42,9 @@ final class ControladorAdministracionPedidos extends Controller
         $pedidos = PedidoModelo::query()->with('items', 'cliente')
             ->when($filtro === 'pending', fn ($q) => $q->where('payment_status', 'pending_validation')->where('status', 'created'))
             ->when($filtro === 'paid', fn ($q) => $q->where('payment_status', 'paid'))
+            ->when($filtro === 'to_produce', fn ($q) => $q->where('status', 'ready_for_production'))
+            ->when($filtro === 'in_production', fn ($q) => $q->where('status', 'in_production'))
+            ->when($filtro === 'shipped', fn ($q) => $q->where('status', 'shipped'))
             ->when($filtro === 'expired', fn ($q) => $q->where('status', 'expired'))
             ->when($filtro === 'cancelled', fn ($q) => $q->where('status', 'cancelled'))
             ->orderByDesc('id')->limit(200)->get();
@@ -57,6 +62,16 @@ final class ControladorAdministracionPedidos extends Controller
         $pedido = $gestionar->marcarPagado($this->buscar($numero), $request->boolean('late'), $request->boolean('confirm_over_capacity'));
 
         return response()->json($this->fila($pedido->load('items', 'cliente')));
+    }
+
+    public function enProduccion(string $numero, GestionarPedido $gestionar): JsonResponse
+    {
+        return response()->json($this->fila($gestionar->marcarEnProduccion($this->buscar($numero))->load('items', 'cliente')));
+    }
+
+    public function enviado(string $numero, Request $request, GestionarPedido $gestionar): JsonResponse
+    {
+        return response()->json($this->fila($gestionar->marcarEnviado($this->buscar($numero), (string) $request->input('tracking_number', ''))->load('items', 'cliente')));
     }
 
     public function cancelar(string $numero, GestionarPedido $gestionar): JsonResponse

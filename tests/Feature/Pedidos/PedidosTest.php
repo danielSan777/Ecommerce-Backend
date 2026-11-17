@@ -375,6 +375,46 @@ final class PedidosTest extends TestCase
         $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'confirmado')->assertJsonPath('payment.status', 'paid');
     }
 
+    public function test_produccion_y_envio_con_guia_se_ven_en_el_seguimiento_del_comprador(): void
+    {
+        $token = $this->crear()->json('token');
+        $this->admin();
+        $n = PedidoModelo::query()->firstOrFail()->number;
+
+        // Antes de pagar no se puede producir ni enviar
+        $this->postJson("/api/v1/admin/orders/{$n}/production")->assertStatus(409)->assertJsonPath('code', 'not_paid');
+        $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertOk();
+        $this->getJson('/api/v1/admin/orders?status=to_produce')->assertJsonPath('data.0.number', $n);
+
+        $this->postJson("/api/v1/admin/orders/{$n}/production")->assertOk()->assertJsonPath('status', 'in_production');
+        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'en_produccion')->assertJsonPath('shipment.tracking_number', null);
+        $this->getJson('/api/v1/admin/orders?status=in_production')->assertJsonPath('data.0.number', $n);
+
+        // La guía es obligatoria y válida
+        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => ''])->assertStatus(422)->assertJsonPath('errors.tracking_number.0', fn ($m) => str_contains($m, 'guía'));
+        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => 'ab !'])->assertStatus(422);
+
+        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => ' 1234567890 '])->assertOk()
+            ->assertJsonPath('status', 'shipped')->assertJsonPath('tracking_number', '1234567890');
+        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'enviado')->assertJsonPath('shipment.tracking_number', '1234567890');
+
+        // Ya enviado: no vuelve a producción, pero se puede corregir la guía
+        $this->postJson("/api/v1/admin/orders/{$n}/production")->assertStatus(409)->assertJsonPath('code', 'already_shipped');
+        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => '99999-AB'])->assertOk()->assertJsonPath('tracking_number', '99999-AB');
+        $this->getJson('/api/v1/admin/orders?status=shipped')->assertJsonPath('data.0.number', $n);
+    }
+
+    public function test_un_pedido_cancelado_no_se_produce_ni_se_envia(): void
+    {
+        $this->crear();
+        $this->admin();
+        $n = PedidoModelo::query()->firstOrFail()->number;
+        $this->postJson("/api/v1/admin/orders/{$n}/cancel")->assertOk();
+
+        $this->postJson("/api/v1/admin/orders/{$n}/production")->assertStatus(409)->assertJsonPath('code', 'order_cancelled');
+        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => '1234567890'])->assertStatus(409);
+    }
+
     public function test_un_pedido_vencido_marcado_pagado_conserva_su_ciclo_y_sobre_10_pide_confirmacion(): void
     {
         $this->crear()->assertCreated();
