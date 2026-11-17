@@ -15,6 +15,8 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionAc
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionConfigurador;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
 use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
+use App\Core\Entrega\Presentacion\Controladores\ControladorAdministracionDiasNoHabiles;
+use App\Core\Entrega\Presentacion\Controladores\ControladorEntrega;
 use App\Core\Envios\Presentacion\Controladores\ControladorAdministracionEnvios;
 use App\Core\Envios\Presentacion\Controladores\ControladorUbicaciones;
 use App\Core\Cuentas\Presentacion\Controladores\ControladorCuenta;
@@ -24,6 +26,8 @@ use Illuminate\Support\Facades\Route;
 
 // API versionada. Cada módulo agrega aquí su grupo de rutas.
 Route::prefix('v1')->group(function () {
+    Route::get('delivery/promise', [ControladorEntrega::class, 'promesa'])->name('api.v1.delivery.promise');
+    Route::get('delivery/windows', [ControladorEntrega::class, 'ventanas'])->name('api.v1.delivery.windows');
     Route::get('locations', ControladorUbicaciones::class)->name('api.v1.locations');
     Route::get('categories', [ControladorCategorias::class, 'index'])->name('api.v1.categories.index');
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
@@ -48,6 +52,9 @@ Route::prefix('v1')->group(function () {
 
     // Administración (Angular del administrador): solo rol administrador.
     Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'index'])->name('api.v1.admin.non-working-days.index');
+        Route::post('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'store'])->name('api.v1.admin.non-working-days.store');
+        Route::delete('non-working-days/{fecha}', [ControladorAdministracionDiasNoHabiles::class, 'destroy'])->name('api.v1.admin.non-working-days.destroy');
         Route::get('shipping/zones', [ControladorAdministracionEnvios::class, 'zonas'])->name('api.v1.admin.shipping.zones');
         Route::put('shipping/zones/{codigo}', [ControladorAdministracionEnvios::class, 'actualizarZona'])->name('api.v1.admin.shipping.zones.update');
         Route::get('shipping/cantons', [ControladorAdministracionEnvios::class, 'cantones'])->name('api.v1.admin.shipping.cantons');
