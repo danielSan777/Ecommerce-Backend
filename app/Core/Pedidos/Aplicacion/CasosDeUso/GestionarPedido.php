@@ -115,6 +115,9 @@ final class GestionarPedido
         if ($p->status === 'cancelled') {
             throw new PedidoRechazado('order_cancelled', 'Este pedido ya está cancelado.', 409);
         }
+        if ($p->status === 'shipped') {
+            throw new PedidoRechazado('already_shipped', 'Este pedido ya fue enviado: no se puede cancelar desde aquí.', 409);
+        }
         $p->update(['status' => 'cancelled']);
 
         return $p->refresh();
@@ -136,11 +139,15 @@ final class GestionarPedido
 
     /**
      * «Enviado» con la guía de Servientrega (obligatoria: es lo que el comprador ve para seguir su envío).
+     * Solo sale un pedido que ya está en producción.
      * Si ya estaba enviado, volver a llamarlo corrige la guía.
      */
     public function marcarEnviado(PedidoModelo $p, string $guia, ?CarbonImmutable $ahora = null): PedidoModelo
     {
         $this->exigirPagadoSinCancelar($p);
+        if (! in_array($p->status, ['in_production', 'shipped'], true)) {
+            throw new PedidoRechazado('not_in_production', 'Primero pasa el pedido a producción.', 409);
+        }
         $guia = trim($guia);
         if (preg_match('/^[A-Za-z0-9-]{5,40}$/', $guia) !== 1) {
             throw new ValidacionFallida(['tracking_number' => ['Escribe la guía de Servientrega (solo letras, números y guiones, de 5 a 40 caracteres).']]);

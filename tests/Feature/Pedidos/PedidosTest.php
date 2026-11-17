@@ -386,6 +386,9 @@ final class PedidosTest extends TestCase
         $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertOk();
         $this->getJson('/api/v1/admin/orders?status=to_produce')->assertJsonPath('data.0.number', $n);
 
+        // Y tampoco enviar sin haber pasado por producción
+        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => '1234567890'])->assertStatus(409)->assertJsonPath('code', 'not_in_production');
+
         $this->postJson("/api/v1/admin/orders/{$n}/production")->assertOk()->assertJsonPath('status', 'in_production');
         $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'en_produccion')->assertJsonPath('shipment.tracking_number', null);
         $this->getJson('/api/v1/admin/orders?status=in_production')->assertJsonPath('data.0.number', $n);
@@ -398,7 +401,8 @@ final class PedidosTest extends TestCase
             ->assertJsonPath('status', 'shipped')->assertJsonPath('tracking_number', '1234567890');
         $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'enviado')->assertJsonPath('shipment.tracking_number', '1234567890');
 
-        // Ya enviado: no vuelve a producción, pero se puede corregir la guía
+        // Ya enviado: no se cancela, no vuelve a producción, pero se puede corregir la guía
+        $this->postJson("/api/v1/admin/orders/{$n}/cancel")->assertStatus(409)->assertJsonPath('code', 'already_shipped');
         $this->postJson("/api/v1/admin/orders/{$n}/production")->assertStatus(409)->assertJsonPath('code', 'already_shipped');
         $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => '99999-AB'])->assertOk()->assertJsonPath('tracking_number', '99999-AB');
         $this->getJson('/api/v1/admin/orders?status=shipped')->assertJsonPath('data.0.number', $n);
