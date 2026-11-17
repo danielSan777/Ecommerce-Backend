@@ -1,0 +1,9 @@
+{
+  "nota": "Sectores que aparecen en la lista de cantones con su propio nombre (por ejemplo 'La Aurora - Daule') y se cobran como Zona A. Hoy se editan aquí; más adelante se editarán desde el panel (Paso 10).",
+  "sectores": [
+    { "provincia": "09", "canton": "0906", "nombre": "La Aurora - Daule" },
+    { "provincia": "09", "canton": "0906", "nombre": "La Joya - Daule" },
+    { "provincia": "09", "canton": "0906", "nombre": "Villa Club - Daule" },
+    { "provincia": "09", "canton": "0906", "nombre": "Villa Italia - Daule" }
+  ]
+}

@@ -1,0 +1,1037 @@
+{
+  "fuente": "INEC - Clasificador Geográfico Estadístico 2026 (actualizado al 31 de diciembre de 2025)",
+  "provincias": [
+    {
+      "codigo": "01",
+      "nombre": "Azuay",
+      "cantones": [
+        {
+          "codigo": "0101",
+          "nombre": "Cuenca"
+        },
+        {
+          "codigo": "0102",
+          "nombre": "Girón"
+        },
+        {
+          "codigo": "0103",
+          "nombre": "Gualaceo"
+        },
+        {
+          "codigo": "0104",
+          "nombre": "Nabón"
+        },
+        {
+          "codigo": "0105",
+          "nombre": "Paute"
+        },
+        {
+          "codigo": "0106",
+          "nombre": "Pucará"
+        },
+        {
+          "codigo": "0107",
+          "nombre": "San Fernando"
+        },
+        {
+          "codigo": "0108",
+          "nombre": "Santa Isabel"
+        },
+        {
+          "codigo": "0109",
+          "nombre": "Sígsig"
+        },
+        {
+          "codigo": "0110",
+          "nombre": "Oña"
+        },
+        {
+          "codigo": "0111",
+          "nombre": "Chordeleg"
+        },
+        {
+          "codigo": "0112",
+          "nombre": "El Pan"
+        },
+        {
+          "codigo": "0113",
+          "nombre": "Sevilla de Oro"
+        },
+        {
+          "codigo": "0114",
+          "nombre": "Guachapala"
+        },
+        {
+          "codigo": "0115",
+          "nombre": "Camilo Ponce Enríquez"
+        }
+      ]
+    },
+    {
+      "codigo": "02",
+      "nombre": "Bolívar",
+      "cantones": [
+        {
+          "codigo": "0201",
+          "nombre": "Guaranda"
+        },
+        {
+          "codigo": "0202",
+          "nombre": "Chillanes"
+        },
+        {
+          "codigo": "0203",
+          "nombre": "Chimbo"
+        },
+        {
+          "codigo": "0204",
+          "nombre": "Echeandía"
+        },
+        {
+          "codigo": "0205",
+          "nombre": "San Miguel"
+        },
+        {
+          "codigo": "0206",
+          "nombre": "Caluma"
+        },
+        {
+          "codigo": "0207",
+          "nombre": "Las Naves"
+        }
+      ]
+    },
+    {
+      "codigo": "03",
+      "nombre": "Cañar",
+      "cantones": [
+        {
+          "codigo": "0301",
+          "nombre": "Azogues"
+        },
+        {
+          "codigo": "0302",
+          "nombre": "Biblián"
+        },
+        {
+          "codigo": "0303",
+          "nombre": "Cañar"
+        },
+        {
+          "codigo": "0304",
+          "nombre": "La Troncal"
+        },
+        {
+          "codigo": "0305",
+          "nombre": "El Tambo"
+        },
+        {
+          "codigo": "0306",
+          "nombre": "Déleg"
+        },
+        {
+          "codigo": "0307",
+          "nombre": "Suscal"
+        }
+      ]
+    },
+    {
+      "codigo": "04",
+      "nombre": "Carchi",
+      "cantones": [
+        {
+          "codigo": "0401",
+          "nombre": "Tulcán"
+        },
+        {
+          "codigo": "0402",
+          "nombre": "Bolívar"
+        },
+        {
+          "codigo": "0403",
+          "nombre": "Espejo"
+        },
+        {
+          "codigo": "0404",
+          "nombre": "Mira"
+        },
+        {
+          "codigo": "0405",
+          "nombre": "Montúfar"
+        },
+        {
+          "codigo": "0406",
+          "nombre": "San Pedro de Huaca"
+        }
+      ]
+    },
+    {
+      "codigo": "05",
+      "nombre": "Cotopaxi",
+      "cantones": [
+        {
+          "codigo": "0501",
+          "nombre": "Latacunga"
+        },
+        {
+          "codigo": "0502",
+          "nombre": "La Maná"
+        },
+        {
+          "codigo": "0503",
+          "nombre": "Pangua"
+        },
+        {
+          "codigo": "0504",
+          "nombre": "Pujilí"
+        },
+        {
+          "codigo": "0505",
+          "nombre": "Salcedo"
+        },
+        {
+          "codigo": "0506",
+          "nombre": "Saquisilí"
+        },
+        {
+          "codigo": "0507",
+          "nombre": "Sigchos"
+        }
+      ]
+    },
+    {
+      "codigo": "06",
+      "nombre": "Chimborazo",
+      "cantones": [
+        {
+          "codigo": "0601",
+          "nombre": "Riobamba"
+        },
+        {
+          "codigo": "0602",
+          "nombre": "Alausí"
+        },
+        {
+          "codigo": "0603",
+          "nombre": "Colta"
+        },
+        {
+          "codigo": "0604",
+          "nombre": "Chambo"
+        },
+        {
+          "codigo": "0605",
+          "nombre": "Chunchi"
+        },
+        {
+          "codigo": "0606",
+          "nombre": "Guamote"
+        },
+        {
+          "codigo": "0607",
+          "nombre": "Guano"
+        },
+        {
+          "codigo": "0608",
+          "nombre": "Pallatanga"
+        },
+        {
+          "codigo": "0609",
+          "nombre": "Penipe"
+        },
+        {
+          "codigo": "0610",
+          "nombre": "Cumandá"
+        }
+      ]
+    },
+    {
+      "codigo": "07",
+      "nombre": "El Oro",
+      "cantones": [
+        {
+          "codigo": "0701",
+          "nombre": "Machala"
+        },
+        {
+          "codigo": "0702",
+          "nombre": "Arenillas"
+        },
+        {
+          "codigo": "0703",
+          "nombre": "Atahualpa"
+        },
+        {
+          "codigo": "0704",
+          "nombre": "Balsas"
+        },
+        {
+          "codigo": "0705",
+          "nombre": "Chilla"
+        },
+        {
+          "codigo": "0706",
+          "nombre": "El Guabo"
+        },
+        {
+          "codigo": "0707",
+          "nombre": "Huaquillas"
+        },
+        {
+          "codigo": "0708",
+          "nombre": "Marcabelí"
+        },
+        {
+          "codigo": "0709",
+          "nombre": "Pasaje"
+        },
+        {
+          "codigo": "0710",
+          "nombre": "Piñas"
+        },
+        {
+          "codigo": "0711",
+          "nombre": "Portovelo"
+        },
+        {
+          "codigo": "0712",
+          "nombre": "Santa Rosa"
+        },
+        {
+          "codigo": "0713",
+          "nombre": "Zaruma"
+        },
+        {
+          "codigo": "0714",
+          "nombre": "Las Lajas"
+        }
+      ]
+    },
+    {
+      "codigo": "08",
+      "nombre": "Esmeraldas",
+      "cantones": [
+        {
+          "codigo": "0801",
+          "nombre": "Esmeraldas"
+        },
+        {
+          "codigo": "0802",
+          "nombre": "Eloy Alfaro"
+        },
+        {
+          "codigo": "0803",
+          "nombre": "Muisne"
+        },
+        {
+          "codigo": "0804",
+          "nombre": "Quinindé"
+        },
+        {
+          "codigo": "0805",
+          "nombre": "San Lorenzo"
+        },
+        {
+          "codigo": "0806",
+          "nombre": "Atacames"
+        },
+        {
+          "codigo": "0807",
+          "nombre": "Ríoverde"
+        }
+      ]
+    },
+    {
+      "codigo": "09",
+      "nombre": "Guayas",
+      "cantones": [
+        {
+          "codigo": "0901",
+          "nombre": "Guayaquil"
+        },
+        {
+          "codigo": "0902",
+          "nombre": "Alfredo Baquerizo Moreno (Juján)"
+        },
+        {
+          "codigo": "0903",
+          "nombre": "Balao"
+        },
+        {
+          "codigo": "0904",
+          "nombre": "Balzar"
+        },
+        {
+          "codigo": "0905",
+          "nombre": "Colimes"
+        },
+        {
+          "codigo": "0906",
+          "nombre": "Daule"
+        },
+        {
+          "codigo": "0907",
+          "nombre": "Durán"
+        },
+        {
+          "codigo": "0908",
+          "nombre": "El Empalme"
+        },
+        {
+          "codigo": "0909",
+          "nombre": "El Triunfo"
+        },
+        {
+          "codigo": "0910",
+          "nombre": "Milagro"
+        },
+        {
+          "codigo": "0911",
+          "nombre": "Naranjal"
+        },
+        {
+          "codigo": "0912",
+          "nombre": "Naranjito"
+        },
+        {
+          "codigo": "0913",
+          "nombre": "Palestina"
+        },
+        {
+          "codigo": "0914",
+          "nombre": "Pedro Carbo"
+        },
+        {
+          "codigo": "0916",
+          "nombre": "Samborondón"
+        },
+        {
+          "codigo": "0918",
+          "nombre": "Santa Lucía"
+        },
+        {
+          "codigo": "0919",
+          "nombre": "Salitre"
+        },
+        {
+          "codigo": "0920",
+          "nombre": "San Jacinto de Yaguachi"
+        },
+        {
+          "codigo": "0921",
+          "nombre": "Playas"
+        },
+        {
+          "codigo": "0922",
+          "nombre": "Simón Bolívar"
+        },
+        {
+          "codigo": "0923",
+          "nombre": "Coronel Marcelino Maridueña"
+        },
+        {
+          "codigo": "0924",
+          "nombre": "Lomas de Sargentillo"
+        },
+        {
+          "codigo": "0925",
+          "nombre": "Nobol"
+        },
+        {
+          "codigo": "0927",
+          "nombre": "General Antonio Elizalde"
+        },
+        {
+          "codigo": "0928",
+          "nombre": "Isidro Ayora"
+        }
+      ]
+    },
+    {
+      "codigo": "10",
+      "nombre": "Imbabura",
+      "cantones": [
+        {
+          "codigo": "1001",
+          "nombre": "Ibarra"
+        },
+        {
+          "codigo": "1002",
+          "nombre": "Antonio Ante"
+        },
+        {
+          "codigo": "1003",
+          "nombre": "Cotacachi"
+        },
+        {
+          "codigo": "1004",
+          "nombre": "Otavalo"
+        },
+        {
+          "codigo": "1005",
+          "nombre": "Pimampiro"
+        },
+        {
+          "codigo": "1006",
+          "nombre": "San Miguel de Urcuquí"
+        }
+      ]
+    },
+    {
+      "codigo": "11",
+      "nombre": "Loja",
+      "cantones": [
+        {
+          "codigo": "1101",
+          "nombre": "Loja"
+        },
+        {
+          "codigo": "1102",
+          "nombre": "Calvas"
+        },
+        {
+          "codigo": "1103",
+          "nombre": "Catamayo"
+        },
+        {
+          "codigo": "1104",
+          "nombre": "Celica"
+        },
+        {
+          "codigo": "1105",
+          "nombre": "Chaguarpamba"
+        },
+        {
+          "codigo": "1106",
+          "nombre": "Espíndola"
+        },
+        {
+          "codigo": "1107",
+          "nombre": "Gonzanamá"
+        },
+        {
+          "codigo": "1108",
+          "nombre": "Macará"
+        },
+        {
+          "codigo": "1109",
+          "nombre": "Paltas"
+        },
+        {
+          "codigo": "1110",
+          "nombre": "Puyango"
+        },
+        {
+          "codigo": "1111",
+          "nombre": "Saraguro"
+        },
+        {
+          "codigo": "1112",
+          "nombre": "Sozoranga"
+        },
+        {
+          "codigo": "1113",
+          "nombre": "Zapotillo"
+        },
+        {
+          "codigo": "1114",
+          "nombre": "Pindal"
+        },
+        {
+          "codigo": "1115",
+          "nombre": "Quilanga"
+        },
+        {
+          "codigo": "1116",
+          "nombre": "Olmedo"
+        }
+      ]
+    },
+    {
+      "codigo": "12",
+      "nombre": "Los Ríos",
+      "cantones": [
+        {
+          "codigo": "1201",
+          "nombre": "Babahoyo"
+        },
+        {
+          "codigo": "1202",
+          "nombre": "Baba"
+        },
+        {
+          "codigo": "1203",
+          "nombre": "Montalvo"
+        },
+        {
+          "codigo": "1204",
+          "nombre": "Puebloviejo"
+        },
+        {
+          "codigo": "1205",
+          "nombre": "Quevedo"
+        },
+        {
+          "codigo": "1206",
+          "nombre": "Urdaneta"
+        },
+        {
+          "codigo": "1207",
+          "nombre": "Ventanas"
+        },
+        {
+          "codigo": "1208",
+          "nombre": "Vinces"
+        },
+        {
+          "codigo": "1209",
+          "nombre": "Palenque"
+        },
+        {
+          "codigo": "1210",
+          "nombre": "Buena Fe"
+        },
+        {
+          "codigo": "1211",
+          "nombre": "Valencia"
+        },
+        {
+          "codigo": "1212",
+          "nombre": "Mocache"
+        },
+        {
+          "codigo": "1213",
+          "nombre": "Quinsaloma"
+        }
+      ]
+    },
+    {
+      "codigo": "13",
+      "nombre": "Manabí",
+      "cantones": [
+        {
+          "codigo": "1301",
+          "nombre": "Portoviejo"
+        },
+        {
+          "codigo": "1302",
+          "nombre": "Bolívar"
+        },
+        {
+          "codigo": "1303",
+          "nombre": "Chone"
+        },
+        {
+          "codigo": "1304",
+          "nombre": "El Carmen"
+        },
+        {
+          "codigo": "1305",
+          "nombre": "Flavio Alfaro"
+        },
+        {
+          "codigo": "1306",
+          "nombre": "Jipijapa"
+        },
+        {
+          "codigo": "1307",
+          "nombre": "Junín"
+        },
+        {
+          "codigo": "1308",
+          "nombre": "Manta"
+        },
+        {
+          "codigo": "1309",
+          "nombre": "Montecristi"
+        },
+        {
+          "codigo": "1310",
+          "nombre": "Paján"
+        },
+        {
+          "codigo": "1311",
+          "nombre": "Pichincha"
+        },
+        {
+          "codigo": "1312",
+          "nombre": "Rocafuerte"
+        },
+        {
+          "codigo": "1313",
+          "nombre": "Santa Ana"
+        },
+        {
+          "codigo": "1314",
+          "nombre": "Sucre"
+        },
+        {
+          "codigo": "1315",
+          "nombre": "Tosagua"
+        },
+        {
+          "codigo": "1316",
+          "nombre": "24 de Mayo"
+        },
+        {
+          "codigo": "1317",
+          "nombre": "Pedernales"
+        },
+        {
+          "codigo": "1318",
+          "nombre": "Olmedo"
+        },
+        {
+          "codigo": "1319",
+          "nombre": "Puerto López"
+        },
+        {
+          "codigo": "1320",
+          "nombre": "Jama"
+        },
+        {
+          "codigo": "1321",
+          "nombre": "Jaramijó"
+        },
+        {
+          "codigo": "1322",
+          "nombre": "San Vicente"
+        }
+      ]
+    },
+    {
+      "codigo": "14",
+      "nombre": "Morona Santiago",
+      "cantones": [
+        {
+          "codigo": "1401",
+          "nombre": "Morona"
+        },
+        {
+          "codigo": "1402",
+          "nombre": "Gualaquiza"
+        },
+        {
+          "codigo": "1403",
+          "nombre": "Limón Indanza"
+        },
+        {
+          "codigo": "1404",
+          "nombre": "Palora"
+        },
+        {
+          "codigo": "1405",
+          "nombre": "Santiago"
+        },
+        {
+          "codigo": "1406",
+          "nombre": "Sucúa"
+        },
+        {
+          "codigo": "1407",
+          "nombre": "Huamboya"
+        },
+        {
+          "codigo": "1408",
+          "nombre": "San Juan Bosco"
+        },
+        {
+          "codigo": "1409",
+          "nombre": "Taisha"
+        },
+        {
+          "codigo": "1410",
+          "nombre": "Logroño"
+        },
+        {
+          "codigo": "1411",
+          "nombre": "Pablo Sexto"
+        },
+        {
+          "codigo": "1412",
+          "nombre": "Tiwintza"
+        },
+        {
+          "codigo": "1413",
+          "nombre": "Sevilla Don Bosco"
+        }
+      ]
+    },
+    {
+      "codigo": "15",
+      "nombre": "Napo",
+      "cantones": [
+        {
+          "codigo": "1501",
+          "nombre": "Tena"
+        },
+        {
+          "codigo": "1503",
+          "nombre": "Archidona"
+        },
+        {
+          "codigo": "1504",
+          "nombre": "El Chaco"
+        },
+        {
+          "codigo": "1507",
+          "nombre": "Quijos"
+        },
+        {
+          "codigo": "1509",
+          "nombre": "Carlos Julio Arosemena Tola"
+        }
+      ]
+    },
+    {
+      "codigo": "16",
+      "nombre": "Pastaza",
+      "cantones": [
+        {
+          "codigo": "1601",
+          "nombre": "Pastaza"
+        },
+        {
+          "codigo": "1602",
+          "nombre": "Mera"
+        },
+        {
+          "codigo": "1603",
+          "nombre": "Santa Clara"
+        },
+        {
+          "codigo": "1604",
+          "nombre": "Arajuno"
+        }
+      ]
+    },
+    {
+      "codigo": "17",
+      "nombre": "Pichincha",
+      "cantones": [
+        {
+          "codigo": "1701",
+          "nombre": "Distrito Metropolitano de Quito"
+        },
+        {
+          "codigo": "1702",
+          "nombre": "Cayambe"
+        },
+        {
+          "codigo": "1703",
+          "nombre": "Mejía"
+        },
+        {
+          "codigo": "1704",
+          "nombre": "Pedro Moncayo"
+        },
+        {
+          "codigo": "1705",
+          "nombre": "Rumiñahui"
+        },
+        {
+          "codigo": "1707",
+          "nombre": "San Miguel de los Bancos"
+        },
+        {
+          "codigo": "1708",
+          "nombre": "Pedro Vicente Maldonado"
+        },
+        {
+          "codigo": "1709",
+          "nombre": "Puerto Quito"
+        }
+      ]
+    },
+    {
+      "codigo": "18",
+      "nombre": "Tungurahua",
+      "cantones": [
+        {
+          "codigo": "1801",
+          "nombre": "Ambato"
+        },
+        {
+          "codigo": "1802",
+          "nombre": "Baños de Agua Santa"
+        },
+        {
+          "codigo": "1803",
+          "nombre": "Cevallos"
+        },
+        {
+          "codigo": "1804",
+          "nombre": "Mocha"
+        },
+        {
+          "codigo": "1805",
+          "nombre": "Patate"
+        },
+        {
+          "codigo": "1806",
+          "nombre": "Quero"
+        },
+        {
+          "codigo": "1807",
+          "nombre": "San Pedro de Pelileo"
+        },
+        {
+          "codigo": "1808",
+          "nombre": "Santiago de Píllaro"
+        },
+        {
+          "codigo": "1809",
+          "nombre": "Tisaleo"
+        }
+      ]
+    },
+    {
+      "codigo": "19",
+      "nombre": "Zamora Chinchipe",
+      "cantones": [
+        {
+          "codigo": "1901",
+          "nombre": "Zamora"
+        },
+        {
+          "codigo": "1902",
+          "nombre": "Chinchipe"
+        },
+        {
+          "codigo": "1903",
+          "nombre": "Nangaritza"
+        },
+        {
+          "codigo": "1904",
+          "nombre": "Yacuambi"
+        },
+        {
+          "codigo": "1905",
+          "nombre": "Yantzaza"
+        },
+        {
+          "codigo": "1906",
+          "nombre": "El Pangui"
+        },
+        {
+          "codigo": "1907",
+          "nombre": "Centinela del Cóndor"
+        },
+        {
+          "codigo": "1908",
+          "nombre": "Palanda"
+        },
+        {
+          "codigo": "1909",
+          "nombre": "Paquisha"
+        }
+      ]
+    },
+    {
+      "codigo": "20",
+      "nombre": "Galápagos",
+      "cantones": [
+        {
+          "codigo": "2001",
+          "nombre": "San Cristóbal"
+        },
+        {
+          "codigo": "2002",
+          "nombre": "Isabela"
+        },
+        {
+          "codigo": "2003",
+          "nombre": "Santa Cruz"
+        }
+      ]
+    },
+    {
+      "codigo": "21",
+      "nombre": "Sucumbíos",
+      "cantones": [
+        {
+          "codigo": "2101",
+          "nombre": "Lago Agrio"
+        },
+        {
+          "codigo": "2102",
+          "nombre": "Gonzalo Pizarro"
+        },
+        {
+          "codigo": "2103",
+          "nombre": "Putumayo"
+        },
+        {
+          "codigo": "2104",
+          "nombre": "Shushufindi"
+        },
+        {
+          "codigo": "2105",
+          "nombre": "Sucumbíos"
+        },
+        {
+          "codigo": "2106",
+          "nombre": "Cascales"
+        },
+        {
+          "codigo": "2107",
+          "nombre": "Cuyabeno"
+        }
+      ]
+    },
+    {
+      "codigo": "22",
+      "nombre": "Orellana",
+      "cantones": [
+        {
+          "codigo": "2201",
+          "nombre": "Francisco de Orellana"
+        },
+        {
+          "codigo": "2202",
+          "nombre": "Aguarico"
+        },
+        {
+          "codigo": "2203",
+          "nombre": "La Joya de los Sachas"
+        },
+        {
+          "codigo": "2204",
+          "nombre": "Loreto"
+        }
+      ]
+    },
+    {
+      "codigo": "23",
+      "nombre": "Santo Domingo de los Tsáchilas",
+      "cantones": [
+        {
+          "codigo": "2301",
+          "nombre": "Santo Domingo"
+        },
+        {
+          "codigo": "2302",
+          "nombre": "La Concordia"
+        }
+      ]
+    },
+    {
+      "codigo": "24",
+      "nombre": "Santa Elena",
+      "cantones": [
+        {
+          "codigo": "2401",
+          "nombre": "Santa Elena"
+        },
+        {
+          "codigo": "2402",
+          "nombre": "La Libertad"
+        },
+        {
+          "codigo": "2403",
+          "nombre": "Salinas"
+        }
+      ]
+    }
+  ]
+}

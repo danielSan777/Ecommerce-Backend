@@ -15,6 +15,8 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionAc
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionConfigurador;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
 use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
+use App\Core\Envios\Presentacion\Controladores\ControladorAdministracionEnvios;
+use App\Core\Envios\Presentacion\Controladores\ControladorUbicaciones;
 use App\Core\Cuentas\Presentacion\Controladores\ControladorCuenta;
 use App\Core\Salud\Presentacion\Controladores\ControladorSalud;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorMediaPublica;
@@ -22,6 +24,7 @@ use Illuminate\Support\Facades\Route;
 
 // API versionada. Cada módulo agrega aquí su grupo de rutas.
 Route::prefix('v1')->group(function () {
+    Route::get('locations', ControladorUbicaciones::class)->name('api.v1.locations');
     Route::get('categories', [ControladorCategorias::class, 'index'])->name('api.v1.categories.index');
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
     Route::get('media/{ruta}', ControladorMediaPublica::class)->where('ruta', '.*')->name('api.v1.media');
@@ -45,6 +48,10 @@ Route::prefix('v1')->group(function () {
 
     // Administración (Angular del administrador): solo rol administrador.
     Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('shipping/zones', [ControladorAdministracionEnvios::class, 'zonas'])->name('api.v1.admin.shipping.zones');
+        Route::put('shipping/zones/{codigo}', [ControladorAdministracionEnvios::class, 'actualizarZona'])->name('api.v1.admin.shipping.zones.update');
+        Route::get('shipping/cantons', [ControladorAdministracionEnvios::class, 'cantones'])->name('api.v1.admin.shipping.cantons');
+        Route::put('shipping/cantons/zone', [ControladorAdministracionEnvios::class, 'asignarZona'])->name('api.v1.admin.shipping.cantons.zone');
         Route::get('campaigns', [ControladorAdministracionCampanas::class, 'index'])->name('api.v1.admin.campaigns.index');
         Route::get('campaigns/{slug}/preview', [ControladorAdministracionCampanas::class, 'preview'])->name('api.v1.admin.campaigns.preview');
         Route::post('campaigns', [ControladorAdministracionCampanas::class, 'store'])->name('api.v1.admin.campaigns.store');

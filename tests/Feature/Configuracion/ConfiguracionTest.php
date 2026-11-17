@@ -36,7 +36,6 @@ final class ConfiguracionTest extends TestCase
 
         $this->assertSame(7, $repositorio->obtener('card_surcharge_percent'));
         $this->assertSame(12, $repositorio->obtener('transfer_window_hours'));
-        $this->assertSame(['A' => 350, 'B' => 625, 'C' => 500], $repositorio->obtener('shipping_rates_cents'));
     }
 
     public function test_la_zona_horaria_de_la_aplicacion_es_utc(): void

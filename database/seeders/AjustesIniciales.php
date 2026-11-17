@@ -16,7 +16,6 @@ class AjustesIniciales extends Seeder
         'card_surcharge_percent' => [6, 'Recargo por pago con tarjeta (%)'],
         'transfer_window_hours' => [12, 'Horas para pagar por transferencia'],
         'free_shipping_min_planters' => [2, 'Macetas mínimas para envío gratis'],
-        'shipping_rates_cents' => [['A' => 350, 'B' => 625, 'C' => 500], 'Tarifa de envío por zona, en centavos'],
         'cutoff_weekday' => ['20:00', 'Cierre del ciclo de producción de lunes a viernes (hora de Guayaquil)'],
         'cutoff_saturday' => ['16:00', 'Cierre del ciclo de producción del sábado (hora de Guayaquil)'],
         'whatsapp_phone' => ['593999283765', 'WhatsApp de la tienda (solo dígitos, con código de país)'],

@@ -28,7 +28,7 @@ final class EsquemaTest extends TestCase
 
     public function test_cada_tabla_del_negocio_tiene_id_como_llave_primaria(): void
     {
-        foreach (['settings', 'categories', 'subcategories', 'products', 'media', 'campaigns', 'campaign_products'] as $tabla) {
+        foreach (['settings', 'shipping_zones', 'provinces', 'cantons', 'categories', 'subcategories', 'products', 'media', 'campaigns', 'campaign_products'] as $tabla) {
             $this->assertTrue(Schema::hasColumn($tabla, 'id'), "{$tabla} no tiene id");
             $pk = array_filter(DB::select("PRAGMA table_info('{$tabla}')"), fn ($c) => (int) $c->pk === 1);
             $this->assertSame('id', array_values($pk)[0]->name, "{$tabla}: la llave primaria no es id");

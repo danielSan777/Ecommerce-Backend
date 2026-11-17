@@ -1,0 +1,1124 @@
+{
+  "fuente": "Cotizador público de Servientrega (Mercancía Premier, 2 kg, origen Guayaquil), consultado el 3 y 4 de noviembre de 2026. Códigos de cantón del INEC, los mismos de ubicaciones-inec.json.",
+  "nota": "Zona de envío por cantón. A: Servientrega cobra tarifa local ($2,59 con IVA). B: Amazonía y todos los destinos que Servientrega cobra igual que la Amazonía ($7,02); entrega con 1 día adicional. C: resto del país continental ($5,29 o $5,92). no_disponible: no se vende por la web (Galápagos, Taisha y Aguarico) y se atiende por WhatsApp. Servientrega lista 541 destinos (ciudades, parroquias y pueblos); cada cantón toma el precio de su cabecera. Los sectores de sectores-zona-a.json siguen siendo Zona A. Un cantón que no esté aquí se cobra como Zona B. Hoy se edita aquí; más adelante desde el panel (Paso 10).",
+  "por_confirmar": [
+    {
+      "codigo": "0712",
+      "nombre": "Santa Rosa",
+      "zona_provisional": "B",
+      "motivo": "No aparece en el cotizador público. Sus parroquias Puerto Jelí, Bellamaría y La Avanzada cuestan como la Amazonía (Zona B); Machala y Pasaje, como Zona C. Josué lo confirma con Servientrega."
+    }
+  ],
+  "cantones": [
+    {
+      "codigo": "0101",
+      "nombre": "Cuenca",
+      "zona": "C"
+    },
+    {
+      "codigo": "0102",
+      "nombre": "Girón",
+      "zona": "B"
+    },
+    {
+      "codigo": "0103",
+      "nombre": "Gualaceo",
+      "zona": "C"
+    },
+    {
+      "codigo": "0104",
+      "nombre": "Nabón",
+      "zona": "B"
+    },
+    {
+      "codigo": "0105",
+      "nombre": "Paute",
+      "zona": "B"
+    },
+    {
+      "codigo": "0106",
+      "nombre": "Pucará",
+      "zona": "B"
+    },
+    {
+      "codigo": "0107",
+      "nombre": "San Fernando",
+      "zona": "B"
+    },
+    {
+      "codigo": "0108",
+      "nombre": "Santa Isabel",
+      "zona": "B"
+    },
+    {
+      "codigo": "0109",
+      "nombre": "Sígsig",
+      "zona": "B"
+    },
+    {
+      "codigo": "0110",
+      "nombre": "Oña",
+      "zona": "B"
+    },
+    {
+      "codigo": "0111",
+      "nombre": "Chordeleg",
+      "zona": "B"
+    },
+    {
+      "codigo": "0112",
+      "nombre": "El Pan",
+      "zona": "B"
+    },
+    {
+      "codigo": "0113",
+      "nombre": "Sevilla de Oro",
+      "zona": "B"
+    },
+    {
+      "codigo": "0114",
+      "nombre": "Guachapala",
+      "zona": "C"
+    },
+    {
+      "codigo": "0115",
+      "nombre": "Camilo Ponce Enríquez",
+      "zona": "B"
+    },
+    {
+      "codigo": "0201",
+      "nombre": "Guaranda",
+      "zona": "C"
+    },
+    {
+      "codigo": "0202",
+      "nombre": "Chillanes",
+      "zona": "B"
+    },
+    {
+      "codigo": "0203",
+      "nombre": "Chimbo",
+      "zona": "B"
+    },
+    {
+      "codigo": "0204",
+      "nombre": "Echeandía",
+      "zona": "B"
+    },
+    {
+      "codigo": "0205",
+      "nombre": "San Miguel",
+      "zona": "B"
+    },
+    {
+      "codigo": "0206",
+      "nombre": "Caluma",
+      "zona": "B"
+    },
+    {
+      "codigo": "0207",
+      "nombre": "Las Naves",
+      "zona": "B"
+    },
+    {
+      "codigo": "0301",
+      "nombre": "Azogues",
+      "zona": "C"
+    },
+    {
+      "codigo": "0302",
+      "nombre": "Biblián",
+      "zona": "B"
+    },
+    {
+      "codigo": "0303",
+      "nombre": "Cañar",
+      "zona": "C"
+    },
+    {
+      "codigo": "0304",
+      "nombre": "La Troncal",
+      "zona": "C"
+    },
+    {
+      "codigo": "0305",
+      "nombre": "El Tambo",
+      "zona": "B"
+    },
+    {
+      "codigo": "0306",
+      "nombre": "Déleg",
+      "zona": "B"
+    },
+    {
+      "codigo": "0307",
+      "nombre": "Suscal",
+      "zona": "B"
+    },
+    {
+      "codigo": "0401",
+      "nombre": "Tulcán",
+      "zona": "C"
+    },
+    {
+      "codigo": "0402",
+      "nombre": "Bolívar",
+      "zona": "B"
+    },
+    {
+      "codigo": "0403",
+      "nombre": "Espejo",
+      "zona": "B"
+    },
+    {
+      "codigo": "0404",
+      "nombre": "Mira",
+      "zona": "B"
+    },
+    {
+      "codigo": "0405",
+      "nombre": "Montúfar",
+      "zona": "B"
+    },
+    {
+      "codigo": "0406",
+      "nombre": "San Pedro de Huaca",
+      "zona": "B"
+    },
+    {
+      "codigo": "0501",
+      "nombre": "Latacunga",
+      "zona": "C"
+    },
+    {
+      "codigo": "0502",
+      "nombre": "La Maná",
+      "zona": "B"
+    },
+    {
+      "codigo": "0503",
+      "nombre": "Pangua",
+      "zona": "C"
+    },
+    {
+      "codigo": "0504",
+      "nombre": "Pujilí",
+      "zona": "B"
+    },
+    {
+      "codigo": "0505",
+      "nombre": "Salcedo",
+      "zona": "C"
+    },
+    {
+      "codigo": "0506",
+      "nombre": "Saquisilí",
+      "zona": "B"
+    },
+    {
+      "codigo": "0507",
+      "nombre": "Sigchos",
+      "zona": "B"
+    },
+    {
+      "codigo": "0601",
+      "nombre": "Riobamba",
+      "zona": "C"
+    },
+    {
+      "codigo": "0602",
+      "nombre": "Alausí",
+      "zona": "C"
+    },
+    {
+      "codigo": "0603",
+      "nombre": "Colta",
+      "zona": "B"
+    },
+    {
+      "codigo": "0604",
+      "nombre": "Chambo",
+      "zona": "B"
+    },
+    {
+      "codigo": "0605",
+      "nombre": "Chunchi",
+      "zona": "C"
+    },
+    {
+      "codigo": "0606",
+      "nombre": "Guamote",
+      "zona": "B"
+    },
+    {
+      "codigo": "0607",
+      "nombre": "Guano",
+      "zona": "B"
+    },
+    {
+      "codigo": "0608",
+      "nombre": "Pallatanga",
+      "zona": "C"
+    },
+    {
+      "codigo": "0609",
+      "nombre": "Penipe",
+      "zona": "B"
+    },
+    {
+      "codigo": "0610",
+      "nombre": "Cumandá",
+      "zona": "C"
+    },
+    {
+      "codigo": "0701",
+      "nombre": "Machala",
+      "zona": "C"
+    },
+    {
+      "codigo": "0702",
+      "nombre": "Arenillas",
+      "zona": "B"
+    },
+    {
+      "codigo": "0703",
+      "nombre": "Atahualpa",
+      "zona": "B"
+    },
+    {
+      "codigo": "0704",
+      "nombre": "Balsas",
+      "zona": "B"
+    },
+    {
+      "codigo": "0705",
+      "nombre": "Chilla",
+      "zona": "B"
+    },
+    {
+      "codigo": "0706",
+      "nombre": "El Guabo",
+      "zona": "B"
+    },
+    {
+      "codigo": "0707",
+      "nombre": "Huaquillas",
+      "zona": "C"
+    },
+    {
+      "codigo": "0708",
+      "nombre": "Marcabelí",
+      "zona": "B"
+    },
+    {
+      "codigo": "0709",
+      "nombre": "Pasaje",
+      "zona": "C"
+    },
+    {
+      "codigo": "0710",
+      "nombre": "Piñas",
+      "zona": "C"
+    },
+    {
+      "codigo": "0711",
+      "nombre": "Portovelo",
+      "zona": "B"
+    },
+    {
+      "codigo": "0712",
+      "nombre": "Santa Rosa",
+      "zona": "B"
+    },
+    {
+      "codigo": "0713",
+      "nombre": "Zaruma",
+      "zona": "B"
+    },
+    {
+      "codigo": "0714",
+      "nombre": "Las Lajas",
+      "zona": "B"
+    },
+    {
+      "codigo": "0801",
+      "nombre": "Esmeraldas",
+      "zona": "C"
+    },
+    {
+      "codigo": "0802",
+      "nombre": "Eloy Alfaro",
+      "zona": "B"
+    },
+    {
+      "codigo": "0803",
+      "nombre": "Muisne",
+      "zona": "B"
+    },
+    {
+      "codigo": "0804",
+      "nombre": "Quinindé",
+      "zona": "C"
+    },
+    {
+      "codigo": "0805",
+      "nombre": "San Lorenzo",
+      "zona": "C"
+    },
+    {
+      "codigo": "0806",
+      "nombre": "Atacames",
+      "zona": "C"
+    },
+    {
+      "codigo": "0807",
+      "nombre": "Ríoverde",
+      "zona": "B"
+    },
+    {
+      "codigo": "0901",
+      "nombre": "Guayaquil",
+      "zona": "A"
+    },
+    {
+      "codigo": "0902",
+      "nombre": "Alfredo Baquerizo Moreno (Juján)",
+      "zona": "C"
+    },
+    {
+      "codigo": "0903",
+      "nombre": "Balao",
+      "zona": "C"
+    },
+    {
+      "codigo": "0904",
+      "nombre": "Balzar",
+      "zona": "C"
+    },
+    {
+      "codigo": "0905",
+      "nombre": "Colimes",
+      "zona": "C"
+    },
+    {
+      "codigo": "0906",
+      "nombre": "Daule",
+      "zona": "A"
+    },
+    {
+      "codigo": "0907",
+      "nombre": "Durán",
+      "zona": "A"
+    },
+    {
+      "codigo": "0908",
+      "nombre": "El Empalme",
+      "zona": "C"
+    },
+    {
+      "codigo": "0909",
+      "nombre": "El Triunfo",
+      "zona": "C"
+    },
+    {
+      "codigo": "0910",
+      "nombre": "Milagro",
+      "zona": "C"
+    },
+    {
+      "codigo": "0911",
+      "nombre": "Naranjal",
+      "zona": "C"
+    },
+    {
+      "codigo": "0912",
+      "nombre": "Naranjito",
+      "zona": "C"
+    },
+    {
+      "codigo": "0913",
+      "nombre": "Palestina",
+      "zona": "C"
+    },
+    {
+      "codigo": "0914",
+      "nombre": "Pedro Carbo",
+      "zona": "C"
+    },
+    {
+      "codigo": "0916",
+      "nombre": "Samborondón",
+      "zona": "A"
+    },
+    {
+      "codigo": "0918",
+      "nombre": "Santa Lucía",
+      "zona": "C"
+    },
+    {
+      "codigo": "0919",
+      "nombre": "Salitre",
+      "zona": "A"
+    },
+    {
+      "codigo": "0920",
+      "nombre": "San Jacinto de Yaguachi",
+      "zona": "C"
+    },
+    {
+      "codigo": "0921",
+      "nombre": "Playas",
+      "zona": "C"
+    },
+    {
+      "codigo": "0922",
+      "nombre": "Simón Bolívar",
+      "zona": "C"
+    },
+    {
+      "codigo": "0923",
+      "nombre": "Coronel Marcelino Maridueña",
+      "zona": "C"
+    },
+    {
+      "codigo": "0924",
+      "nombre": "Lomas de Sargentillo",
+      "zona": "C"
+    },
+    {
+      "codigo": "0925",
+      "nombre": "Nobol",
+      "zona": "C"
+    },
+    {
+      "codigo": "0927",
+      "nombre": "General Antonio Elizalde",
+      "zona": "C"
+    },
+    {
+      "codigo": "0928",
+      "nombre": "Isidro Ayora",
+      "zona": "C"
+    },
+    {
+      "codigo": "1001",
+      "nombre": "Ibarra",
+      "zona": "C"
+    },
+    {
+      "codigo": "1002",
+      "nombre": "Antonio Ante",
+      "zona": "C"
+    },
+    {
+      "codigo": "1003",
+      "nombre": "Cotacachi",
+      "zona": "B"
+    },
+    {
+      "codigo": "1004",
+      "nombre": "Otavalo",
+      "zona": "C"
+    },
+    {
+      "codigo": "1005",
+      "nombre": "Pimampiro",
+      "zona": "B"
+    },
+    {
+      "codigo": "1006",
+      "nombre": "San Miguel de Urcuquí",
+      "zona": "B"
+    },
+    {
+      "codigo": "1101",
+      "nombre": "Loja",
+      "zona": "C"
+    },
+    {
+      "codigo": "1102",
+      "nombre": "Calvas",
+      "zona": "B"
+    },
+    {
+      "codigo": "1103",
+      "nombre": "Catamayo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1104",
+      "nombre": "Celica",
+      "zona": "B"
+    },
+    {
+      "codigo": "1105",
+      "nombre": "Chaguarpamba",
+      "zona": "B"
+    },
+    {
+      "codigo": "1106",
+      "nombre": "Espíndola",
+      "zona": "B"
+    },
+    {
+      "codigo": "1107",
+      "nombre": "Gonzanamá",
+      "zona": "B"
+    },
+    {
+      "codigo": "1108",
+      "nombre": "Macará",
+      "zona": "B"
+    },
+    {
+      "codigo": "1109",
+      "nombre": "Paltas",
+      "zona": "B"
+    },
+    {
+      "codigo": "1110",
+      "nombre": "Puyango",
+      "zona": "B"
+    },
+    {
+      "codigo": "1111",
+      "nombre": "Saraguro",
+      "zona": "B"
+    },
+    {
+      "codigo": "1112",
+      "nombre": "Sozoranga",
+      "zona": "B"
+    },
+    {
+      "codigo": "1113",
+      "nombre": "Zapotillo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1114",
+      "nombre": "Pindal",
+      "zona": "B"
+    },
+    {
+      "codigo": "1115",
+      "nombre": "Quilanga",
+      "zona": "B"
+    },
+    {
+      "codigo": "1116",
+      "nombre": "Olmedo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1201",
+      "nombre": "Babahoyo",
+      "zona": "C"
+    },
+    {
+      "codigo": "1202",
+      "nombre": "Baba",
+      "zona": "B"
+    },
+    {
+      "codigo": "1203",
+      "nombre": "Montalvo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1204",
+      "nombre": "Puebloviejo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1205",
+      "nombre": "Quevedo",
+      "zona": "C"
+    },
+    {
+      "codigo": "1206",
+      "nombre": "Urdaneta",
+      "zona": "B"
+    },
+    {
+      "codigo": "1207",
+      "nombre": "Ventanas",
+      "zona": "C"
+    },
+    {
+      "codigo": "1208",
+      "nombre": "Vinces",
+      "zona": "C"
+    },
+    {
+      "codigo": "1209",
+      "nombre": "Palenque",
+      "zona": "B"
+    },
+    {
+      "codigo": "1210",
+      "nombre": "Buena Fe",
+      "zona": "C"
+    },
+    {
+      "codigo": "1211",
+      "nombre": "Valencia",
+      "zona": "B"
+    },
+    {
+      "codigo": "1212",
+      "nombre": "Mocache",
+      "zona": "B"
+    },
+    {
+      "codigo": "1213",
+      "nombre": "Quinsaloma",
+      "zona": "B"
+    },
+    {
+      "codigo": "1301",
+      "nombre": "Portoviejo",
+      "zona": "C"
+    },
+    {
+      "codigo": "1302",
+      "nombre": "Bolívar",
+      "zona": "B"
+    },
+    {
+      "codigo": "1303",
+      "nombre": "Chone",
+      "zona": "C"
+    },
+    {
+      "codigo": "1304",
+      "nombre": "El Carmen",
+      "zona": "C"
+    },
+    {
+      "codigo": "1305",
+      "nombre": "Flavio Alfaro",
+      "zona": "B"
+    },
+    {
+      "codigo": "1306",
+      "nombre": "Jipijapa",
+      "zona": "C"
+    },
+    {
+      "codigo": "1307",
+      "nombre": "Junín",
+      "zona": "B"
+    },
+    {
+      "codigo": "1308",
+      "nombre": "Manta",
+      "zona": "C"
+    },
+    {
+      "codigo": "1309",
+      "nombre": "Montecristi",
+      "zona": "C"
+    },
+    {
+      "codigo": "1310",
+      "nombre": "Paján",
+      "zona": "B"
+    },
+    {
+      "codigo": "1311",
+      "nombre": "Pichincha",
+      "zona": "B"
+    },
+    {
+      "codigo": "1312",
+      "nombre": "Rocafuerte",
+      "zona": "B"
+    },
+    {
+      "codigo": "1313",
+      "nombre": "Santa Ana",
+      "zona": "B"
+    },
+    {
+      "codigo": "1314",
+      "nombre": "Sucre",
+      "zona": "C"
+    },
+    {
+      "codigo": "1315",
+      "nombre": "Tosagua",
+      "zona": "B"
+    },
+    {
+      "codigo": "1316",
+      "nombre": "24 de Mayo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1317",
+      "nombre": "Pedernales",
+      "zona": "B"
+    },
+    {
+      "codigo": "1318",
+      "nombre": "Olmedo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1319",
+      "nombre": "Puerto López",
+      "zona": "B"
+    },
+    {
+      "codigo": "1320",
+      "nombre": "Jama",
+      "zona": "B"
+    },
+    {
+      "codigo": "1321",
+      "nombre": "Jaramijó",
+      "zona": "B"
+    },
+    {
+      "codigo": "1322",
+      "nombre": "San Vicente",
+      "zona": "B"
+    },
+    {
+      "codigo": "1401",
+      "nombre": "Morona",
+      "zona": "B"
+    },
+    {
+      "codigo": "1402",
+      "nombre": "Gualaquiza",
+      "zona": "B"
+    },
+    {
+      "codigo": "1403",
+      "nombre": "Limón Indanza",
+      "zona": "B"
+    },
+    {
+      "codigo": "1404",
+      "nombre": "Palora",
+      "zona": "B"
+    },
+    {
+      "codigo": "1405",
+      "nombre": "Santiago",
+      "zona": "B"
+    },
+    {
+      "codigo": "1406",
+      "nombre": "Sucúa",
+      "zona": "B"
+    },
+    {
+      "codigo": "1407",
+      "nombre": "Huamboya",
+      "zona": "B"
+    },
+    {
+      "codigo": "1408",
+      "nombre": "San Juan Bosco",
+      "zona": "B"
+    },
+    {
+      "codigo": "1409",
+      "nombre": "Taisha",
+      "zona": "no_disponible"
+    },
+    {
+      "codigo": "1410",
+      "nombre": "Logroño",
+      "zona": "B"
+    },
+    {
+      "codigo": "1411",
+      "nombre": "Pablo Sexto",
+      "zona": "B"
+    },
+    {
+      "codigo": "1412",
+      "nombre": "Tiwintza",
+      "zona": "B"
+    },
+    {
+      "codigo": "1413",
+      "nombre": "Sevilla Don Bosco",
+      "zona": "B"
+    },
+    {
+      "codigo": "1501",
+      "nombre": "Tena",
+      "zona": "B"
+    },
+    {
+      "codigo": "1503",
+      "nombre": "Archidona",
+      "zona": "B"
+    },
+    {
+      "codigo": "1504",
+      "nombre": "El Chaco",
+      "zona": "B"
+    },
+    {
+      "codigo": "1507",
+      "nombre": "Quijos",
+      "zona": "B"
+    },
+    {
+      "codigo": "1509",
+      "nombre": "Carlos Julio Arosemena Tola",
+      "zona": "B"
+    },
+    {
+      "codigo": "1601",
+      "nombre": "Pastaza",
+      "zona": "B"
+    },
+    {
+      "codigo": "1602",
+      "nombre": "Mera",
+      "zona": "B"
+    },
+    {
+      "codigo": "1603",
+      "nombre": "Santa Clara",
+      "zona": "B"
+    },
+    {
+      "codigo": "1604",
+      "nombre": "Arajuno",
+      "zona": "B"
+    },
+    {
+      "codigo": "1701",
+      "nombre": "Distrito Metropolitano de Quito",
+      "zona": "C"
+    },
+    {
+      "codigo": "1702",
+      "nombre": "Cayambe",
+      "zona": "C"
+    },
+    {
+      "codigo": "1703",
+      "nombre": "Mejía",
+      "zona": "B"
+    },
+    {
+      "codigo": "1704",
+      "nombre": "Pedro Moncayo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1705",
+      "nombre": "Rumiñahui",
+      "zona": "C"
+    },
+    {
+      "codigo": "1707",
+      "nombre": "San Miguel de los Bancos",
+      "zona": "B"
+    },
+    {
+      "codigo": "1708",
+      "nombre": "Pedro Vicente Maldonado",
+      "zona": "B"
+    },
+    {
+      "codigo": "1709",
+      "nombre": "Puerto Quito",
+      "zona": "B"
+    },
+    {
+      "codigo": "1801",
+      "nombre": "Ambato",
+      "zona": "C"
+    },
+    {
+      "codigo": "1802",
+      "nombre": "Baños de Agua Santa",
+      "zona": "C"
+    },
+    {
+      "codigo": "1803",
+      "nombre": "Cevallos",
+      "zona": "B"
+    },
+    {
+      "codigo": "1804",
+      "nombre": "Mocha",
+      "zona": "B"
+    },
+    {
+      "codigo": "1805",
+      "nombre": "Patate",
+      "zona": "B"
+    },
+    {
+      "codigo": "1806",
+      "nombre": "Quero",
+      "zona": "B"
+    },
+    {
+      "codigo": "1807",
+      "nombre": "San Pedro de Pelileo",
+      "zona": "C"
+    },
+    {
+      "codigo": "1808",
+      "nombre": "Santiago de Píllaro",
+      "zona": "B"
+    },
+    {
+      "codigo": "1809",
+      "nombre": "Tisaleo",
+      "zona": "B"
+    },
+    {
+      "codigo": "1901",
+      "nombre": "Zamora",
+      "zona": "B"
+    },
+    {
+      "codigo": "1902",
+      "nombre": "Chinchipe",
+      "zona": "B"
+    },
+    {
+      "codigo": "1903",
+      "nombre": "Nangaritza",
+      "zona": "B"
+    },
+    {
+      "codigo": "1904",
+      "nombre": "Yacuambi",
+      "zona": "B"
+    },
+    {
+      "codigo": "1905",
+      "nombre": "Yantzaza",
+      "zona": "B"
+    },
+    {
+      "codigo": "1906",
+      "nombre": "El Pangui",
+      "zona": "B"
+    },
+    {
+      "codigo": "1907",
+      "nombre": "Centinela del Cóndor",
+      "zona": "B"
+    },
+    {
+      "codigo": "1908",
+      "nombre": "Palanda",
+      "zona": "B"
+    },
+    {
+      "codigo": "1909",
+      "nombre": "Paquisha",
+      "zona": "B"
+    },
+    {
+      "codigo": "2001",
+      "nombre": "San Cristóbal",
+      "zona": "no_disponible"
+    },
+    {
+      "codigo": "2002",
+      "nombre": "Isabela",
+      "zona": "no_disponible"
+    },
+    {
+      "codigo": "2003",
+      "nombre": "Santa Cruz",
+      "zona": "no_disponible"
+    },
+    {
+      "codigo": "2101",
+      "nombre": "Lago Agrio",
+      "zona": "B"
+    },
+    {
+      "codigo": "2102",
+      "nombre": "Gonzalo Pizarro",
+      "zona": "B"
+    },
+    {
+      "codigo": "2103",
+      "nombre": "Putumayo",
+      "zona": "B"
+    },
+    {
+      "codigo": "2104",
+      "nombre": "Shushufindi",
+      "zona": "B"
+    },
+    {
+      "codigo": "2105",
+      "nombre": "Sucumbíos",
+      "zona": "B"
+    },
+    {
+      "codigo": "2106",
+      "nombre": "Cascales",
+      "zona": "B"
+    },
+    {
+      "codigo": "2107",
+      "nombre": "Cuyabeno",
+      "zona": "B"
+    },
+    {
+      "codigo": "2201",
+      "nombre": "Francisco de Orellana",
+      "zona": "B"
+    },
+    {
+      "codigo": "2202",
+      "nombre": "Aguarico",
+      "zona": "no_disponible"
+    },
+    {
+      "codigo": "2203",
+      "nombre": "La Joya de los Sachas",
+      "zona": "B"
+    },
+    {
+      "codigo": "2204",
+      "nombre": "Loreto",
+      "zona": "B"
+    },
+    {
+      "codigo": "2301",
+      "nombre": "Santo Domingo",
+      "zona": "C"
+    },
+    {
+      "codigo": "2302",
+      "nombre": "La Concordia",
+      "zona": "C"
+    },
+    {
+      "codigo": "2401",
+      "nombre": "Santa Elena",
+      "zona": "C"
+    },
+    {
+      "codigo": "2402",
+      "nombre": "La Libertad",
+      "zona": "C"
+    },
+    {
+      "codigo": "2403",
+      "nombre": "Salinas",
+      "zona": "C"
+    }
+  ]
+}
