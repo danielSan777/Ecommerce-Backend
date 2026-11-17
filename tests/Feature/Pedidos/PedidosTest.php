@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Pedidos;
 
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
+use App\Core\Configuracion\Infraestructura\Modelos\Ajuste;
 use App\Core\Entrega\Dominio\TokenDePromesa;
 use App\Core\Entrega\Infraestructura\Modelos\DiaNoHabilModelo;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
@@ -399,7 +400,15 @@ final class PedidosTest extends TestCase
 
         $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => ' 1234567890 '])->assertOk()
             ->assertJsonPath('status', 'shipped')->assertJsonPath('tracking_number', '1234567890');
-        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'enviado')->assertJsonPath('shipment.tracking_number', '1234567890');
+        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'enviado')->assertJsonPath('shipment.tracking_number', '1234567890')
+            ->assertJsonPath('shipment.tracking_url', 'https://www.servientrega.com.ec/');
+
+        // Con {guia} en el ajuste, el número va dentro del enlace; un enlace que no es https no se muestra
+        Ajuste::query()->where('key', 'tracking_url')->update(['value' => json_encode('https://rastreo.test/?guia={guia}')]);
+        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('shipment.tracking_url', 'https://rastreo.test/?guia=1234567890');
+        Ajuste::query()->where('key', 'tracking_url')->update(['value' => json_encode('javascript:alert(1)')]);
+        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('shipment.tracking_url', null);
+        Ajuste::query()->where('key', 'tracking_url')->update(['value' => json_encode('https://www.servientrega.com.ec/')]);
 
         // Ya enviado: no se cancela, no vuelve a producción, pero se puede corregir la guía
         $this->postJson("/api/v1/admin/orders/{$n}/cancel")->assertStatus(409)->assertJsonPath('code', 'already_shipped');

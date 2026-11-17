@@ -19,6 +19,7 @@ class AjustesIniciales extends Seeder
         'cutoff_weekday' => ['20:00', 'Cierre del ciclo de producción de lunes a viernes (hora de Guayaquil)'],
         'cutoff_saturday' => ['16:00', 'Cierre del ciclo de producción del sábado (hora de Guayaquil)'],
         'whatsapp_phone' => ['593999283765', 'WhatsApp de la tienda (solo dígitos, con código de país)'],
+        'tracking_url' => ['https://www.servientrega.com.ec/', 'Enlace de rastreo de Servientrega. Puede incluir {guia} para poner el número de guía en el enlace.'],
         'contact_email' => ['ayuda@jardindesele.com', 'Correo de contacto'],
     ];
 

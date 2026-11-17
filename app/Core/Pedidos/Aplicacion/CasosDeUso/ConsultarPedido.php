@@ -65,7 +65,7 @@ final class ConsultarPedido
             },
             'payment' => ['method' => $p->payment_method, 'status' => $p->payment_status, 'paid_at' => $p->paid_at?->utc()->format('Y-m-d\TH:i:s\Z')],
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d')],
-            'shipment' => ['carrier' => 'Servientrega', 'tracking_number' => $p->tracking_number],
+            'shipment' => ['carrier' => 'Servientrega', 'tracking_number' => $p->tracking_number, 'tracking_url' => $this->enlaceDeRastreo($p->tracking_number)],
             'items' => $p->items->map(fn ($i) => ['name' => $i->product_name, 'name_text' => $i->personalization['name_text'] ?? null])->all(),
             'total_cents' => $p->total_cents,
             'share' => $this->compartir($p),
@@ -106,6 +106,18 @@ final class ConsultarPedido
         $telefono = preg_replace('/\D/', '', (string) $this->ajustes->obtener('whatsapp_phone', '')) ?? '';
 
         return "https://wa.me/{$telefono}?text=".rawurlencode($this->mensajeDeComprobante($p));
+    }
+
+    /** Enlace de rastreo (ajuste `tracking_url`; `{guia}` se reemplaza por la guía). Solo https, y solo si ya hay guía. */
+    private function enlaceDeRastreo(?string $guia): ?string
+    {
+        if ($guia === null) {
+            return null;
+        }
+        $plantilla = (string) $this->ajustes->obtener('tracking_url', '');
+        $enlace = str_replace('{guia}', rawurlencode($guia), $plantilla);
+
+        return str_starts_with($enlace, 'https://') ? $enlace : null;
     }
 
     private function etiquetaLimite(CarbonImmutable $instante): string
