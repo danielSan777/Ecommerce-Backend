@@ -63,6 +63,8 @@ Route::prefix('v1')->group(function () {
         Route::get('orders', [ControladorAdministracionPedidos::class, 'index'])->name('api.v1.admin.orders.index');
         Route::get('orders/{numero}', [ControladorAdministracionPedidos::class, 'show'])->name('api.v1.admin.orders.show');
         Route::get('orders/{numero}/receipt', [ControladorAdministracionPedidos::class, 'comprobante'])->name('api.v1.admin.orders.receipt');
+        Route::get('orders/{numero}/items/{item}/preview', [ControladorAdministracionPedidos::class, 'vistaDelItem'])->name('api.v1.admin.orders.item-preview');
+        Route::get('orders/{numero}/items/{item}/frame-photo', [ControladorAdministracionPedidos::class, 'fotoDelMarco'])->name('api.v1.admin.orders.item-frame-photo');
         Route::post('orders/{numero}/mark-paid', [ControladorAdministracionPedidos::class, 'marcarPagado'])->name('api.v1.admin.orders.mark-paid');
         Route::post('orders/{numero}/production', [ControladorAdministracionPedidos::class, 'enProduccion'])->name('api.v1.admin.orders.production');
         Route::post('orders/{numero}/ship', [ControladorAdministracionPedidos::class, 'enviado'])->name('api.v1.admin.orders.ship');

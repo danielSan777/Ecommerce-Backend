@@ -6,6 +6,8 @@ namespace Tests\Feature\Pedidos;
 
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Core\Configuracion\Infraestructura\Modelos\Ajuste;
+use App\Core\Configurador\Infraestructura\Modelos\AccesorioModelo;
+use App\Core\Configurador\Infraestructura\Modelos\CategoriaDeAccesorioModelo;
 use App\Core\Entrega\Dominio\TokenDePromesa;
 use App\Core\Entrega\Infraestructura\Modelos\DiaNoHabilModelo;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
@@ -374,6 +376,68 @@ final class PedidosTest extends TestCase
         $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertStatus(409)->assertJsonPath('code', 'already_paid');
 
         $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'confirmado')->assertJsonPath('payment.status', 'paid');
+    }
+
+    /** @return array<string, AccesorioModelo> accesorios de prueba, con los comportamientos que el pedido debe exigir */
+    private function accesorios(): array
+    {
+        $cat = CategoriaDeAccesorioModelo::query()->create(['name' => 'Moda', 'sort_order' => 1]);
+        $nuevo = fn (string $nombre, ?string $comportamiento) => AccesorioModelo::query()->create(['accessory_category_id' => $cat->id, 'name' => $nombre, 'behavior' => $comportamiento, 'is_active' => true]);
+
+        return ['lentes' => $nuevo('Lentes', 'lentes'), 'marco_foto' => $nuevo('Marco con foto', 'marco_foto'), 'marco_frase' => $nuevo('Marco con frase', 'marco_frase'), 'libre' => $nuevo('Estetoscopio', null)];
+    }
+
+    /** @param array<string, mixed> $cambios */
+    private function conPersonalizacion(array $cambios): \Illuminate\Testing\TestResponse
+    {
+        $base = ['name_text' => 'Ana', 'dedication' => ['mode' => 'none', 'text' => '']];
+
+        return $this->crear(['items' => [['personalization' => array_replace($base, $cambios)]]]);
+    }
+
+    public function test_guarda_accesorios_colores_frase_y_foto_del_marco_y_el_administrador_los_ve(): void
+    {
+        Storage::fake('private');
+        $a = $this->accesorios();
+        $r = $this->conPersonalizacion([
+            'accessory_ids' => [$a['lentes']->id, $a['marco_frase']->id, $a['marco_foto']->id, $a['libre']->id],
+            'lens_color' => 'cafe', 'frame_text' => '  Mi doctora favorita ', 'frame_photo' => self::PNG,
+        ])->assertCreated();
+
+        $this->admin();
+        $n = $r->json('order_number');
+        $item = $this->getJson("/api/v1/admin/orders/{$n}")->assertOk()->json('items.0');
+        $this->assertSame('cafe', $item['personalization']['lens_color']);
+        $this->assertSame('Mi doctora favorita', $item['personalization']['frame_text']);
+        $this->assertTrue($item['personalization']['has_frame_photo']);
+        $this->assertSame(['Lentes', 'Marco con frase', 'Marco con foto', 'Estetoscopio'], array_column($item['personalization']['accessories'], 'name'));
+        $this->assertTrue($item['has_preview']);
+        $this->assertTrue($item['has_frame_photo']);
+
+        // Las fotos solo las descarga el administrador
+        $this->get("/api/v1/admin/orders/{$n}/items/{$item['id']}/frame-photo")->assertOk();
+        $this->get("/api/v1/admin/orders/{$n}/items/{$item['id']}/preview")->assertOk();
+        $this->get("/api/v1/admin/orders/{$n}/items/999999/frame-photo")->assertNotFound();
+        $this->app['auth']->forgetGuards();
+        $this->actingAs(User::factory()->create(), 'api');
+        $this->get("/api/v1/admin/orders/{$n}/items/{$item['id']}/frame-photo")->assertForbidden();
+    }
+
+    public function test_exige_lo_que_pide_cada_accesorio_y_rechaza_accesorios_inexistentes(): void
+    {
+        $a = $this->accesorios();
+
+        $this->conPersonalizacion(['accessory_ids' => [$a['marco_frase']->id], 'frame_text' => ''])->assertStatus(422);
+        $this->conPersonalizacion(['accessory_ids' => [$a['marco_frase']->id], 'frame_text' => ''])->assertJsonPath('errors', fn ($e) => isset($e['items.0.personalization.frame_text']));
+        $this->conPersonalizacion(['accessory_ids' => [$a['marco_foto']->id]])->assertJsonPath('errors', fn ($e) => isset($e['items.0.personalization.frame_photo']));
+        $this->conPersonalizacion(['accessory_ids' => [$a['marco_foto']->id], 'frame_photo' => 'data:text/html;base64,AAAA'])->assertJsonPath('errors', fn ($e) => isset($e['items.0.personalization.frame_photo']));
+        $this->conPersonalizacion(['accessory_ids' => [$a['lentes']->id]])->assertJsonPath('errors', fn ($e) => isset($e['items.0.personalization.lens_color']));
+        $this->conPersonalizacion(['accessory_ids' => [$a['lentes']->id], 'lens_color' => 'fucsia'])->assertJsonPath('errors', fn ($e) => isset($e['items.0.personalization.lens_color']));
+        $this->conPersonalizacion(['accessory_ids' => [987654]])->assertJsonPath('errors', fn ($e) => isset($e['items.0.personalization.accessory_ids']));
+
+        $a['libre']->update(['is_active' => false]);
+        $this->conPersonalizacion(['accessory_ids' => [$a['libre']->id]])->assertStatus(422);
+        $this->assertSame(0, PedidoModelo::query()->count());
     }
 
     public function test_produccion_y_envio_con_guia_se_ven_en_el_seguimiento_del_comprador(): void

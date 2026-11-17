@@ -7,6 +7,7 @@ namespace App\Core\Pedidos\Aplicacion\CasosDeUso;
 use App\Core\Catalogo\Dominio\ValueObjects\Precio;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
+use App\Core\Configurador\Infraestructura\Modelos\AccesorioModelo;
 use App\Core\Entrega\Aplicacion\CasosDeUso\ConsultarEntrega;
 use App\Core\Entrega\Dominio\MotorDeEntrega;
 use App\Core\Entrega\Dominio\TokenDePromesa;
@@ -102,8 +103,14 @@ final class CrearPedido
 
             foreach ($lineas as $i => $linea) {
                 $vista = $linea['preview_image'];
-                unset($linea['preview_image']);
+                $fotoMarco = $linea['frame_photo'];
+                unset($linea['preview_image'], $linea['frame_photo']);
                 $item = $pedido->items()->create($linea);
+                if ($fotoMarco !== null) {
+                    $ruta = "pedidos/{$pedido->uuid}/marco-{$item->id}.jpg";
+                    Storage::disk('private')->put($ruta, $fotoMarco);
+                    $item->update(['frame_photo_path' => $ruta]);
+                }
                 if ($vista !== null) {
                     $ruta = "pedidos/{$pedido->uuid}/item-{$item->id}.jpg";
                     Storage::disk('private')->put($ruta, $vista);
@@ -211,11 +218,12 @@ final class CrearPedido
             }
             $personalizable = $producto->type === 'personalizable';
             $cantidad = $personalizable ? 1 : max(1, min(20, (int) ($item['quantity'] ?? 1)));
-            $personalizacion = $item['personalization'] ?? null;
+            $personalizacion = null;
+            $fotoMarco = null;
 
             if ($personalizable) {
                 $macetas++;
-                $this->validarPersonalizacion($personalizacion, $i);
+                [$personalizacion, $fotoMarco] = $this->normalizarPersonalizacion($item['personalization'] ?? null, $i);
             }
 
             $precio = Precio::conDescuentoPorcentaje((int) $producto->base_price_cents, $producto->discount_percent ?? 0);
@@ -223,7 +231,7 @@ final class CrearPedido
                 'product_sku' => $producto->sku, 'product_slug' => $producto->slug, 'product_name' => $producto->name, 'type' => $producto->type,
                 'quantity' => $cantidad, 'unit_price_cents' => $precio->baseCents, 'discount_cents' => $precio->descuentoCents() * $cantidad,
                 'cost_cents' => (int) $producto->cost_cents, 'line_total_cents' => $precio->finalCents * $cantidad,
-                'personalization' => $personalizacion, 'preview_image' => $this->imagen($item['preview_image'] ?? null, $i),
+                'personalization' => $personalizacion, 'preview_image' => $this->imagen($item['preview_image'] ?? null, $i), 'frame_photo' => $fotoMarco,
             ];
         }
 
@@ -234,22 +242,104 @@ final class CrearPedido
         return [$lineas, $macetas];
     }
 
-    private function validarPersonalizacion(mixed $p, int $i): void
+    private const COLORES = ['negro', 'cafe', 'dorado'];
+
+    /**
+     * Valida y normaliza lo que personalizó el comprador. Los accesorios se buscan en la base de datos: el nombre y el
+     * comportamiento (lentes, gafas, marco con foto o con frase) los pone Laravel, no el navegador.
+     *
+     * @return array{0: array<string, mixed>, 1: ?string} la personalización lista para guardar y la foto del marco (binario)
+     */
+    private function normalizarPersonalizacion(mixed $p, int $i): array
     {
         $errores = [];
+        $base = "items.$i.personalization";
         $p = is_array($p) ? $p : [];
+
         $nombre = trim((string) ($p['name_text'] ?? ''));
         if (mb_strlen($nombre) > 30) {
-            $errores["items.$i.personalization.name_text"] = ['El nombre no puede pasar de 30 caracteres.'];
+            $errores["$base.name_text"] = ['El nombre no puede pasar de 30 caracteres.'];
         }
+
         $dedicatoria = trim((string) ($p['dedication']['text'] ?? ''));
         $modo = $p['dedication']['mode'] ?? null;
         if (! in_array($modo, ['text', 'none'], true) || ($modo === 'text' && $dedicatoria === '')) {
-            $errores["items.$i.personalization.dedication"] = ['Escribe la dedicatoria o elige «No quiero dedicatoria».'];
+            $errores["$base.dedication"] = ['Escribe la dedicatoria o elige «No quiero dedicatoria».'];
         }
+
+        // Accesorios elegidos: deben existir y estar activos
+        $ids = $p['accessory_ids'] ?? [];
+        $ids = is_array($ids) ? array_values(array_unique(array_filter(array_map(fn ($v) => is_numeric($v) ? (int) $v : 0, $ids)))) : [];
+        if (count($ids) > 30) {
+            $errores["$base.accessory_ids"] = ['Elegiste demasiados accesorios.'];
+            $ids = [];
+        }
+        $accesorios = $ids === [] ? collect() : AccesorioModelo::query()->whereIn('id', $ids)->where('is_active', true)->get();
+        if ($accesorios->count() !== count($ids)) {
+            $errores["$base.accessory_ids"] = ['Uno de los accesorios ya no está disponible. Revisa tu maceta en el carrito.'];
+        }
+        $comportamientos = $accesorios->pluck('behavior')->filter()->all();
+
+        $colorLentes = in_array('lentes', $comportamientos, true) ? ($p['lens_color'] ?? null) : null;
+        $colorGafas = in_array('gafas', $comportamientos, true) ? ($p['glasses_color'] ?? null) : null;
+        foreach (['lens_color' => $colorLentes, 'glasses_color' => $colorGafas] as $campo => $valor) {
+            if ($valor !== null && ! in_array($valor, self::COLORES, true)) {
+                $errores["$base.$campo"] = ['Elige un color válido.'];
+            }
+        }
+        if (in_array('lentes', $comportamientos, true) && $colorLentes === null) {
+            $errores["$base.lens_color"] = ['Elige el color de los lentes.'];
+        }
+        if (in_array('gafas', $comportamientos, true) && $colorGafas === null) {
+            $errores["$base.glasses_color"] = ['Elige el color de las gafas.'];
+        }
+
+        // Marco con frase o con foto: el dato que pide es obligatorio
+        $frase = in_array('marco_frase', $comportamientos, true) ? trim((string) ($p['frame_text'] ?? '')) : null;
+        if ($frase !== null && ($frase === '' || mb_strlen($frase) > 60)) {
+            $errores["$base.frame_text"] = ['Escribe la frase del marco (hasta 60 caracteres).'];
+        }
+
+        $foto = null;
+        if (in_array('marco_foto', $comportamientos, true)) {
+            $foto = $this->fotoDelMarco($p['frame_photo'] ?? null, "$base.frame_photo", $errores);
+        }
+
         if ($errores !== []) {
             throw new ValidacionFallida($errores);
         }
+
+        return [[
+            'name_text' => $nombre,
+            'dedication' => ['mode' => $modo, 'text' => $modo === 'text' ? $dedicatoria : ''],
+            'accessories' => $accesorios->sortBy(fn ($a) => array_search($a->id, $ids, true))->map(fn ($a) => ['id' => $a->id, 'name' => $a->name, 'behavior' => $a->behavior])->values()->all(),
+            'lens_color' => $colorLentes,
+            'glasses_color' => $colorGafas,
+            'frame_text' => $frase,
+            'has_frame_photo' => $foto !== null,
+        ], $foto];
+    }
+
+    /**
+     * Foto del marco (data URL JPEG o PNG, hasta 2 MB; Angular la reduce antes de enviarla).
+     *
+     * @param  array<string, list<string>>  $errores
+     */
+    private function fotoDelMarco(mixed $dataUrl, string $campo, array &$errores): ?string
+    {
+        if (! is_string($dataUrl) || $dataUrl === '') {
+            $errores[$campo] = ['Sube la foto del marco.'];
+
+            return null;
+        }
+        $binario = preg_match('#^data:image/(jpeg|png);base64,([A-Za-z0-9+/=]+)$#', $dataUrl, $m) === 1 ? base64_decode($m[2], true) : false;
+        if ($binario === false || strlen($binario) > 2 * 1024 * 1024 || @getimagesizefromstring($binario) === false) {
+            $errores[$campo] = ['La foto del marco no es válida o pesa demasiado (máximo 2 MB).'];
+
+            return null;
+        }
+
+        return $binario;
     }
 
     /** Foto de la maceta personalizada (data URL JPEG o PNG, hasta 600 KB). Es solo la vista previa: no decide nada. */

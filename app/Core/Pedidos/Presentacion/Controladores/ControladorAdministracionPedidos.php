@@ -31,7 +31,7 @@ final class ControladorAdministracionPedidos extends Controller
             'production_started_at' => $p->production_started_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'shipped_at' => $p->shipped_at?->utc()->format('Y-m-d\TH:i:s\Z'), 'tracking_number' => $p->tracking_number,
             'created_at' => $p->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
-            'items' => $p->items->map(fn ($i) => ['sku' => $i->product_sku, 'name' => $i->product_name, 'type' => $i->type, 'line_total_cents' => $i->line_total_cents, 'personalization' => $i->personalization])->all(),
+            'items' => $p->items->map(fn ($i) => ['id' => $i->id, 'has_preview' => $i->preview_path !== null, 'has_frame_photo' => $i->frame_photo_path !== null, 'sku' => $i->product_sku, 'name' => $i->product_name, 'type' => $i->type, 'line_total_cents' => $i->line_total_cents, 'personalization' => $i->personalization])->all(),
             'shipping' => $p->shipping, 'billing' => $p->billing,
         ];
     }
@@ -88,6 +88,29 @@ final class ControladorAdministracionPedidos extends Controller
         }
 
         return Storage::disk('private')->response($pedido->receipt_path, $pedido->receipt_original_name);
+    }
+
+    /** Foto de la maceta ya personalizada (la que armó el comprador): solo el administrador. */
+    public function vistaDelItem(string $numero, int $item): StreamedResponse
+    {
+        return $this->imagenDelItem($numero, $item, 'preview_path', 'maceta');
+    }
+
+    /** Foto que subió el comprador para el marco: solo el administrador. */
+    public function fotoDelMarco(string $numero, int $item): StreamedResponse
+    {
+        return $this->imagenDelItem($numero, $item, 'frame_photo_path', 'marco');
+    }
+
+    private function imagenDelItem(string $numero, int $item, string $campo, string $nombre): StreamedResponse
+    {
+        $linea = $this->buscar($numero)->items->firstWhere('id', $item);
+        $ruta = $linea?->{$campo};
+        if ($ruta === null || ! Storage::disk('private')->exists($ruta)) {
+            throw new PedidoRechazado('not_found', 'No encontramos esa imagen.', 404);
+        }
+
+        return Storage::disk('private')->response($ruta, "{$numero}-{$nombre}-{$item}.jpg", ['Cache-Control' => 'private, no-store']);
     }
 
     private function buscar(string $numero): PedidoModelo
