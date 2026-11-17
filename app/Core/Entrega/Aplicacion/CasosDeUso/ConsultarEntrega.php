@@ -60,6 +60,11 @@ final class ConsultarEntrega
     }
 
     /** «jueves 12 y viernes 13 de noviembre»; si cambia el mes, «lunes 30 de noviembre y martes 1 de diciembre». */
+    public function diasEnTexto(string $inicio, string $fin): string
+    {
+        return $this->dias($inicio, $fin);
+    }
+
     private function dias(string $inicio, string $fin): string
     {
         [, $mi, $di] = array_map('intval', explode('-', $inicio));

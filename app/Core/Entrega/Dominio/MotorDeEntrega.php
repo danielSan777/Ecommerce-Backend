@@ -130,7 +130,7 @@ final class MotorDeEntrega
         return $fecha;
     }
 
-    private function corteDe(string $fecha): CarbonImmutable
+    public function corteDe(string $fecha): CarbonImmutable
     {
         $sabado = $this->calendario->diaDeLaSemana($fecha) === 6;
         $hora = (string) $this->ajustes->obtener($sabado ? 'cutoff_saturday' : 'cutoff_weekday', $sabado ? '16:00' : '20:00');

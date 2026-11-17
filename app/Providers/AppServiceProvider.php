@@ -54,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
             return $token === null ? null : $this->app->make(SesionesDeAcceso::class)->usuarioDelToken($token);
         });
 
+        RateLimiter::for('checkout', fn (Request $r) => Limit::perMinute(10)->by($r->ip()));
         RateLimiter::for('registro', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
         RateLimiter::for('comprobantes', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));

@@ -7,6 +7,8 @@ use App\Core\Configurador\Dominio\Excepciones\ConfiguracionInvalida;
 use App\Core\Configurador\Dominio\Excepciones\ConfiguradorEnUso;
 use App\Core\Configurador\Dominio\Excepciones\ConfiguradorNoEncontrado;
 use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
+use App\Core\Pedidos\Dominio\PedidoRechazado;
+use App\Core\Pedidos\Infraestructura\Consola\VencerPedidos;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
 use App\Shared\Infraestructura\Http\Middleware\RequiereSesion;
@@ -23,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([CrearAdministrador::class])
+    ->withCommands([CrearAdministrador::class, VencerPedidos::class])
     ->withMiddleware(function (Middleware $middleware): void {
         // Primero: la IP real del visitante detrás de Cloudflare
         $middleware->prepend(IpRealDeCloudflare::class);
@@ -49,6 +51,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (ConfiguradorNoEncontrado $e) => response()->json(['code' => 'not_found', 'message' => $e->getMessage()], 404));
         $exceptions->render(fn (ConfiguradorEnUso $e) => response()->json(['code' => 'in_use', 'message' => $e->getMessage()], 409));
         $exceptions->render(fn (ConfiguracionInvalida $e) => response()->json(['code' => 'validation_error', 'message' => $e->getMessage(), 'errors' => $e->errores], 422));
+        // Pedidos: código estable (price_changed, capacity_full…) con el detalle para mostrar el valor nuevo antes de pagar
+        $exceptions->render(fn (PedidoRechazado $e) => response()->json(['code' => $e->codigo, 'message' => $e->getMessage(), 'details' => (object) $e->detalle] + $e->detalle, $e->estado));
         $exceptions->render(fn (ValidacionFallida $e) => response()->json(['code' => 'validation_error', 'message' => $e->getMessage(), 'errors' => $e->errores], 422));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),

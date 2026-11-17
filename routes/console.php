@@ -18,3 +18,6 @@ Schedule::call(fn () => Cache::forever(ControladorSalud::CLAVE_SCHEDULER, now('U
 Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3 --timeout=30')
     ->everyMinute()->withoutOverlapping()->name('cola')
     ->after(fn () => Cache::forever(ControladorSalud::CLAVE_COLA, now('UTC')->toIso8601String()));
+
+// Paso 14: las transferencias que no pagaron en 12 horas pasan a «vencido» y liberan su cupo.
+Schedule::command('orders:expire')->everyMinute()->withoutOverlapping()->name('vencer-pedidos');

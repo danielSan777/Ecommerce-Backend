@@ -15,6 +15,9 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionAc
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionConfigurador;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
 use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
+use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionPedidos;
+use App\Core\Pedidos\Presentacion\Controladores\ControladorCheckout;
+use App\Core\Pedidos\Presentacion\Controladores\ControladorPedidos;
 use App\Core\Entrega\Presentacion\Controladores\ControladorAdministracionDiasNoHabiles;
 use App\Core\Entrega\Presentacion\Controladores\ControladorEntrega;
 use App\Core\Envios\Presentacion\Controladores\ControladorAdministracionEnvios;
@@ -28,6 +31,11 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('delivery/promise', [ControladorEntrega::class, 'promesa'])->name('api.v1.delivery.promise');
     Route::get('delivery/windows', [ControladorEntrega::class, 'ventanas'])->name('api.v1.delivery.windows');
+    Route::post('checkout', [ControladorCheckout::class, 'store'])->middleware('throttle:checkout')->name('api.v1.checkout');
+    Route::get('orders/{token}', [ControladorPedidos::class, 'show'])->name('api.v1.orders.show');
+    Route::post('orders/{token}/receipt', [ControladorPedidos::class, 'comprobante'])->middleware('throttle:comprobantes')->name('api.v1.orders.receipt');
+    Route::get('orders/{token}/whatsapp', [ControladorPedidos::class, 'whatsapp'])->name('api.v1.orders.whatsapp');
+    Route::get('orders/{token}/preview', [ControladorPedidos::class, 'vistaPrevia'])->name('api.v1.orders.preview');
     Route::get('locations', ControladorUbicaciones::class)->name('api.v1.locations');
     Route::get('categories', [ControladorCategorias::class, 'index'])->name('api.v1.categories.index');
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
@@ -52,6 +60,11 @@ Route::prefix('v1')->group(function () {
 
     // Administración (Angular del administrador): solo rol administrador.
     Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('orders', [ControladorAdministracionPedidos::class, 'index'])->name('api.v1.admin.orders.index');
+        Route::get('orders/{numero}', [ControladorAdministracionPedidos::class, 'show'])->name('api.v1.admin.orders.show');
+        Route::get('orders/{numero}/receipt', [ControladorAdministracionPedidos::class, 'comprobante'])->name('api.v1.admin.orders.receipt');
+        Route::post('orders/{numero}/mark-paid', [ControladorAdministracionPedidos::class, 'marcarPagado'])->name('api.v1.admin.orders.mark-paid');
+        Route::post('orders/{numero}/cancel', [ControladorAdministracionPedidos::class, 'cancelar'])->name('api.v1.admin.orders.cancel');
         Route::get('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'index'])->name('api.v1.admin.non-working-days.index');
         Route::post('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'store'])->name('api.v1.admin.non-working-days.store');
         Route::delete('non-working-days/{fecha}', [ControladorAdministracionDiasNoHabiles::class, 'destroy'])->name('api.v1.admin.non-working-days.destroy');
