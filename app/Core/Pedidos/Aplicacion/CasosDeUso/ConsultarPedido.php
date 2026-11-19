@@ -38,7 +38,7 @@ final class ConsultarPedido
     /** @return array<string, mixed> */
     private function pendiente(PedidoModelo $p, CarbonImmutable $ahora): array
     {
-        $limite = CarbonImmutable::instance($p->transfer_deadline_at);
+        $limite = CarbonImmutable::instance($p->transfer_deadline_at ?? $p->card_reserved_until ?? $ahora);
 
         return [
             'order_number' => $p->number,

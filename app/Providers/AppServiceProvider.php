@@ -32,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // PayPhone real con StoreID y Token del ambiente; simulado solo fuera de producción
+        $this->app->bind(\App\Core\Pagos\Dominio\PasarelaDePago::class, fn () => config('payphone.mode') === 'real'
+            ? new \App\Core\Pagos\Infraestructura\PayPhoneHttp((string) config('payphone.confirm_url'), (string) config('payphone.token'))
+            : new \App\Core\Pagos\Infraestructura\PasarelaSimulada());
         $this->app->bind(RepositorioAdministracionCatalogo::class, RepositorioAdministracionCatalogoEloquent::class);
         $this->app->bind(RepositorioAdministracionCampanas::class, RepositorioAdministracionCampanasEloquent::class);
         $this->app->bind(RepositorioAdministracionSubcategorias::class, RepositorioAdministracionSubcategoriasEloquent::class);
@@ -59,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
         RateLimiter::for('comprobantes', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
         RateLimiter::for('consultar-pedido', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
+        RateLimiter::for('pagos', fn (Request $r) => Limit::perMinute(20)->by($r->ip()));
         RateLimiter::for('fotos', fn (Request $r) => Limit::perMinute(10)->by($r->ip()));
     }
 }

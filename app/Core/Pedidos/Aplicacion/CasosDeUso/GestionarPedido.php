@@ -73,7 +73,11 @@ final class GestionarPedido
             $this->avisar($pedido, NotificarPedido::VENCIDO);
         }
 
-        return $vencidos->count();
+        // Pedidos con tarjeta sin pagar cuyo cupo apartado (15 min) terminó: se liberan sin avisar al comprador
+        $tarjetas = PedidoModelo::query()->where('payment_method', 'card')->where('payment_status', 'unpaid')->where('status', 'created')
+            ->where('card_reserved_until', '<=', $ahora)->update(['status' => 'expired', 'expired_at' => $ahora]);
+
+        return $vencidos->count() + $tarjetas;
     }
 
     /**

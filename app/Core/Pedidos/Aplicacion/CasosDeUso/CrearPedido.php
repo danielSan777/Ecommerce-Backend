@@ -46,9 +46,7 @@ final class CrearPedido
     {
         $ahora ??= CarbonImmutable::now('UTC');
 
-        if (($datos['payment_method'] ?? '') !== 'transfer') {
-            throw new PedidoRechazado('payment_method_unavailable', 'El pago con tarjeta estará disponible pronto. Por ahora elige transferencia bancaria.');
-        }
+        $tarjeta = ($datos['payment_method'] ?? '') === 'card';
 
         $envio = $this->normalizarEnvio($datos['shipping']);
         $facturacion = ($datos['billing']['same_as_shipping'] ?? true) ? ['same_as_shipping' => true] : $this->normalizarFacturacion($datos['billing']);
@@ -66,13 +64,15 @@ final class CrearPedido
         $subtotal = array_sum(array_column($lineas, 'line_total_cents'));
         $gratis = $macetas >= (int) $this->ajustes->obtener('free_shipping_min_planters', 2);
         $envioCents = $gratis ? 0 : $canton->zona->price_cents;
-        $total = $subtotal + $envioCents;
+        // Recargo por tarjeta (ajuste en %): sobre productos + envío, redondeado al centavo (mitad hacia arriba)
+        $recargo = $tarjeta ? (int) floor(($subtotal + $envioCents) * (float) $this->ajustes->obtener('card_surcharge_percent', 6) / 100 + 0.5) : 0;
+        $total = $subtotal + $envioCents + $recargo;
 
         if (isset($datos['expected_total_cents']) && (int) $datos['expected_total_cents'] !== $total) {
-            throw new PedidoRechazado('price_changed', 'Actualizamos el total de tu pedido. Revísalo antes de pagar.', 409, ['total_cents' => $total, 'shipping_cents' => $envioCents, 'subtotal_cents' => $subtotal]);
+            throw new PedidoRechazado('price_changed', 'Actualizamos el total de tu pedido. Revísalo antes de pagar.', 409, ['total_cents' => $total, 'shipping_cents' => $envioCents, 'subtotal_cents' => $subtotal, 'card_fee_cents' => $recargo]);
         }
 
-        $pedido = DB::transaction(function () use ($datos, $envio, $facturacion, $contacto, $lineas, $canton, $subtotal, $envioCents, $total, $ahora, $ip, $userAgent) {
+        $pedido = DB::transaction(function () use ($datos, $envio, $facturacion, $contacto, $lineas, $canton, $subtotal, $envioCents, $recargo, $total, $tarjeta, $ahora, $ip, $userAgent) {
             [$ciclo, $ventana, $gracia, $despacho, $tipo] = $this->asignar($datos, $canton->zona->extra_days, $ahora);
 
             $horas = (int) $this->ajustes->obtener('transfer_window_hours', 12);
@@ -86,14 +86,15 @@ final class CrearPedido
                 'uuid' => $uuid,
                 'token' => bin2hex(random_bytes(32)),
                 'customer_id' => $cliente->id,
-                'channel' => 'web', 'payment_method' => 'transfer', 'payment_status' => 'pending_validation', 'status' => 'created',
-                'subtotal_cents' => $subtotal, 'discount_cents' => 0, 'shipping_cents' => $envioCents, 'card_fee_cents' => 0, 'total_cents' => $total,
+                'channel' => 'web', 'payment_method' => $tarjeta ? 'card' : 'transfer', 'payment_status' => $tarjeta ? 'unpaid' : 'pending_validation', 'status' => 'created',
+                'subtotal_cents' => $subtotal, 'discount_cents' => 0, 'shipping_cents' => $envioCents, 'card_fee_cents' => $recargo, 'total_cents' => $total,
                 'shipping_zone' => $canton->zona->code,
                 'shipping' => $envio + ['province_name' => $canton->provincia->name, 'canton_name' => $canton->name],
                 'billing' => $facturacion, 'contact' => $contacto,
                 'window_type' => $tipo, 'window_start' => $ventana['start'], 'window_end' => $ventana['end'],
                 'cycle_date' => $ciclo, 'dispatch_date' => $despacho, 'grace_applied' => $gracia,
-                'transfer_deadline_at' => $ahora->addHours($horas),
+                'transfer_deadline_at' => $tarjeta ? null : $ahora->addHours($horas),
+                'card_reserved_until' => $tarjeta ? $ahora->addMinutes((int) config('payphone.reserve_minutes', 15)) : null,
                 'event_id' => 'purchase-'.$uuid,
                 'terms_version' => (string) $datos['terms']['version'], 'terms_accepted_at' => $ahora,
                 'ip' => $ip, 'user_agent' => $userAgent !== null ? mb_substr($userAgent, 0, 255) : null,

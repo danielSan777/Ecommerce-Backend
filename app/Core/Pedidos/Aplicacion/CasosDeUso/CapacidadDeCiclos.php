@@ -35,7 +35,8 @@ final class CapacidadDeCiclos
         return PedidoModelo::query()->where('cycle_date', $fecha)
             ->whereNotIn('status', ['cancelled', 'expired'])
             ->where(fn ($q) => $q->where('payment_status', 'paid')
-                ->orWhere(fn ($t) => $t->where('payment_status', 'pending_validation')->where('transfer_deadline_at', '>', $ahora)))
+                ->orWhere(fn ($t) => $t->where('payment_status', 'pending_validation')->where('transfer_deadline_at', '>', $ahora))
+                ->orWhere(fn ($t) => $t->where('payment_status', 'unpaid')->where('card_reserved_until', '>', $ahora)))
             ->count();
     }
 

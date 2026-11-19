@@ -18,6 +18,7 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionPedidos;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorCheckout;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorPedidos;
+use App\Core\Pagos\Presentacion\Controladores\ControladorPagos;
 use App\Core\Entrega\Presentacion\Controladores\ControladorAdministracionDiasNoHabiles;
 use App\Core\Entrega\Presentacion\Controladores\ControladorEntrega;
 use App\Core\Envios\Presentacion\Controladores\ControladorAdministracionEnvios;
@@ -32,6 +33,8 @@ Route::prefix('v1')->group(function () {
     Route::get('delivery/promise', [ControladorEntrega::class, 'promesa'])->name('api.v1.delivery.promise');
     Route::get('delivery/windows', [ControladorEntrega::class, 'ventanas'])->name('api.v1.delivery.windows');
     Route::post('checkout', [ControladorCheckout::class, 'store'])->middleware('throttle:checkout')->name('api.v1.checkout');
+    Route::post('orders/{token}/payphone', [ControladorPagos::class, 'iniciar'])->middleware('throttle:pagos')->name('api.v1.orders.payphone');
+    Route::post('payments/payphone/confirm', [ControladorPagos::class, 'confirmar'])->middleware('throttle:pagos')->name('api.v1.payments.payphone.confirm');
     Route::get('orders/{token}', [ControladorPedidos::class, 'show'])->name('api.v1.orders.show');
     Route::post('orders/{token}/receipt', [ControladorPedidos::class, 'comprobante'])->middleware('throttle:comprobantes')->name('api.v1.orders.receipt');
     Route::get('orders/{token}/whatsapp', [ControladorPedidos::class, 'whatsapp'])->name('api.v1.orders.whatsapp');

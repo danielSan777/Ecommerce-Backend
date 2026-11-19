@@ -25,6 +25,8 @@ use App\Core\Pedidos\Aplicacion\CasosDeUso\NotificarPedido;
 use App\Core\Pedidos\Infraestructura\Correo\CorreoDePedido;
 use App\Core\Pedidos\Infraestructura\Modelos\EventoDePedidoModelo;
 use Illuminate\Support\Facades\Mail;
+use App\Core\Pagos\Infraestructura\Modelos\IntentoDePagoModelo;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 final class PedidosTest extends TestCase
@@ -156,7 +158,6 @@ final class PedidosTest extends TestCase
         $this->crear(['items' => [['personalization' => ['name_text' => str_repeat('a', 31), 'dedication' => ['mode' => 'none']]]]])->assertStatus(422);
         $sinDedicatoria = array_replace($this->peticion(), ['items' => [['slug' => $this->slug(), 'personalization' => ['name_text' => 'Ana']]]]);
         $this->postJson('/api/v1/checkout', $sinDedicatoria)->assertStatus(422)->assertJsonStructure(['errors' => ['items.0.personalization.dedication']]);
-        $this->crear(['payment_method' => 'card'])->assertStatus(422)->assertJsonPath('code', 'payment_method_unavailable');
         $this->crear(['shipping' => ['canton_code' => '2001', 'province_code' => '20']])->assertStatus(422)->assertJsonPath('code', 'zone_unavailable');
         $this->crear(['shipping' => ['canton_code' => '0101']])->assertStatus(422); // cantón de otra provincia
         $this->assertSame(0, PedidoModelo::query()->count());
@@ -352,6 +353,177 @@ final class PedidosTest extends TestCase
         $p = PedidoModelo::query()->firstOrFail();
         $this->assertSame('expired', $p->status);
         $this->assertNotNull($p->expired_at);
+    }
+
+    // ---------- Paso 13: pago con tarjeta (PayPhone) ----------
+
+    private function pedidoConTarjeta(): array
+    {
+        $sinRecargo = $this->crear(['payment_method' => 'card', 'expected_total_cents' => 1])->assertStatus(409)->assertJsonPath('code', 'price_changed');
+        $total = (int) $sinRecargo->json('details.total_cents');
+        $r = $this->crear(['payment_method' => 'card', 'expected_total_cents' => $total])->assertCreated();
+
+        return [PedidoModelo::query()->where('number', $r->json('order_number'))->firstOrFail(), $r->json('token')];
+    }
+
+    public function test_el_pedido_con_tarjeta_suma_el_recargo_calculado_por_laravel_y_aparta_el_cupo_15_minutos(): void
+    {
+        Mail::fake();
+        $transferencia = $this->crear()->assertCreated();
+        $base = PedidoModelo::query()->where('number', $transferencia->json('order_number'))->firstOrFail();
+        $esperado = (int) floor($base->total_cents * 0.06 + 0.5);
+
+        // Con el total de transferencia (sin recargo) Laravel responde el total nuevo y el recargo
+        $r = $this->crear(['payment_method' => 'card', 'expected_total_cents' => $base->total_cents])->assertStatus(409);
+        $this->assertSame($base->total_cents + $esperado, $r->json('details.total_cents'));
+        $this->assertSame($esperado, $r->json('details.card_fee_cents'));
+
+        [$p] = $this->pedidoConTarjeta();
+        $this->assertSame('card', $p->payment_method);
+        $this->assertSame('unpaid', $p->payment_status);
+        $this->assertSame($esperado, $p->card_fee_cents);
+        $this->assertSame($base->total_cents + $esperado, $p->total_cents);
+        $this->assertNull($p->transfer_deadline_at);
+        $this->assertEquals(CarbonImmutable::now('UTC')->addMinutes(15)->timestamp, $p->card_reserved_until->timestamp);
+        Mail::assertSent(CorreoDePedido::class, 1); // solo el de la transferencia: la tarjeta no manda «recibido»
+    }
+
+    public function test_iniciar_el_pago_devuelve_el_mismo_intento_mientras_no_venza(): void
+    {
+        [$p, $token] = $this->pedidoConTarjeta();
+
+        $a = $this->postJson("/api/v1/orders/{$token}/payphone")->assertOk()->assertJsonPath('simulated', true)->assertJsonPath('box', null);
+        $this->assertSame("{$p->number}-1", $a->json('client_transaction_id'));
+        $b = $this->postJson("/api/v1/orders/{$token}/payphone")->assertOk();
+        $this->assertSame($a->json('client_transaction_id'), $b->json('client_transaction_id')); // doble clic o recarga
+        $this->assertSame(1, IntentoDePagoModelo::query()->count());
+        $this->assertSame($p->total_cents, IntentoDePagoModelo::query()->firstOrFail()->expected_amount_cents);
+
+        // Vencida la Cajita (10 min) se crea un intento nuevo
+        $this->ahora('2026-11-09 10:11:00');
+        $c = $this->postJson("/api/v1/orders/{$token}/payphone")->assertOk();
+        $this->assertSame("{$p->number}-2", $c->json('client_transaction_id'));
+        $this->assertSame('expired', IntentoDePagoModelo::query()->where('client_transaction_id', "{$p->number}-1")->firstOrFail()->status);
+    }
+
+    public function test_un_pedido_por_transferencia_no_inicia_pago_con_tarjeta(): void
+    {
+        $t = $this->crear()->assertCreated()->json('token');
+        $this->postJson("/api/v1/orders/{$t}/payphone")->assertStatus(409)->assertJsonPath('code', 'not_card_order');
+    }
+
+    public function test_pago_aprobado_marca_el_pedido_pagado_y_una_recarga_no_reprocesa(): void
+    {
+        Mail::fake();
+        [$p, $token] = $this->pedidoConTarjeta();
+        $cx = $this->postJson("/api/v1/orders/{$token}/payphone")->json('client_transaction_id');
+
+        $r = $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 555, 'client_transaction_id' => $cx])->assertOk()
+            ->assertJsonPath('result', 'approved')->assertJsonPath('token', $token);
+        $this->assertSame($p->number, $r->json('order_number'));
+        $p->refresh();
+        $this->assertSame('paid', $p->payment_status);
+        $this->assertSame('ready_for_production', $p->status);
+        $intento = IntentoDePagoModelo::query()->firstOrFail();
+        $this->assertSame(['approved', 555, 'SIM555'], [$intento->status, $intento->payphone_transaction_id, $intento->authorization_code]);
+
+        // Recarga de la página de respuesta: mismo resultado, sin pagar ni notificar otra vez
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 555, 'client_transaction_id' => $cx])->assertOk()->assertJsonPath('result', 'approved');
+        $this->assertSame(1, IntentoDePagoModelo::query()->where('status', 'approved')->count());
+    }
+
+    public function test_pago_cancelado_deja_el_pedido_sin_pagar_y_permite_reintentar_con_un_intento_nuevo(): void
+    {
+        [$p, $token] = $this->pedidoConTarjeta();
+        $cx = $this->postJson("/api/v1/orders/{$token}/payphone")->json('client_transaction_id');
+
+        $r = $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 1, 'client_transaction_id' => $cx])->assertOk()
+            ->assertJsonPath('result', 'declined')->assertJsonPath('token', null)->assertJsonPath('order', null);
+        $this->assertStringContainsString('No te cobramos', $r->json('message'));
+        $this->assertSame('unpaid', $p->refresh()->payment_status);
+
+        $otro = $this->postJson("/api/v1/orders/{$token}/payphone")->assertOk()->json('client_transaction_id');
+        $this->assertSame("{$p->number}-2", $otro);
+    }
+
+    public function test_confirmar_un_pago_inexistente_o_sin_datos_falla(): void
+    {
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 5, 'client_transaction_id' => 'JDS-9999-1'])->assertStatus(404)->assertJsonPath('code', 'attempt_not_found');
+        $this->postJson('/api/v1/payments/payphone/confirm', [])->assertStatus(422);
+    }
+
+    public function test_con_payphone_real_valida_estado_referencia_y_monto_antes_de_pagar(): void
+    {
+        config(['payphone.mode' => 'real', 'payphone.token' => 'TOKEN-SECRETO', 'payphone.store_id' => 'STORE-1']);
+        [$p, $token] = $this->pedidoConTarjeta();
+        $inicio = $this->postJson("/api/v1/orders/{$token}/payphone")->assertOk()->assertJsonPath('simulated', false);
+        $cx = $inicio->json('client_transaction_id');
+        $box = $inicio->json('box');
+        $this->assertSame(['TOKEN-SECRETO', 'STORE-1', $p->total_cents, $p->total_cents, 'USD', 'josue@correo.com', '+593991234567'], [$box['token'], $box['store_id'], $box['amount'], $box['amount_without_tax'], $box['currency'], $box['email'], $box['phone_number']]);
+        $this->assertStringContainsString($p->number, $box['reference']);
+
+        $cx2 = "{$p->number}-2";
+        Http::fake(['*' => Http::sequence()
+            ->push(['message' => 'no existe', 'errorCode' => 20], 404)                                                                                               // error de PayPhone
+            ->push(['statusCode' => 3, 'transactionId' => 9001, 'clientTransactionId' => $cx, 'authorizationCode' => 'AUTH77', 'amount' => 100])                     // monto alterado
+            ->push(['statusCode' => 3, 'transactionId' => 9002, 'clientTransactionId' => $cx2, 'authorizationCode' => 'AUTH78', 'amount' => $p->total_cents])]);       // pago correcto
+
+        // Error de PayPhone: no se paga y el intento sigue pendiente (se puede volver a confirmar)
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 9001, 'client_transaction_id' => $cx])->assertOk()->assertJsonPath('result', 'error');
+        $this->assertSame('pending', IntentoDePagoModelo::query()->firstOrFail()->status);
+
+        // Monto alterado: aprobado en PayPhone pero distinto al pedido → no se paga, queda en revisión
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 9001, 'client_transaction_id' => $cx])->assertOk()->assertJsonPath('result', 'review');
+        $this->assertSame('unpaid', $p->refresh()->payment_status);
+        $this->assertSame('amount_mismatch', IntentoDePagoModelo::query()->firstOrFail()->status);
+
+        // Intento nuevo y pago correcto: se llama a Confirm con el token en el encabezado y todo coincide
+        $this->ahora('2026-11-09 10:12:00');
+        $this->assertSame($cx2, $this->postJson("/api/v1/orders/{$token}/payphone")->json('client_transaction_id'));
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 9002, 'client_transaction_id' => $cx2])->assertOk()->assertJsonPath('result', 'approved');
+        Http::assertSent(fn ($r) => $r->hasHeader('Authorization', 'Bearer TOKEN-SECRETO') && $r['id'] === 9002 && $r['clientTxId'] === $cx2 && str_ends_with($r->url(), '/api/confirm'));
+        $this->assertSame('paid', $p->refresh()->payment_status);
+        $this->assertSame('AUTH78', IntentoDePagoModelo::query()->where('client_transaction_id', $cx2)->firstOrFail()->authorization_code);
+    }
+
+    public function test_un_segundo_pago_aprobado_del_mismo_pedido_queda_en_revision_sin_marcar_nada_mas(): void
+    {
+        [$p, $token] = $this->pedidoConTarjeta();
+        $cx1 = $this->postJson("/api/v1/orders/{$token}/payphone")->json('client_transaction_id');
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 701, 'client_transaction_id' => $cx1])->assertOk()->assertJsonPath('result', 'approved');
+        $pagado = $p->refresh()->paid_at;
+
+        // Un intento viejo que también se aprueba después
+        $this->ahora('2026-11-09 10:12:00');
+        $viejo = IntentoDePagoModelo::query()->create(['order_id' => $p->id, 'client_transaction_id' => "{$p->number}-9", 'expected_amount_cents' => $p->total_cents, 'simulated' => true, 'expires_at' => CarbonImmutable::now('UTC')->addMinutes(5)]);
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 702, 'client_transaction_id' => $viejo->client_transaction_id])->assertOk()->assertJsonPath('result', 'review');
+        $this->assertSame('duplicate', $viejo->refresh()->status);
+        $this->assertEquals($pagado, $p->refresh()->paid_at);
+    }
+
+    public function test_no_se_paga_con_tarjeta_un_pedido_cancelado_ni_se_usa_la_simulacion_en_produccion(): void
+    {
+        [$p, $token] = $this->pedidoConTarjeta();
+        $p->update(['status' => 'cancelled']);
+        $this->postJson("/api/v1/orders/{$token}/payphone")->assertStatus(409)->assertJsonPath('code', 'order_closed');
+        $p->update(['status' => 'created']);
+
+        $this->app['env'] = 'production';
+        $this->postJson("/api/v1/orders/{$token}/payphone")->assertStatus(503)->assertJsonPath('code', 'payments_unavailable');
+    }
+
+    public function test_el_cupo_de_un_pedido_con_tarjeta_cuenta_15_minutos_y_luego_se_libera(): void
+    {
+        [$p] = $this->pedidoConTarjeta();
+        $ciclo = $p->cycle_date->format('Y-m-d');
+        $capacidad = app(\App\Core\Pedidos\Aplicacion\CasosDeUso\CapacidadDeCiclos::class);
+
+        $this->assertSame(1, $capacidad->comprometidos($ciclo));
+        $this->ahora('2026-11-09 10:16:00');
+        $this->assertSame(0, $capacidad->comprometidos($ciclo));
+
+        $this->artisan('orders:expire')->assertSuccessful();
+        $this->assertSame('expired', $p->refresh()->status);
     }
 
     // ---------- Paso 17: correos del pedido ----------

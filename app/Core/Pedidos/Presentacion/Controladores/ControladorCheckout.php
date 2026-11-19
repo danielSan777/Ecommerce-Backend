@@ -57,7 +57,9 @@ final class ControladorCheckout extends Controller
         $datos['contact'] = $request->input('contact', ['same_as_shipping' => true]);
 
         $pedido = $crear($datos, $request->ip(), $request->userAgent());
-        defer(fn () => $notificar($pedido, NotificarPedido::RECIBIDO)); // el correo sale después de responder
+        if ($pedido->payment_method === 'transfer') {
+            defer(fn () => $notificar($pedido, NotificarPedido::RECIBIDO)); // el correo sale después de responder
+        }
 
         return response()->json([
             'order_number' => $pedido->number,
