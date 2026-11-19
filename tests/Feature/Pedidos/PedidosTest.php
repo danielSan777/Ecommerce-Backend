@@ -10,7 +10,6 @@ use App\Core\Configurador\Infraestructura\Modelos\AccesorioModelo;
 use App\Core\Configurador\Infraestructura\Modelos\CategoriaDeAccesorioModelo;
 use App\Core\Entrega\Dominio\TokenDePromesa;
 use App\Core\Entrega\Infraestructura\Modelos\DiaNoHabilModelo;
-use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
 use App\Core\Pedidos\Dominio\Documentos;
 use App\Core\Pedidos\Infraestructura\Modelos\ClienteModelo;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
@@ -21,6 +20,11 @@ use Database\Seeders\ProductosDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
+use App\Core\Pedidos\Aplicacion\CasosDeUso\NotificarPedido;
+use App\Core\Pedidos\Infraestructura\Correo\CorreoDePedido;
+use App\Core\Pedidos\Infraestructura\Modelos\EventoDePedidoModelo;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 final class PedidosTest extends TestCase
@@ -348,6 +352,88 @@ final class PedidosTest extends TestCase
         $p = PedidoModelo::query()->firstOrFail();
         $this->assertSame('expired', $p->status);
         $this->assertNotNull($p->expired_at);
+    }
+
+    // ---------- Paso 17: correos del pedido ----------
+
+    private function pedidoConCorreos(): PedidoModelo
+    {
+        $r = $this->crear()->assertCreated();
+
+        return PedidoModelo::query()->where('number', $r->json('order_number'))->firstOrFail();
+    }
+
+    public function test_al_crear_el_pedido_se_envia_el_correo_de_pedido_recibido_con_total_cuentas_y_enlace(): void
+    {
+        Mail::fake();
+        config(['app.frontend_url' => 'https://jardindesele.com']);
+        $p = $this->pedidoConCorreos();
+
+        Mail::assertSent(CorreoDePedido::class, 1);
+        Mail::assertSent(CorreoDePedido::class, function (CorreoDePedido $m) use ($p) {
+            $html = $m->render();
+
+            return $m->hasTo('josue@correo.com') && $m->hasSubject("Recibimos tu pedido {$p->number}")
+                && str_contains($html, 'Paga antes del') && str_contains($html, 'Banco Guayaquil')
+                && str_contains($html, "https://jardindesele.com/pedido/{$p->token}") && str_contains($html, '$'.number_format($p->total_cents / 100, 2, '.', ''));
+        });
+        $this->assertDatabaseHas('order_events', ['order_id' => $p->id, 'type' => 'email', 'reason' => 'received', 'idempotency_key' => "correo:{$p->id}:received"]);
+    }
+
+    public function test_el_mismo_correo_no_se_envia_dos_veces(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $notificar = app(NotificarPedido::class);
+
+        $this->assertFalse($notificar($p, NotificarPedido::RECIBIDO));
+        $this->assertFalse($notificar($p, NotificarPedido::RECIBIDO));
+        Mail::assertSent(CorreoDePedido::class, 1);
+        $this->assertSame(1, EventoDePedidoModelo::query()->where('order_id', $p->id)->count());
+    }
+
+    public function test_pago_enviado_y_vencido_envian_su_correo_una_sola_vez(): void
+    {
+        Mail::fake();
+        $this->withoutDefer(); // sin petición HTTP: los correos salen al instante
+        $gestionar = app(GestionarPedido::class);
+        $p = $this->pedidoConCorreos();
+
+        $gestionar->marcarPagado($p);
+        $gestionar->marcarEnProduccion($p->refresh());
+        $gestionar->marcarEnviado($p->refresh(), 'SV123456');
+        $gestionar->marcarEnviado($p->refresh(), 'SV123457'); // corregir la guía no reenvía
+
+        Mail::assertSent(CorreoDePedido::class, 3); // recibido + pagado + enviado
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Pago confirmado · Pedido {$p->number}") && str_contains($m->render(), 'Entrega estimada'));
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Tu pedido {$p->number} va en camino") && str_contains($m->render(), 'SV123456'));
+
+        $otro = PedidoModelo::query()->where('id', '!=', $p->id)->first() ?? $this->pedidoConCorreos();
+        $gestionar->vencer(CarbonImmutable::now('UTC')->addDays(3));
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Tu pedido {$otro->number} venció"));
+        $gestionar->vencer(CarbonImmutable::now('UTC')->addDays(4));
+        $this->assertSame(1, EventoDePedidoModelo::query()->where('order_id', $otro->id)->where('reason', 'expired')->count());
+    }
+
+    public function test_cancelar_solo_envia_correo_si_josue_marca_notificar_y_lleva_el_motivo(): void
+    {
+        Mail::fake();
+        $sin = $this->pedidoConCorreos();
+        $this->admin()->postJson("/api/v1/admin/orders/{$sin->number}/cancel")->assertOk();
+        Mail::assertSent(CorreoDePedido::class, 1); // solo el de «recibido»
+
+        $p = $this->pedidoConCorreos();
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/cancel", ['notify_buyer' => true, 'reason' => '<b>Sin stock</b> del producto'])->assertOk();
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Tu pedido {$p->number} fue cancelado") && str_contains($m->render(), 'Sin stock del producto'));
+    }
+
+    public function test_si_el_correo_falla_el_pedido_se_crea_igual_y_se_puede_reintentar(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP caído'));
+        $p = $this->pedidoConCorreos();
+
+        $this->assertNotNull($p->number);
+        $this->assertSame(0, EventoDePedidoModelo::query()->where('order_id', $p->id)->count()); // quedó libre para reintentar
     }
 
     private function admin(): static

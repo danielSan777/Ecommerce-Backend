@@ -115,4 +115,9 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    // «Responder a» de los correos del pedido (hola@jardindesele.com)
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS'),
+    ],
+
 ];

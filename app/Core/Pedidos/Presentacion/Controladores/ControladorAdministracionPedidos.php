@@ -9,6 +9,7 @@ use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -74,9 +75,15 @@ final class ControladorAdministracionPedidos extends Controller
         return response()->json($this->fila($gestionar->marcarEnviado($this->buscar($numero), (string) $request->input('tracking_number', ''))->load('items', 'cliente')));
     }
 
-    public function cancelar(string $numero, GestionarPedido $gestionar): JsonResponse
+    public function cancelar(string $numero, Request $request, GestionarPedido $gestionar): JsonResponse
     {
-        return response()->json($this->fila($gestionar->cancelar($this->buscar($numero))->load('items', 'cliente')));
+        $validos = ValidacionFallida::validar($request->all(), [
+            'notify_buyer' => ['sometimes', 'boolean'],
+            'reason' => ['nullable', 'string', 'max:200'],
+        ], ['reason.max' => 'El motivo puede tener hasta 200 caracteres.']);
+        $motivo = trim(strip_tags((string) ($validos['reason'] ?? '')));
+
+        return response()->json($this->fila($gestionar->cancelar($this->buscar($numero), (bool) ($validos['notify_buyer'] ?? false), $motivo)->load('items', 'cliente')));
     }
 
     /** El comprobante vive en el disco privado: solo el administrador lo descarga. */

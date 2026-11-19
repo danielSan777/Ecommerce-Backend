@@ -6,6 +6,7 @@ namespace App\Core\Pedidos\Presentacion\Controladores;
 
 use App\Core\Pedidos\Aplicacion\CasosDeUso\ConsultarPedido;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\CrearPedido;
+use App\Core\Pedidos\Aplicacion\CasosDeUso\NotificarPedido;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ final class ControladorCheckout extends Controller
         'payment_method.in' => 'El método de pago no es válido.',
     ];
 
-    public function store(Request $request, CrearPedido $crear, ConsultarPedido $consultar): JsonResponse
+    public function store(Request $request, CrearPedido $crear, ConsultarPedido $consultar, NotificarPedido $notificar): JsonResponse
     {
         $datos = ValidacionFallida::validar($request->all(), [
             'items' => ['required', 'array', 'min:1', 'max:100'],
@@ -56,6 +57,7 @@ final class ControladorCheckout extends Controller
         $datos['contact'] = $request->input('contact', ['same_as_shipping' => true]);
 
         $pedido = $crear($datos, $request->ip(), $request->userAgent());
+        defer(fn () => $notificar($pedido, NotificarPedido::RECIBIDO)); // el correo sale después de responder
 
         return response()->json([
             'order_number' => $pedido->number,

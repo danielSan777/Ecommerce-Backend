@@ -21,7 +21,14 @@ final class GestionarPedido
         private readonly RepositorioConfiguracion $ajustes,
         private readonly MotorDeEntrega $motor,
         private readonly CapacidadDeCiclos $capacidad,
+        private readonly NotificarPedido $correo,
     ) {}
+
+    /** El correo sale después de responder (no hace esperar a nadie) y, si falla, no rompe la acción. */
+    private function avisar(PedidoModelo $p, string $motivo, array $extra = []): void
+    {
+        defer(fn () => ($this->correo)($p->refresh(), $motivo, $extra));
+    }
 
     /** Sube el comprobante (JPG, PNG o PDF) al disco privado, con límite de intentos. */
     public function subirComprobante(PedidoModelo $p, UploadedFile $archivo, ?CarbonImmutable $ahora = null): PedidoModelo
@@ -59,9 +66,14 @@ final class GestionarPedido
     {
         $ahora ??= CarbonImmutable::now('UTC');
 
-        return PedidoModelo::query()->where('payment_status', 'pending_validation')->where('status', 'created')
-            ->where('transfer_deadline_at', '<=', $ahora)
-            ->update(['status' => 'expired', 'expired_at' => $ahora]);
+        $vencidos = PedidoModelo::query()->where('payment_status', 'pending_validation')->where('status', 'created')
+            ->where('transfer_deadline_at', '<=', $ahora)->get();
+        foreach ($vencidos as $pedido) {
+            $pedido->update(['status' => 'expired', 'expired_at' => $ahora]);
+            $this->avisar($pedido, NotificarPedido::VENCIDO);
+        }
+
+        return $vencidos->count();
     }
 
     /**
@@ -105,12 +117,14 @@ final class GestionarPedido
                 }
             }
             $p->update($cambios);
+            $this->avisar($p, NotificarPedido::PAGADO);
 
             return $p->refresh();
         });
     }
 
-    public function cancelar(PedidoModelo $p): PedidoModelo
+    /** Con `$notificar` Josué avisa al comprador por correo, con un motivo breve. */
+    public function cancelar(PedidoModelo $p, bool $notificar = false, string $motivo = ''): PedidoModelo
     {
         if ($p->status === 'cancelled') {
             throw new PedidoRechazado('order_cancelled', 'Este pedido ya está cancelado.', 409);
@@ -119,6 +133,9 @@ final class GestionarPedido
             throw new PedidoRechazado('already_shipped', 'Este pedido ya fue enviado: no se puede cancelar desde aquí.', 409);
         }
         $p->update(['status' => 'cancelled']);
+        if ($notificar) {
+            $this->avisar($p, NotificarPedido::CANCELADO, ['reason' => $motivo]);
+        }
 
         return $p->refresh();
     }
@@ -158,6 +175,7 @@ final class GestionarPedido
             'production_started_at' => $p->production_started_at ?? $ahora,
             'shipped_at' => $p->shipped_at ?? $ahora,
         ]);
+        $this->avisar($p, NotificarPedido::ENVIADO); // una sola vez: corregir la guía después no vuelve a enviarlo
 
         return $p->refresh();
     }
