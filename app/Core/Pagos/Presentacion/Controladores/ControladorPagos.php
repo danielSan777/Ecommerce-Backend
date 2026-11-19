@@ -6,6 +6,7 @@ namespace App\Core\Pagos\Presentacion\Controladores;
 
 use App\Core\Pagos\Aplicacion\CasosDeUso\ConfirmarPagoConTarjeta;
 use App\Core\Pagos\Aplicacion\CasosDeUso\IniciarPagoConTarjeta;
+use App\Core\Pagos\Infraestructura\Modelos\IntentoDePagoModelo;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\ConsultarPedido;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
@@ -34,6 +35,7 @@ final class ControladorPagos extends Controller
         return response()->json([
             'result' => $r['result'],
             'message' => $r['message'],
+            'simulated' => (bool) IntentoDePagoModelo::query()->where('client_transaction_id', $d['client_transaction_id'])->value('simulated'),
             'order_number' => $r['order']->number,
             // Solo un pago aprobado entrega el enlace privado del pedido y su vista
             'token' => $aprobado ? $r['order']->token : null,
