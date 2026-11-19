@@ -36,6 +36,8 @@ final class ControladorAdministracionCampanas extends Controller
         'is_active.boolean' => 'Indica si la campaña está activa o no.',
         'seo_title.max' => 'El título para Google no puede pasar de 255 caracteres.',
         'seo_description.max' => 'La descripción para Google no puede pasar de 320 caracteres.',
+        'products.required' => 'Elige al menos un producto para la campaña.',
+        'products.min' => 'Elige al menos un producto para la campaña.',
         'products.array' => 'Los productos deben ser una lista.',
         'products.max' => 'Puedes elegir hasta 50 productos.',
         'products.*.exists' => 'Uno de los productos elegidos no existe.',
@@ -170,7 +172,8 @@ final class ControladorAdministracionCampanas extends Controller
             'is_active' => ['sometimes', 'boolean'],
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],
-            'products' => ['sometimes', 'nullable', 'array', 'max:50'],
+            // Los productos son obligatorios: la campaña solo muestra los que se eligen (no hay categoría relacionada)
+            'products' => [$req, 'array', 'min:1', 'max:50'],
             'products.*' => ['string', Rule::exists('products', 'sku')->whereNull('deleted_at')],
         ];
     }

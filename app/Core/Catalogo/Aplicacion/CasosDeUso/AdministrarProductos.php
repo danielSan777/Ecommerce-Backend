@@ -12,10 +12,10 @@ final class AdministrarProductos
 {
     public function __construct(private readonly RepositorioAdministracionProductos $productos) {}
 
-    /** @return list<array<string, mixed>> */
-    public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array
+    /** @return array<string, mixed> `data` y, si se pidió por partes, `meta` con total, página y última página */
+    public function listar(?string $categoria, ?string $texto, ?string $tipo = null, ?int $porPagina = null, int $pagina = 1): array
     {
-        return $this->productos->listar($categoria, $texto, $tipo);
+        return $this->productos->listar($categoria, $texto, $tipo, $porPagina, $pagina);
     }
 
     /** @return array<string, mixed> */

@@ -14,9 +14,11 @@ interface RepositorioAdministracionProductos
     /**
      * Productos (activos o no, sin los eliminados) para el panel; se pueden filtrar por categoría y por texto.
      *
-     * @return list<ProductoAdmin>
+     * Con `$porPagina` devuelve solo esa parte (y en `meta` el total); sin él, todos.
+     *
+     * @return array{data: list<array<string, mixed>>, meta?: array<string, int>}
      */
-    public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array;
+    public function listar(?string $categoria, ?string $texto, ?string $tipo = null, ?int $porPagina = null, int $pagina = 1): array;
 
     /**
      * @return ProductoAdmin

@@ -48,6 +48,17 @@ final class AdministrarCampanasTest extends TestCase
         ], ...$cambios];
     }
 
+    public function test_los_productos_de_la_campana_son_obligatorios_al_crear_y_al_editar(): void
+    {
+        $sin = $this->datos();
+        unset($sin['products']);
+        $this->admin()->postJson(self::BASE, $sin)->assertStatus(422)->assertJsonPath('errors.products.0', 'Elige al menos un producto para la campaña.');
+        $this->admin()->postJson(self::BASE, $this->datos(['products' => []]))->assertStatus(422)->assertJsonPath('errors.products.0', 'Elige al menos un producto para la campaña.');
+        $this->assertDatabaseMissing('campaigns', ['slug' => 'dia-de-la-madre']);
+
+        $this->admin()->putJson(self::BASE.'/san-valentin', ['products' => []])->assertStatus(422)->assertJsonPath('errors.products.0', 'Elige al menos un producto para la campaña.');
+    }
+
     public function test_solo_el_administrador_accede(): void
     {
         $this->getJson(self::BASE)->assertUnauthorized();
@@ -181,8 +192,8 @@ final class AdministrarCampanasTest extends TestCase
 
         $this->admin()->putJson(self::BASE.'/dia-de-la-madre', ['tagline' => 'Sin tocar productos'])->assertOk();
         $this->assertCount(3, $this->admin()->getJson(self::BASE.'/dia-de-la-madre')->json('products'));
-        $this->admin()->putJson(self::BASE.'/dia-de-la-madre', ['products' => []])->assertOk();
-        $this->assertCount(0, $this->admin()->getJson(self::BASE.'/dia-de-la-madre')->json('products'));
+        $this->admin()->putJson(self::BASE.'/dia-de-la-madre', ['products' => ['PRO-DOCTOR']])->assertOk();
+        $this->assertCount(1, $this->admin()->getJson(self::BASE.'/dia-de-la-madre')->json('products'));
     }
 
     public function test_los_textos_se_guardan_sin_etiquetas_y_vacios_quedan_nulos(): void

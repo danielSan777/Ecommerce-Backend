@@ -45,9 +45,16 @@ final class ControladorAdministracionProductos extends Controller
         'is_active.boolean' => 'Indica si el producto está activo o no.',
     ];
 
+    /**
+     * Sin `per_page` devuelve todos (como siempre). Con `per_page` (1–100) y `page` devuelve esa parte y en `meta` cuántos hay en total,
+     * para que el panel cargue de a poco cuando hay cientos de productos.
+     */
     public function index(Request $request, AdministrarProductos $productos): JsonResponse
     {
-        return response()->json(['data' => $productos->listar($request->query('category') ?: null, $request->query('q') ?: null, in_array($request->query('type'), ['personalizable', 'complemento'], true) ? $request->query('type') : null)]);
+        $tipo = in_array($request->query('type'), ['personalizable', 'complemento'], true) ? $request->query('type') : null;
+        $porPagina = $request->query('per_page') !== null ? max(1, min(100, (int) $request->query('per_page'))) : null;
+
+        return response()->json($productos->listar($request->query('category') ?: null, $request->query('q') ?: null, $tipo, $porPagina, max(1, (int) $request->query('page', 1))));
     }
 
     /** Código que se asignaría al próximo producto (solo para mostrarlo; el definitivo lo asigna Laravel al guardar). */

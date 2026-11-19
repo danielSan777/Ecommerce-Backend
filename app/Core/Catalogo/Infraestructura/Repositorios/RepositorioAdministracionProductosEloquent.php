@@ -14,13 +14,24 @@ use Illuminate\Support\Facades\Storage;
 
 final class RepositorioAdministracionProductosEloquent implements RepositorioAdministracionProductos
 {
-    public function listar(?string $categoria, ?string $texto, ?string $tipo = null): array
+    public function listar(?string $categoria, ?string $texto, ?string $tipo = null, ?int $porPagina = null, int $pagina = 1): array
     {
-        return ProductoModelo::query()->with(['categoria', 'subcategoria', 'medios'])
+        $consulta = ProductoModelo::query()->with(['categoria', 'subcategoria', 'medios'])
             ->when($tipo, fn ($q) => $q->where('type', $tipo))
             ->when($categoria, fn ($q) => $q->whereHas('categoria', fn ($c) => $c->where('slug', $categoria)))
             ->when($texto, fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', '%'.addcslashes($texto, '%_\\').'%')->orWhere('sku', 'like', '%'.addcslashes($texto, '%_\\').'%')))
-            ->orderBy('name')->get()->map(fn (ProductoModelo $p) => $this->formato($p))->all();
+            ->orderBy('name')->orderBy('id');
+
+        if ($porPagina === null) {
+            return ['data' => $consulta->get()->map(fn (ProductoModelo $p) => $this->formato($p))->all()];
+        }
+
+        $parte = $consulta->paginate($porPagina, ['*'], 'page', $pagina);
+
+        return [
+            'data' => $parte->getCollection()->map(fn (ProductoModelo $p) => $this->formato($p))->all(),
+            'meta' => ['total' => $parte->total(), 'page' => $parte->currentPage(), 'per_page' => $parte->perPage(), 'last_page' => $parte->lastPage()],
+        ];
     }
 
     public function obtener(string $sku): array

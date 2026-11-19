@@ -60,6 +60,21 @@ final class AdministrarProductosTest extends TestCase
             ->assertJsonPath('errors.seo_description.0', 'La descripción para Google no puede pasar de 320 caracteres.');
     }
 
+    public function test_el_listado_puede_pedirse_por_partes_con_el_total(): void
+    {
+        $total = count($this->admin()->getJson(self::BASE)->assertOk()->assertJsonMissingPath('meta')->json('data'));
+        $this->assertGreaterThan(2, $total);
+
+        $p1 = $this->admin()->getJson(self::BASE.'?per_page=2&page=1')->assertOk();
+        $p2 = $this->admin()->getJson(self::BASE.'?per_page=2&page=2')->assertOk();
+        $this->assertCount(2, $p1->json('data'));
+        $this->assertSame(['total' => $total, 'page' => 1, 'per_page' => 2, 'last_page' => (int) ceil($total / 2)], $p1->json('meta'));
+        $this->assertSame(2, $p2->json('meta.page'));
+        $this->assertEmpty(array_intersect(array_column($p1->json('data'), 'sku'), array_column($p2->json('data'), 'sku')));
+
+        $this->admin()->getJson(self::BASE.'?per_page=2&q=PRO-HOMERO')->assertOk()->assertJsonPath('meta.total', 1);
+    }
+
     public function test_solo_el_administrador_accede(): void
     {
         $this->getJson(self::BASE)->assertUnauthorized();
