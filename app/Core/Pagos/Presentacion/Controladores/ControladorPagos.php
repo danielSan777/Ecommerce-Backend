@@ -15,10 +15,13 @@ use Illuminate\Http\Request;
 
 final class ControladorPagos extends Controller
 {
-    /** Datos de la Cajita para un pedido con tarjeta. Mismo intento mientras no venza. */
-    public function iniciar(string $token, IniciarPagoConTarjeta $iniciar): JsonResponse
+    /**
+     * Datos de la Cajita para un pedido con tarjeta. Mismo intento mientras no venza, salvo `renew`:
+     * PayPhone rechaza reutilizar un clientTransactionId ya mostrado, así que al abrir o recargar la pantalla se pide uno nuevo.
+     */
+    public function iniciar(Request $request, string $token, IniciarPagoConTarjeta $iniciar): JsonResponse
     {
-        return response()->json($iniciar($token));
+        return response()->json($iniciar($token, null, $request->boolean('renew')));
     }
 
     /** Ruta de respuesta de PayPhone: recibe `id` y `clientTransactionId`; Laravel confirma y responde el resultado. */

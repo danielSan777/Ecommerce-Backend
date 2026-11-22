@@ -388,6 +388,19 @@ final class PedidosTest extends TestCase
         Mail::assertSent(CorreoDePedido::class, 1); // solo el de la transferencia: la tarjeta no manda «recibido»
     }
 
+    public function test_al_recargar_la_pantalla_se_crea_una_referencia_nueva_y_la_anterior_sigue_confirmable(): void
+    {
+        [$p, $token] = $this->pedidoConTarjeta();
+
+        $a = $this->postJson("/api/v1/orders/{$token}/payphone", ['renew' => true])->assertOk()->json('client_transaction_id');
+        $b = $this->postJson("/api/v1/orders/{$token}/payphone", ['renew' => true])->assertOk()->json('client_transaction_id');
+
+        $this->assertSame(["{$p->number}-1", "{$p->number}-2"], [$a, $b]);
+        // PayPhone no acepta mostrar dos veces la misma referencia; la anterior queda pendiente por si el cliente ya aprobó en su app
+        $this->assertSame('pending', IntentoDePagoModelo::query()->where('client_transaction_id', $a)->firstOrFail()->status);
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 777, 'client_transaction_id' => $a])->assertOk()->assertJsonPath('result', 'approved');
+    }
+
     public function test_iniciar_el_pago_devuelve_el_mismo_intento_mientras_no_venza(): void
     {
         [$p, $token] = $this->pedidoConTarjeta();

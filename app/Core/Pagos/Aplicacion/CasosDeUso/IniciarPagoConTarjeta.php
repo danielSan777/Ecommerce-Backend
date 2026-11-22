@@ -13,14 +13,15 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Paso 13, pasos 1 y 2: crea (o devuelve) el intento de pago de un pedido con tarjeta y los datos de la Cajita.
- * Un solo intento activo por pedido: doble clic o recarga devuelven el mismo mientras no venza (10 minutos).
+ * Doble clic devuelve el mismo intento mientras no venza (10 minutos); con `$nuevo` (abrir o recargar la pantalla) se crea otro,
+ * porque PayPhone no acepta mostrar dos veces el mismo clientTransactionId.
  */
 final class IniciarPagoConTarjeta
 {
     public function __construct(private readonly PasarelaDePago $pasarela) {}
 
     /** @return array<string, mixed> */
-    public function __invoke(string $token, ?CarbonImmutable $ahora = null): array
+    public function __invoke(string $token, ?CarbonImmutable $ahora = null, bool $nuevo = false): array
     {
         $ahora ??= CarbonImmutable::now('UTC');
         $simulada = $this->pasarela->esSimulada();
@@ -28,7 +29,7 @@ final class IniciarPagoConTarjeta
             throw new PedidoRechazado('payments_unavailable', 'El pago con tarjeta no está disponible en este momento. Elige transferencia bancaria.', 503);
         }
 
-        return DB::transaction(function () use ($token, $ahora, $simulada) {
+        return DB::transaction(function () use ($token, $ahora, $simulada, $nuevo) {
             $p = PedidoModelo::query()->with('cliente')->where('token', $token)->lockForUpdate()->first()
                 ?? throw new PedidoRechazado('not_found', 'No encontramos ese pedido.', 404);
 
@@ -42,9 +43,10 @@ final class IniciarPagoConTarjeta
                 throw new PedidoRechazado('order_closed', 'Este pedido venció o fue cancelado. Haz uno nuevo desde la tienda.', 409);
             }
 
-            $intento = IntentoDePagoModelo::query()->where('order_id', $p->id)->where('status', 'pending')->where('expires_at', '>', $ahora)->latest('id')->first();
+            $intento = $nuevo ? null : IntentoDePagoModelo::query()->where('order_id', $p->id)->where('status', 'pending')->where('expires_at', '>', $ahora)->latest('id')->first();
             if ($intento === null) {
-                IntentoDePagoModelo::query()->where('order_id', $p->id)->where('status', 'pending')->update(['status' => 'expired']);
+                // Los intentos vencidos se cierran; los vigentes se dejan pendientes: si el cliente aprobó en su app PayPhone antes de recargar, su respuesta aún se confirma
+                IntentoDePagoModelo::query()->where('order_id', $p->id)->where('status', 'pending')->where('expires_at', '<=', $ahora)->update(['status' => 'expired']);
                 $numero = IntentoDePagoModelo::query()->where('order_id', $p->id)->count() + 1;
                 $intento = IntentoDePagoModelo::query()->create([
                     'order_id' => $p->id, 'client_transaction_id' => "{$p->number}-{$numero}",
