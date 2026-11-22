@@ -40,7 +40,10 @@ final class ControladorAdministracionPedidos extends Controller
     public function index(Request $request): JsonResponse
     {
         $filtro = (string) $request->query('status', 'all');
+        // Búsqueda por código (JDS-1005 o solo 1005): dentro del filtro elegido. Se escapan % y _ para que cuenten como texto.
+        $buscar = mb_substr(trim((string) $request->query('q', '')), 0, 30);
         $pedidos = PedidoModelo::query()->with('items', 'cliente')
+            ->when($buscar !== '', fn ($q) => $q->where('number', 'like', '%'.addcslashes($buscar, '%_\\').'%'))
             ->when($filtro === 'pending', fn ($q) => $q->where('payment_status', 'pending_validation')->where('status', 'created'))
             ->when($filtro === 'paid', fn ($q) => $q->where('payment_status', 'paid'))
             ->when($filtro === 'to_produce', fn ($q) => $q->where('status', 'ready_for_production'))

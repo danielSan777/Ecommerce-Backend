@@ -636,6 +636,21 @@ final class PedidosTest extends TestCase
         $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertForbidden();
     }
 
+    public function test_el_admin_busca_pedidos_por_codigo_dentro_del_filtro(): void
+    {
+        $this->crear();
+        $this->admin();
+        $n = PedidoModelo::query()->firstOrFail()->number;
+        $numeros = substr($n, strrpos($n, '-') + 1);
+
+        $this->getJson('/api/v1/admin/orders?status=pending&q='.$n)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $n);
+        $this->getJson('/api/v1/admin/orders?status=pending&q='.strtolower($n))->assertOk()->assertJsonCount(1, 'data');   // sin importar mayúsculas
+        $this->getJson("/api/v1/admin/orders?status=pending&q={$numeros}")->assertOk()->assertJsonCount(1, 'data');       // solo los números
+        $this->getJson('/api/v1/admin/orders?status=pending&q=JDS-9999')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/admin/orders?status=shipped&q='.$n)->assertOk()->assertJsonCount(0, 'data');             // otro filtro: no aparece
+        $this->getJson('/api/v1/admin/orders?status=pending&q=%25')->assertOk()->assertJsonCount(0, 'data');             // % no es comodín
+    }
+
     public function test_marcar_pagado_conserva_el_ciclo_y_el_comprador_ve_el_seguimiento(): void
     {
         $token = $this->crear()->json('token');
