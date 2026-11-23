@@ -102,7 +102,7 @@ final class PedidosTest extends TestCase
         return [array_replace($item, ['slug' => $macetas[0]->slug]), array_replace($item, ['slug' => $macetas[1]->slug])];
     }
 
-    public function test_modo_todo_gratis_envio_gratis_sin_recargo_y_30_por_ciento_a_la_maceta_de_menor_valor(): void
+    public function test_modo_todo_gratis_envio_gratis_sin_recargo_y_30_por_ciento_a_las_macetas_menos_la_mas_cara(): void
     {
         [$a, $b] = $this->dosMacetasDe2000y1900();
         app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
@@ -111,10 +111,50 @@ final class PedidosTest extends TestCase
         $p = PedidoModelo::query()->latest('id')->firstOrFail();
 
         $this->assertSame(3900, $p->subtotal_cents);
-        $this->assertSame(570, $p->discount_cents);        // 30 % de $19,00: la de menor valor, no la de $20,00
+        $this->assertSame(570, $p->discount_cents);        // 30 % de $19,00: la de $20,00 se paga completa
         $this->assertSame(0, $p->shipping_cents);
         $this->assertSame(0, $p->card_fee_cents);           // sin comisión bancaria: el total es el final
         $this->assertSame(3330, $p->total_cents);
+    }
+
+    public function test_modo_todo_gratis_con_tres_macetas_solo_se_paga_completa_la_mas_cara(): void
+    {
+        $macetas = ProductoModelo::query()->where('type', 'personalizable')->orderBy('id')->take(3)->get();
+        $this->assertCount(3, $macetas);
+        foreach ([2000, 1900, 1800] as $i => $centavos) {
+            $macetas[$i]->update(['base_price_cents' => $centavos, 'discount_percent' => 0]);
+        }
+        $item = $this->peticion()['items'][0];
+        $items = $macetas->map(fn ($m) => array_replace($item, ['slug' => $m->slug]))->all();
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
+
+        $this->crear(['items' => [$items[2], $items[0], $items[1]]])->assertCreated();   // el orden del carrito no importa
+        $p = PedidoModelo::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(5700, $p->subtotal_cents);
+        $this->assertSame(570 + 540, $p->discount_cents);   // 30 % de $19,00 y de $18,00; la de $20,00 completa
+        $this->assertSame(4590, $p->total_cents);
+    }
+
+    public function test_modo_todo_gratis_con_el_porcentaje_editado_por_el_admin(): void
+    {
+        [$a, $b] = $this->dosMacetasDe2000y1900();
+        $this->admin();
+        $this->putJson('/api/v1/admin/sales-mode', ['mode' => 'free_shipping_discount', 'discount_percent' => 50])->assertOk()
+            ->assertJsonPath('mode', 'free_shipping_discount')->assertJsonPath('discount_percent', 50);
+        $this->getJson('/api/v1/store/pricing')->assertJsonPath('discount_percent', 50);
+
+        $this->crear(['items' => [$a, $b]])->assertCreated();
+        $p = PedidoModelo::query()->latest('id')->firstOrFail();
+        $this->assertSame(950, $p->discount_cents);          // 50 % de $19,00
+        $this->assertSame(2950, $p->total_cents);
+
+        // Solo el porcentaje: el modo no cambia
+        $this->putJson('/api/v1/admin/sales-mode', ['discount_percent' => 12.5])->assertOk()->assertJsonPath('mode', 'free_shipping_discount')->assertJsonPath('discount_percent', 12.5);
+        foreach ([-1, 101, 'abc', 10.123] as $malo) {
+            $this->putJson('/api/v1/admin/sales-mode', ['discount_percent' => $malo])->assertStatus(422);
+        }
+        $this->getJson('/api/v1/admin/sales-mode')->assertJsonPath('discount_percent', 12.5);
     }
 
     public function test_modo_todo_gratis_con_una_sola_maceta_no_hay_descuento_pero_el_envio_es_gratis(): void

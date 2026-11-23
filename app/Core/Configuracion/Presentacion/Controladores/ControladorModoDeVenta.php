@@ -32,10 +32,24 @@ final class ControladorModoDeVenta extends Controller
     public function guardar(Request $request, CalculadoraDeTotales $calculadora, RepositorioConfiguracion $ajustes): JsonResponse
     {
         $datos = ValidacionFallida::validar($request->all(), [
-            'mode' => ['required', 'string', 'in:'.CalculadoraDeTotales::ESTANDAR.','.CalculadoraDeTotales::TODO_GRATIS],
-        ], ['mode.required' => 'Elige el modo de venta.', 'mode.in' => 'El modo de venta elegido no existe.']);
+            'mode' => ['required_without:discount_percent', 'string', 'in:'.CalculadoraDeTotales::ESTANDAR.','.CalculadoraDeTotales::TODO_GRATIS],
+            'discount_percent' => ['required_without:mode', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+        ], [
+            'mode.required_without' => 'Elige el modo de venta.',
+            'mode.in' => 'El modo de venta elegido no existe.',
+            'discount_percent.required_without' => 'Escribe el porcentaje de descuento.',
+            'discount_percent.numeric' => 'El descuento debe ser un número. Ejemplo: 30',
+            'discount_percent.min' => 'El descuento no puede ser negativo.',
+            'discount_percent.max' => 'El descuento no puede pasar de 100%.',
+            'discount_percent.decimal' => 'Usa hasta 2 decimales. Ejemplo: 30 o 12.5',
+        ]);
 
-        $ajustes->guardar('sales_mode', $datos['mode']);
+        if (isset($datos['mode'])) {
+            $ajustes->guardar('sales_mode', $datos['mode']);
+        }
+        if (isset($datos['discount_percent'])) {
+            $ajustes->guardar('second_planter_discount_percent', (float) $datos['discount_percent']);
+        }
 
         return response()->json($this->actual($calculadora, $ajustes));
     }
