@@ -22,6 +22,7 @@ use App\Core\Pagos\Presentacion\Controladores\ControladorPagos;
 use App\Core\Entrega\Presentacion\Controladores\ControladorAdministracionDiasNoHabiles;
 use App\Core\Entrega\Presentacion\Controladores\ControladorEntrega;
 use App\Core\Envios\Presentacion\Controladores\ControladorAdministracionEnvios;
+use App\Core\Configuracion\Presentacion\Controladores\ControladorModoDeVenta;
 use App\Core\Envios\Presentacion\Controladores\ControladorUbicaciones;
 use App\Core\Cuentas\Presentacion\Controladores\ControladorCuenta;
 use App\Core\Salud\Presentacion\Controladores\ControladorSalud;
@@ -40,6 +41,7 @@ Route::prefix('v1')->group(function () {
     Route::get('orders/{token}/whatsapp', [ControladorPedidos::class, 'whatsapp'])->name('api.v1.orders.whatsapp');
     Route::get('orders/{token}/preview', [ControladorPedidos::class, 'vistaPrevia'])->name('api.v1.orders.preview');
     Route::get('locations', ControladorUbicaciones::class)->name('api.v1.locations');
+    Route::get('store/pricing', [ControladorModoDeVenta::class, 'precios'])->name('api.v1.store.pricing');
     Route::get('categories', [ControladorCategorias::class, 'index'])->name('api.v1.categories.index');
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
     Route::get('media/{ruta}', ControladorMediaPublica::class)->where('ruta', '.*')->name('api.v1.media');
@@ -75,6 +77,8 @@ Route::prefix('v1')->group(function () {
         Route::get('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'index'])->name('api.v1.admin.non-working-days.index');
         Route::post('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'store'])->name('api.v1.admin.non-working-days.store');
         Route::delete('non-working-days/{fecha}', [ControladorAdministracionDiasNoHabiles::class, 'destroy'])->name('api.v1.admin.non-working-days.destroy');
+        Route::get('sales-mode', [ControladorModoDeVenta::class, 'mostrar'])->name('api.v1.admin.sales-mode.show');
+        Route::put('sales-mode', [ControladorModoDeVenta::class, 'guardar'])->name('api.v1.admin.sales-mode.update');
         Route::get('shipping/zones', [ControladorAdministracionEnvios::class, 'zonas'])->name('api.v1.admin.shipping.zones');
         Route::put('shipping/zones/{codigo}', [ControladorAdministracionEnvios::class, 'actualizarZona'])->name('api.v1.admin.shipping.zones.update');
         Route::get('shipping/cantons', [ControladorAdministracionEnvios::class, 'cantones'])->name('api.v1.admin.shipping.cantons');

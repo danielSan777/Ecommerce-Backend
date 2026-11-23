@@ -12,6 +12,7 @@ use App\Core\Entrega\Aplicacion\CasosDeUso\ConsultarEntrega;
 use App\Core\Entrega\Dominio\MotorDeEntrega;
 use App\Core\Entrega\Dominio\TokenDePromesa;
 use App\Core\Envios\Infraestructura\Modelos\CantonModelo;
+use App\Core\Pedidos\Aplicacion\CalculadoraDeTotales;
 use App\Core\Pedidos\Dominio\Documentos;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\ClienteModelo;
@@ -37,6 +38,7 @@ final class CrearPedido
         private readonly ConsultarEntrega $entrega,
         private readonly TokenDePromesa $tokens,
         private readonly BusinessCalendar $calendario,
+        private readonly CalculadoraDeTotales $calculadora,
     ) {}
 
     /**
@@ -52,7 +54,7 @@ final class CrearPedido
         $facturacion = ($datos['billing']['same_as_shipping'] ?? true) ? ['same_as_shipping' => true] : $this->normalizarFacturacion($datos['billing']);
         $contacto = ($datos['contact']['same_as_shipping'] ?? true) ? ['same_as_shipping' => true, 'phone' => $envio['phone']] : $this->normalizarContacto($datos['contact']);
 
-        [$lineas, $macetas] = $this->armarLineas($datos['items']);
+        [$lineas] = $this->armarLineas($datos['items']);
         $canton = CantonModelo::query()->with(['zona', 'provincia'])->where('code', $envio['canton_code'])->first();
         if ($canton === null || ($canton->provincia->code !== $envio['province_code'])) {
             throw new ValidacionFallida(['shipping.canton_code' => ['Elige un cantón válido.']]);
@@ -61,18 +63,19 @@ final class CrearPedido
             throw new PedidoRechazado('zone_unavailable', 'Por ahora no enviamos a esta zona desde la web. Escríbenos por WhatsApp y lo coordinamos.');
         }
 
-        $subtotal = array_sum(array_column($lineas, 'line_total_cents'));
-        $gratis = $macetas >= (int) $this->ajustes->obtener('free_shipping_min_planters', 2);
-        $envioCents = $gratis ? 0 : $canton->zona->price_cents;
-        // Recargo por tarjeta (ajuste en %): sobre productos + envío, redondeado al centavo (mitad hacia arriba)
-        $recargo = $tarjeta ? (int) floor(($subtotal + $envioCents) * (float) $this->ajustes->obtener('card_surcharge_percent', 6) / 100 + 0.5) : 0;
-        $total = $subtotal + $envioCents + $recargo;
+        // Envío, descuento, recargo y total los calcula un solo lugar, según el modo de venta vigente
+        $calculo = $this->calculadora->calcular($lineas, $canton->zona->price_cents, $tarjeta);
+        $subtotal = $calculo['subtotal_cents'];
+        $descuento = $calculo['discount_cents'];
+        $envioCents = $calculo['shipping_cents'];
+        $recargo = $calculo['card_fee_cents'];
+        $total = $calculo['total_cents'];
 
         if (isset($datos['expected_total_cents']) && (int) $datos['expected_total_cents'] !== $total) {
-            throw new PedidoRechazado('price_changed', 'Actualizamos el total de tu pedido. Revísalo antes de pagar.', 409, ['total_cents' => $total, 'shipping_cents' => $envioCents, 'subtotal_cents' => $subtotal, 'card_fee_cents' => $recargo]);
+            throw new PedidoRechazado('price_changed', 'Actualizamos el total de tu pedido. Revísalo antes de pagar.', 409, ['total_cents' => $total, 'shipping_cents' => $envioCents, 'subtotal_cents' => $subtotal, 'discount_cents' => $descuento, 'card_fee_cents' => $recargo]);
         }
 
-        $pedido = DB::transaction(function () use ($datos, $envio, $facturacion, $contacto, $lineas, $canton, $subtotal, $envioCents, $recargo, $total, $tarjeta, $ahora, $ip, $userAgent) {
+        $pedido = DB::transaction(function () use ($datos, $envio, $facturacion, $contacto, $lineas, $canton, $subtotal, $descuento, $envioCents, $recargo, $total, $tarjeta, $ahora, $ip, $userAgent) {
             [$ciclo, $ventana, $gracia, $despacho, $tipo] = $this->asignar($datos, $canton->zona->extra_days, $ahora);
 
             $horas = (int) $this->ajustes->obtener('transfer_window_hours', 12);
@@ -87,7 +90,7 @@ final class CrearPedido
                 'token' => bin2hex(random_bytes(32)),
                 'customer_id' => $cliente->id,
                 'channel' => 'web', 'payment_method' => $tarjeta ? 'card' : 'transfer', 'payment_status' => $tarjeta ? 'unpaid' : 'pending_validation', 'status' => 'created',
-                'subtotal_cents' => $subtotal, 'discount_cents' => 0, 'shipping_cents' => $envioCents, 'card_fee_cents' => $recargo, 'total_cents' => $total,
+                'subtotal_cents' => $subtotal, 'discount_cents' => $descuento, 'shipping_cents' => $envioCents, 'card_fee_cents' => $recargo, 'total_cents' => $total,
                 'shipping_zone' => $canton->zona->code,
                 'shipping' => $envio + ['province_name' => $canton->provincia->name, 'canton_name' => $canton->name],
                 'billing' => $facturacion, 'contact' => $contacto,

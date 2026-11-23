@@ -91,6 +91,105 @@ final class PedidosTest extends TestCase
         return $this->postJson('/api/v1/checkout', $this->peticion($cambios));
     }
 
+    /** Dos macetas de distinto precio ($20,00 y $19,00) sin descuento propio, para probar el descuento a la de menor valor. */
+    private function dosMacetasDe2000y1900(): array
+    {
+        $macetas = ProductoModelo::query()->where('type', 'personalizable')->orderBy('id')->take(2)->get();
+        $macetas[0]->update(['base_price_cents' => 2000, 'discount_percent' => 0]);
+        $macetas[1]->update(['base_price_cents' => 1900, 'discount_percent' => 0]);
+        $item = $this->peticion()['items'][0];
+
+        return [array_replace($item, ['slug' => $macetas[0]->slug]), array_replace($item, ['slug' => $macetas[1]->slug])];
+    }
+
+    public function test_modo_todo_gratis_envio_gratis_sin_recargo_y_30_por_ciento_a_la_maceta_de_menor_valor(): void
+    {
+        [$a, $b] = $this->dosMacetasDe2000y1900();
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
+
+        $this->crear(['items' => [$a, $b], 'payment_method' => 'card'])->assertCreated();
+        $p = PedidoModelo::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(3900, $p->subtotal_cents);
+        $this->assertSame(570, $p->discount_cents);        // 30 % de $19,00: la de menor valor, no la de $20,00
+        $this->assertSame(0, $p->shipping_cents);
+        $this->assertSame(0, $p->card_fee_cents);           // sin comisión bancaria: el total es el final
+        $this->assertSame(3330, $p->total_cents);
+    }
+
+    public function test_modo_todo_gratis_con_una_sola_maceta_no_hay_descuento_pero_el_envio_es_gratis(): void
+    {
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
+        $this->crear(['payment_method' => 'card'])->assertCreated();
+        $p = PedidoModelo::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(0, $p->discount_cents);
+        $this->assertSame(0, $p->shipping_cents);
+        $this->assertSame(0, $p->card_fee_cents);
+        $this->assertSame($this->precio($this->slug()), $p->total_cents);
+    }
+
+    public function test_modo_todo_gratis_si_el_total_esperado_no_coincide_responde_price_changed_con_el_descuento(): void
+    {
+        [$a, $b] = $this->dosMacetasDe2000y1900();
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
+
+        $this->crear(['items' => [$a, $b], 'expected_total_cents' => 3900])->assertStatus(409)
+            ->assertJsonPath('code', 'price_changed')->assertJsonPath('details.total_cents', 3330)->assertJsonPath('details.discount_cents', 570);
+        $this->crear(['items' => [$a, $b], 'expected_total_cents' => 3330])->assertCreated();
+    }
+
+    public function test_modo_estandar_conserva_envio_por_zona_envio_gratis_desde_2_y_recargo(): void
+    {
+        [$a, $b] = $this->dosMacetasDe2000y1900();
+
+        $this->crear(['items' => [$a], 'payment_method' => 'card'])->assertCreated();
+        $una = PedidoModelo::query()->latest('id')->firstOrFail();
+        $this->assertSame([350, 0, 141], [$una->shipping_cents, $una->discount_cents, $una->card_fee_cents]);   // 6 % de (2000 + 350) = 141
+        $this->assertSame(2491, $una->total_cents);
+
+        $this->crear(['items' => [$a, $b], 'payment_method' => 'card'])->assertCreated();
+        $dos = PedidoModelo::query()->latest('id')->firstOrFail();
+        $this->assertSame([0, 0, 234], [$dos->shipping_cents, $dos->discount_cents, $dos->card_fee_cents]);   // 6 % de 3900
+        $this->assertSame(4134, $dos->total_cents);
+    }
+
+    public function test_los_precios_publicos_siguen_el_modo_de_venta(): void
+    {
+        $this->getJson('/api/v1/store/pricing')->assertOk()->assertExactJson([
+            'mode' => 'standard', 'free_shipping_min_planters' => 2, 'card_surcharge_percent' => 6, 'discount_percent' => 0, 'free_shipping_everywhere' => false,
+        ]);
+
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
+        $this->getJson('/api/v1/store/pricing')->assertOk()->assertExactJson([
+            'mode' => 'free_shipping_discount', 'free_shipping_min_planters' => 2, 'card_surcharge_percent' => 0, 'discount_percent' => 30, 'free_shipping_everywhere' => true,
+        ]);
+    }
+
+    public function test_si_todas_las_zonas_habilitadas_cuestan_cero_el_envio_es_gratis_en_todo_el_pais_aunque_sea_modo_estandar(): void
+    {
+        \App\Core\Envios\Infraestructura\Modelos\ZonaDeEnvioModelo::query()->update(['price_cents' => 0]);
+        $this->getJson('/api/v1/store/pricing')->assertOk()->assertJsonPath('mode', 'standard')->assertJsonPath('free_shipping_everywhere', true);
+
+        $this->crear()->assertCreated();   // una sola maceta: envío $0 porque la zona cuesta $0
+        $this->assertSame(0, PedidoModelo::query()->latest('id')->firstOrFail()->shipping_cents);
+    }
+
+    public function test_el_admin_cambia_el_modo_de_venta_y_nadie_mas_puede(): void
+    {
+        $this->getJson('/api/v1/admin/sales-mode')->assertUnauthorized();
+        $this->putJson('/api/v1/admin/sales-mode', ['mode' => 'free_shipping_discount'])->assertUnauthorized();
+
+        $this->admin();
+        $this->getJson('/api/v1/admin/sales-mode')->assertOk()->assertJsonPath('mode', 'standard')->assertJsonPath('discount_percent', 30);
+        $this->putJson('/api/v1/admin/sales-mode', ['mode' => 'inventado'])->assertStatus(422);
+        $this->putJson('/api/v1/admin/sales-mode', [])->assertStatus(422);
+        $this->putJson('/api/v1/admin/sales-mode', ['mode' => 'free_shipping_discount'])->assertOk()->assertJsonPath('mode', 'free_shipping_discount');
+        $this->getJson('/api/v1/store/pricing')->assertJsonPath('free_shipping_everywhere', true);
+        $this->putJson('/api/v1/admin/sales-mode', ['mode' => 'standard'])->assertOk()->assertJsonPath('mode', 'standard');
+        $this->getJson('/api/v1/store/pricing')->assertJsonPath('card_surcharge_percent', 6);
+    }
+
     public function test_cedula_y_ruc_con_digito_verificador(): void
     {
         $this->assertTrue(Documentos::cedulaValida('0930247994'));

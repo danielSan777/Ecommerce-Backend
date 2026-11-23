@@ -22,7 +22,7 @@ final class ControladorAdministracionPedidos extends Controller
         return [
             'number' => $p->number, 'channel' => $p->channel, 'payment_method' => $p->payment_method, 'payment_status' => $p->payment_status, 'status' => $p->status,
             'customer' => ['name' => $p->cliente->name, 'email' => $p->cliente->email, 'phone' => $p->contact['phone'] ?? $p->cliente->phone],
-            'total_cents' => $p->total_cents, 'shipping_cents' => $p->shipping_cents, 'shipping_zone' => $p->shipping_zone,
+            'total_cents' => $p->total_cents, 'discount_cents' => $p->discount_cents, 'card_fee_cents' => $p->card_fee_cents, 'shipping_cents' => $p->shipping_cents, 'shipping_zone' => $p->shipping_zone,
             'cycle_date' => $p->cycle_date->format('Y-m-d'), 'dispatch_date' => $p->dispatch_date->format('Y-m-d'),
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d'), 'type' => $p->window_type],
             'deadline_at' => $p->transfer_deadline_at?->utc()->format('Y-m-d\TH:i:s\Z'),
