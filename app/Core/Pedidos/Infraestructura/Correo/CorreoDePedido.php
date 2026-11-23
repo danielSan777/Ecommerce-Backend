@@ -13,11 +13,11 @@ use Illuminate\Mail\Mailables\Envelope;
 final class CorreoDePedido extends Mailable
 {
     /** @param  array<string, mixed>  $datos */
-    public function __construct(private readonly string $asunto, private readonly array $datos) {}
+    public function __construct(private readonly string $asunto, private readonly array $datos, private readonly ?string $responderA = null) {}
 
     public function envelope(): Envelope
     {
-        $responder = (string) config('mail.reply_to.address', '');
+        $responder = $this->responderA ?: (string) config('mail.reply_to.address', '');
 
         return new Envelope(
             subject: $this->asunto,

@@ -22,6 +22,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\NotificarPedido;
+use App\Core\Pedidos\Infraestructura\Correo\AvisoDeCompraNueva;
 use App\Core\Pedidos\Infraestructura\Correo\CorreoDePedido;
 use App\Core\Pedidos\Infraestructura\Modelos\EventoDePedidoModelo;
 use Illuminate\Support\Facades\Mail;
@@ -702,6 +703,18 @@ final class PedidosTest extends TestCase
                 && str_contains($html, "https://jardindesele.com/pedido/{$p->token}") && str_contains($html, '$'.number_format($p->total_cents / 100, 2, '.', ''));
         });
         $this->assertDatabaseHas('order_events', ['order_id' => $p->id, 'type' => 'email', 'reason' => 'received', 'idempotency_key' => "correo:{$p->id}:received"]);
+    }
+
+    public function test_la_compra_nueva_se_avisa_a_pedidos_y_las_respuestas_van_al_buzon_del_tema(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+
+        Mail::assertSent(AvisoDeCompraNueva::class, fn (AvisoDeCompraNueva $m) => $m->hasTo('pedidos@jardindesele.com') && $m->hasSubject("Compra nueva · {$p->number}"));
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasReplyTo('pagos@jardindesele.com'));
+
+        app(NotificarPedido::class)($p, NotificarPedido::RECIBIDO); // repetido: no vuelve a avisar
+        Mail::assertSent(AvisoDeCompraNueva::class, 1);
     }
 
     public function test_el_mismo_correo_no_se_envia_dos_veces(): void

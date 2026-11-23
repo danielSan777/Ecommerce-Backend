@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Pedidos\Aplicacion\CasosDeUso;
 
 use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
+use App\Core\Pedidos\Infraestructura\Correo\AvisoDeCompraNueva;
 use App\Core\Pedidos\Infraestructura\Correo\CorreoDePedido;
 use App\Core\Pedidos\Infraestructura\Modelos\EventoDePedidoModelo;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
@@ -60,14 +61,47 @@ final class NotificarPedido
         }
 
         try {
-            Mail::to($destino)->send(new CorreoDePedido($asunto, $datos));
-
-            return true;
+            Mail::to($destino)->send(new CorreoDePedido($asunto, $datos, $this->buzonDeRespuesta($p, $motivo)));
         } catch (Throwable $e) {
             $evento->delete(); // no salió: que un reintento pueda enviarlo
             Log::warning("No se pudo enviar el correo «{$motivo}» del pedido {$p->number}: {$e->getMessage()}");
 
             return false;
+        }
+        $this->avisarCompraNueva($p, $motivo);
+
+        return true;
+    }
+
+    /** A qué buzón llegan las respuestas del comprador, según el tema del correo. */
+    private function buzonDeRespuesta(PedidoModelo $p, string $motivo): string
+    {
+        $clave = match ($motivo) {
+            self::RECIBIDO, self::VENCIDO => 'pagos',
+            self::ENVIADO => 'soporte',
+            self::CANCELADO => $p->payment_status === 'paid' ? 'pagos' : 'pedidos',
+            default => 'pedidos',
+        };
+
+        return (string) config("mail.buzones.{$clave}");
+    }
+
+    /**
+     * Avisa a pedidos@ cuando entra una compra: transferencia recién creada (por validar) o tarjeta aprobada.
+     * Va con el mismo candado del correo al comprador (una sola vez por pedido) y su fallo nunca rompe el pedido.
+     */
+    private function avisarCompraNueva(PedidoModelo $p, string $motivo): void
+    {
+        $esCompraNueva = ($motivo === self::RECIBIDO) || ($motivo === self::PAGADO && $p->payment_method === 'card');
+        $destino = (string) config('mail.buzones.pedidos');
+        if (! $esCompraNueva || $destino === '') {
+            return;
+        }
+        try {
+            $metodo = $p->payment_method === 'card' ? 'Tarjeta (pagada)' : 'Transferencia (por validar)';
+            Mail::to($destino)->send(new AvisoDeCompraNueva($p->number, $metodo, number_format($p->total_cents / 100, 2, '.', ''), $this->urlDeLaTienda().'/admin/pedidos?q='.rawurlencode($p->number)));
+        } catch (Throwable $e) {
+            Log::warning("No se pudo avisar la compra nueva del pedido {$p->number}: {$e->getMessage()}");
         }
     }
 

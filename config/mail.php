@@ -115,9 +115,18 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
-    // «Responder a» de los correos del pedido (hola@jardindesele.com)
+    // «Responder a» por defecto de los correos del pedido (hola@jardindesele.com)
     'reply_to' => [
         'address' => env('MAIL_REPLY_TO_ADDRESS'),
+    ],
+
+    // Buzones de Jardín de Sele (Paso 17). El remitente automático es notificaciones@; cada correo del pedido
+    // dirige las respuestas al buzón que corresponde y las compras nuevas se avisan a pedidos@.
+    'buzones' => [
+        'contacto' => env('MAIL_BUZON_CONTACTO', 'hola@jardindesele.com'),
+        'pedidos' => env('MAIL_BUZON_PEDIDOS', 'pedidos@jardindesele.com'),
+        'pagos' => env('MAIL_BUZON_PAGOS', 'pagos@jardindesele.com'),
+        'soporte' => env('MAIL_BUZON_SOPORTE', 'soporte@jardindesele.com'),
     ],
 
 ];
