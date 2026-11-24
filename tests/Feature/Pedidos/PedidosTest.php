@@ -717,6 +717,16 @@ final class PedidosTest extends TestCase
         Mail::assertSent(AvisoDeCompraNueva::class, 1);
     }
 
+    public function test_el_comando_reenvia_un_correo_que_no_salio(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+
+        $this->artisan('pedidos:reenviar-correo', ['numero' => $p->number, 'motivo' => 'received'])->assertSuccessful();
+        Mail::assertSent(CorreoDePedido::class, 2);
+        $this->artisan('pedidos:reenviar-correo', ['numero' => 'JDS-0'])->assertFailed();
+    }
+
     public function test_el_mismo_correo_no_se_envia_dos_veces(): void
     {
         Mail::fake();

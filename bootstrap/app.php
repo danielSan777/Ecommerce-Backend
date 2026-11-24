@@ -8,6 +8,7 @@ use App\Core\Configurador\Dominio\Excepciones\ConfiguradorEnUso;
 use App\Core\Configurador\Dominio\Excepciones\ConfiguradorNoEncontrado;
 use App\Core\Cuentas\Infraestructura\Consola\CrearAdministrador;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
+use App\Core\Pedidos\Infraestructura\Consola\ReenviarCorreoDePedido;
 use App\Core\Pedidos\Infraestructura\Consola\VencerPedidos;
 use App\Shared\Infraestructura\Http\Middleware\IpRealDeCloudflare;
 use App\Shared\Infraestructura\Http\Middleware\RequiereAdministrador;
@@ -25,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([CrearAdministrador::class, VencerPedidos::class])
+    ->withCommands([CrearAdministrador::class, VencerPedidos::class, ReenviarCorreoDePedido::class])
     ->withMiddleware(function (Middleware $middleware): void {
         // Primero: la IP real del visitante detrás de Cloudflare
         $middleware->prepend(IpRealDeCloudflare::class);
