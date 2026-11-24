@@ -712,6 +712,7 @@ final class PedidosTest extends TestCase
 
         Mail::assertSent(AvisoDeCompraNueva::class, fn (AvisoDeCompraNueva $m) => $m->hasTo('pedidos@jardindesele.com') && $m->hasSubject("Compra nueva · {$p->number}"));
         Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasReplyTo('pagos@jardindesele.com'));
+        $this->assertNull(config('mail.reply_to'));   // si existiera, Laravel sumaría hola@ a las respuestas de todos los correos
 
         app(NotificarPedido::class)($p, NotificarPedido::RECIBIDO); // repetido: no vuelve a avisar
         Mail::assertSent(AvisoDeCompraNueva::class, 1);

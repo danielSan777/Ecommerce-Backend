@@ -17,7 +17,7 @@ final class CorreoDePedido extends Mailable
 
     public function envelope(): Envelope
     {
-        $responder = $this->responderA ?: (string) config('mail.reply_to.address', '');
+        $responder = $this->responderA ?: (string) config('mail.respuesta_por_defecto', '');
 
         return new Envelope(
             subject: $this->asunto,

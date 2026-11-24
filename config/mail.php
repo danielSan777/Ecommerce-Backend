@@ -115,10 +115,9 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
-    // «Responder a» por defecto de los correos del pedido (hola@jardindesele.com)
-    'reply_to' => [
-        'address' => env('MAIL_REPLY_TO_ADDRESS'),
-    ],
+    // «Responder a» de respaldo para un correo del pedido que no traiga buzón propio (hola@jardindesele.com).
+    // No se llama `reply_to` a propósito: Laravel agregaría esa dirección a TODOS los correos, además del buzón de cada tema.
+    'respuesta_por_defecto' => env('MAIL_REPLY_TO_ADDRESS'),
 
     // Buzones de Jardín de Sele (Paso 17). El remitente automático es notificaciones@; cada correo del pedido
     // dirige las respuestas al buzón que corresponde y las compras nuevas se avisan a pedidos@.
