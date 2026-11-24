@@ -24,5 +24,7 @@ final readonly class Categoria
         public ?string $seoDescripcion,
         /** @var list<Medio> */
         public array $videos = [],
+        /** Cuántos productos tiene la categoría o subcategoría pedida, aunque se haya devuelto solo una parte. */
+        public int $totalProductos = 0,
     ) {}
 }

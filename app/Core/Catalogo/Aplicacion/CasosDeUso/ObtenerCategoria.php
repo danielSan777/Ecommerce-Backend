@@ -11,8 +11,8 @@ final class ObtenerCategoria
 {
     public function __construct(private readonly RepositorioCatalogo $catalogo) {}
 
-    public function __invoke(string $slug, ?string $subcategoria = null): Categoria
+    public function __invoke(string $slug, ?string $subcategoria = null, ?int $limite = null, int $desde = 0): Categoria
     {
-        return $this->catalogo->categoria($slug, $subcategoria);
+        return $this->catalogo->categoria($slug, $subcategoria, $limite, $desde);
     }
 }

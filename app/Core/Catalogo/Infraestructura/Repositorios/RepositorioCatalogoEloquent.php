@@ -28,7 +28,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             ->map(fn (CategoriaModelo $c) => $this->categoria_($c, null, [], $desde[$c->id] ?? null))->all();
     }
 
-    public function categoria(string $slug, ?string $subcategoria = null): Categoria
+    public function categoria(string $slug, ?string $subcategoria = null, ?int $limite = null, int $desde = 0): Categoria
     {
         $categoria = CategoriaModelo::query()->where('is_active', true)->where('slug', $slug)
             ->with(['subcategorias' => fn ($q) => $q->where('is_active', true), 'medios'])->first()
@@ -40,12 +40,14 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
                 ?? throw CatalogoNoEncontrado::subcategoria($subcategoria);
         }
 
-        $productos = ProductoModelo::query()->where('is_active', true)->where('category_id', $categoria->id)
-            ->when($filtro, fn ($q) => $q->where('subcategory_id', $filtro->id))
-            ->with(['categoria', 'subcategoria', 'medios'])->orderBy('id')->get()
+        $consulta = ProductoModelo::query()->where('is_active', true)->where('category_id', $categoria->id)
+            ->when($filtro, fn ($q) => $q->where('subcategory_id', $filtro->id));
+        $total = (clone $consulta)->count();
+        $productos = $consulta->with(['categoria', 'subcategoria', 'medios'])->orderBy('id')
+            ->when($limite !== null, fn ($q) => $q->offset(max(0, $desde))->limit($limite))->get()
             ->map(fn (ProductoModelo $p) => $this->producto_($p))->all();
 
-        return $this->categoria_($categoria, $filtro?->slug, $productos, ProductoModelo::query()->where('is_active', true)->where('category_id', $categoria->id)->min('base_price_cents'));
+        return $this->categoria_($categoria, $filtro?->slug, $productos, ProductoModelo::query()->where('is_active', true)->where('category_id', $categoria->id)->min('base_price_cents'), $total);
     }
 
     /** Por defecto solo los productos personalizables; los complementos se piden con $tipo = 'complemento'. */
@@ -66,7 +68,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
     }
 
     /** @param list<Producto> $productos */
-    private function categoria_(CategoriaModelo $c, ?string $activa, array $productos, mixed $desde): Categoria
+    private function categoria_(CategoriaModelo $c, ?string $activa, array $productos, mixed $desde, int $total = 0): Categoria
     {
         return new Categoria(
             slug: $c->slug,
@@ -81,6 +83,7 @@ final class RepositorioCatalogoEloquent implements RepositorioCatalogo
             seoTitulo: $c->seo_title,
             seoDescripcion: $c->seo_description,
             videos: $c->medios->where('type', 'video')->map(fn ($v) => $this->medio($v))->values()->all(),
+            totalProductos: $total,
         );
     }
 

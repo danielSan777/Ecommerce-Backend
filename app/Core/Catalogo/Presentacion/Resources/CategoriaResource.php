@@ -35,6 +35,7 @@ final class CategoriaResource
             'subcategories' => array_map(fn (Subcategoria $s) => ['slug' => $s->slug, 'name' => $s->nombre, 'url' => "/{$c->slug}/{$s->slug}"], $c->subcategorias),
             'active_subcategory' => $c->subcategoriaActiva,
             'products' => array_map(ProductoResource::resumen(...), $c->productos),
+            'products_total' => $c->totalProductos,
             'seo' => SeoResource::formato($titulo, $c->seoDescripcion, $ruta, $c->productos[0] ?? null ? $c->productos[0]->imagenPrincipal() : null),
         ];
     }

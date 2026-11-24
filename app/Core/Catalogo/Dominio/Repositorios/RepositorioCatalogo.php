@@ -14,7 +14,8 @@ interface RepositorioCatalogo
     public function categorias(): array;
 
     /** @throws CatalogoNoEncontrado */
-    public function categoria(string $slug, ?string $subcategoria = null): Categoria;
+    /** `$limite` y `$desde` paginan los productos (sin `$limite` vienen todos); `Categoria::totalProductos` cuenta los de toda la lista. */
+    public function categoria(string $slug, ?string $subcategoria = null, ?int $limite = null, int $desde = 0): Categoria;
 
     /** Productos activos, los más nuevos primero. @return list<Producto> */
     public function productos(?int $limite = null, string $tipo = 'personalizable'): array;

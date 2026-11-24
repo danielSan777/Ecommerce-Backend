@@ -21,7 +21,10 @@ final class ControladorCategorias extends Controller
     public function show(Request $request, string $slug, ObtenerCategoria $obtener): JsonResponse
     {
         $subcategoria = $request->query('subcategory');
+        // Paginación opcional: ?limit=20&offset=20 (máx. 50 por pedido). Sin `limit` vienen todos los productos.
+        $limite = $request->query('limit') !== null ? min(50, max(1, (int) $request->query('limit'))) : null;
+        $desde = max(0, (int) $request->query('offset', 0));
 
-        return response()->json(CategoriaResource::formato($obtener($slug, is_string($subcategoria) ? $subcategoria : null)));
+        return response()->json(CategoriaResource::formato($obtener($slug, is_string($subcategoria) ? $subcategoria : null, $limite, $desde)));
     }
 }

@@ -70,6 +70,23 @@ final class CatalogoApiTest extends TestCase
             ->assertJsonPath('seo.canonical', 'https://jardindesele.com/profesiones-y-hobbies/salud');
     }
 
+    public function test_la_categoria_se_pagina_con_limit_y_offset_y_avisa_el_total(): void
+    {
+        $primera = $this->getJson('/api/v1/categories/profesiones-y-hobbies?limit=3')->assertOk();
+        $this->assertCount(3, $primera->json('products'));
+        $primera->assertJsonPath('products_total', 4);
+
+        $segunda = $this->getJson('/api/v1/categories/profesiones-y-hobbies?limit=3&offset=3')->assertOk();
+        $this->assertCount(1, $segunda->json('products'));
+        $segunda->assertJsonPath('products_total', 4);
+        $this->assertEmpty(array_intersect(array_column($primera->json('products'), 'slug'), array_column($segunda->json('products'), 'slug')));
+
+        $todos = $this->getJson('/api/v1/categories/profesiones-y-hobbies')->assertOk();
+        $this->assertCount(4, $todos->json('products'));   // sin limit: vienen todos, como antes
+        $todos->assertJsonPath('products_total', 4);
+        $this->getJson('/api/v1/categories/profesiones-y-hobbies?subcategory=salud&limit=1')->assertJsonPath('products_total', 2);
+    }
+
     public function test_lo_que_no_existe_responde_404_con_json_en_ingles(): void
     {
         $this->getJson('/api/v1/categories/no-existe')->assertNotFound()
