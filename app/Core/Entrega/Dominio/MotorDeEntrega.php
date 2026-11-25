@@ -78,8 +78,8 @@ final class MotorDeEntrega
     }
 
     /**
-     * Ventanas consecutivas (sin solaparse) desde la primera fecha posible. Nunca hay una ventana en el pasado:
-     * la primera es la que ya promete el motor.
+     * Una ventana por cada día de entrega desde la primera fecha posible (se solapan: tocar el sábado 5 da sábado 5 + lunes 7,
+     * y tocar el lunes 7 da lunes 7 + martes 8). Nunca hay una ventana en el pasado: la primera es la que ya promete el motor.
      *
      * @return list<array{start: string, end: string}>
      */
@@ -100,7 +100,7 @@ final class MotorDeEntrega
                 $fin = $this->siguienteDeEntrega($fin);
             }
             $ventanas[] = ['start' => $dia, 'end' => $fin];
-            $dia = $this->calendario->sumarDias($fin, 1);
+            $dia = $this->calendario->sumarDias($dia, 1);
         }
 
         return $ventanas;

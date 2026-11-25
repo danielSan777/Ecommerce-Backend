@@ -142,7 +142,14 @@ final class EntregaTest extends TestCase
 
         $this->assertStringContainsString('no-store', $this->getJson('/api/v1/delivery/windows')->headers->get('Cache-Control'));
         $this->assertSame(['start' => '2026-11-12', 'end' => '2026-11-13', 'available' => true], $ventanas[0]);
-        $this->assertSame(['start' => '2026-11-14', 'end' => '2026-11-16', 'available' => true], $ventanas[1]); // sábado + lunes
+        $porInicio = collect($ventanas)->keyBy('start');
+        // Cada día de entrega tiene su propia ventana (se solapan): día + siguiente día válido
+        $this->assertSame('2026-11-14', $porInicio['2026-11-13']['end']);   // viernes + sábado
+        $this->assertSame('2026-11-16', $porInicio['2026-11-14']['end']);   // sábado + lunes (salta el domingo)
+        $this->assertSame('2026-11-17', $porInicio['2026-11-16']['end']);   // lunes + martes
+        $this->assertFalse($porInicio->has('2026-11-15'));                   // domingo: sin ventana
+        $this->assertSame('2026-12-26', $porInicio['2026-12-24']['end']);   // salta el feriado del 25
+        $this->assertFalse($porInicio->has('2026-12-25'));
         foreach ($ventanas as $v) {
             $this->assertGreaterThanOrEqual('2026-11-12', $v['start']);
             foreach ([$v['start'], $v['end']] as $dia) {
