@@ -18,6 +18,7 @@ final class ControladorAdministracionDiasNoHabiles extends Controller
     private const MENSAJES = [
         'date.required' => 'Elige la fecha.',
         'date.date_format' => 'La fecha debe tener el formato AAAA-MM-DD.',
+        'date.after_or_equal' => 'No puedes bloquear un día que ya pasó.',
         'type.required' => 'Elige el tipo de día.',
         'type.in' => 'El tipo de día no es válido.',
         'note.max' => 'La nota no puede pasar de 150 caracteres.',
@@ -42,6 +43,7 @@ final class ControladorAdministracionDiasNoHabiles extends Controller
             'data' => DiaNoHabilModelo::query()->orderBy('date')->get()->map(fn ($d) => $this->fila($d))->all(),
             // Para el aviso del panel: cuántos feriados nacionales hay cargados para el año que viene
             'meta' => [
+                'today' => CarbonImmutable::now('America/Guayaquil')->format('Y-m-d'),   // el formulario no deja elegir días anteriores
                 'next_year' => $anioSiguiente,
                 'national_holidays_next_year' => DiaNoHabilModelo::query()->where('type', 'national_holiday')
                     ->whereBetween('date', ["$anioSiguiente-01-01", "$anioSiguiente-12-31"])->count(),
@@ -52,8 +54,9 @@ final class ControladorAdministracionDiasNoHabiles extends Controller
     /** Crea o actualiza el día (una fila por fecha). Con `end_date` bloquea todo el rango, de `date` a `end_date`. */
     public function store(Request $request): JsonResponse
     {
+        $hoy = CarbonImmutable::now('America/Guayaquil')->format('Y-m-d');
         $datos = ValidacionFallida::validar($request->all(), [
-            'date' => ['required', 'date_format:Y-m-d'],
+            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$hoy],
             'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date'],
             'type' => ['required', Rule::in(['national_holiday', 'local_holiday', 'closure'])],
             'affects_production' => ['sometimes', 'boolean'],

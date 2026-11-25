@@ -177,6 +177,7 @@ final class EntregaTest extends TestCase
 
     public function test_solo_el_administrador_gestiona_los_dias_no_habiles(): void
     {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-09 21:18:00', 'UTC'));
         $this->getJson('/api/v1/admin/non-working-days')->assertUnauthorized();
         $this->actingAs(User::factory()->create(), 'api');
         $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-12-31', 'type' => 'closure'])->assertForbidden();
@@ -212,11 +213,12 @@ final class EntregaTest extends TestCase
 
     public function test_el_rango_de_dias_se_valida(): void
     {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-09 21:18:00', 'UTC'));
         $this->actingAs(User::factory()->administrador()->create(), 'api');
 
         $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-12-05', 'end_date' => '2026-12-01', 'type' => 'closure'])
             ->assertStatus(422)->assertJsonValidationErrors('end_date');
-        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-01-01', 'end_date' => '2026-12-31', 'type' => 'closure'])
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-11-09', 'end_date' => '2027-03-31', 'type' => 'closure'])
             ->assertStatus(422)->assertJsonValidationErrors('end_date');
         $this->assertSame(0, DiaNoHabilModelo::query()->where('type', 'closure')->count());
     }
@@ -234,5 +236,19 @@ final class EntregaTest extends TestCase
         $this->postJson('/api/v1/admin/non-working-days', ['date' => '2027-02-05', 'type' => 'local_holiday'])->assertCreated();
 
         $this->getJson('/api/v1/admin/non-working-days')->assertJsonPath('meta.national_holidays_next_year', 1);
+    }
+
+    public function test_no_se_puede_bloquear_un_dia_que_ya_paso_pero_hoy_si(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-10 03:00:00', 'UTC')); // 22:00 del 9 en Guayaquil
+        $this->actingAs(User::factory()->administrador()->create(), 'api');
+
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-11-08', 'type' => 'closure'])
+            ->assertStatus(422)->assertJsonValidationErrors('date');
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-11-08', 'end_date' => '2026-11-12', 'type' => 'closure'])->assertStatus(422);
+        $this->assertSame(0, DiaNoHabilModelo::query()->where('type', 'closure')->count());
+
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-11-09', 'type' => 'closure'])->assertCreated(); // hoy en Guayaquil
+        $this->getJson('/api/v1/admin/non-working-days')->assertJsonPath('meta.today', '2026-11-09');
     }
 }
