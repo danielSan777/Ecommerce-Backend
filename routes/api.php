@@ -15,6 +15,7 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionAc
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionConfigurador;
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
 use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
+use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionCiclos;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionPedidos;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorCheckout;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorPedidos;
@@ -80,6 +81,10 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{numero}/delay', [ControladorAdministracionPedidos::class, 'retraso'])->name('api.v1.admin.orders.delay');
         Route::post('orders/{numero}/refund', [ControladorAdministracionPedidos::class, 'reembolso'])->name('api.v1.admin.orders.refund');
         Route::post('orders/{numero}/cancel', [ControladorAdministracionPedidos::class, 'cancelar'])->name('api.v1.admin.orders.cancel');
+        Route::get('cycles', [ControladorAdministracionCiclos::class, 'index'])->name('api.v1.admin.cycles.index');
+        Route::post('cycles/{fecha}/close', [ControladorAdministracionCiclos::class, 'cerrar'])->name('api.v1.admin.cycles.close');
+        Route::post('cycles/{fecha}/reopen', [ControladorAdministracionCiclos::class, 'reabrir'])->name('api.v1.admin.cycles.reopen');
+        Route::put('cycles/{fecha}/capacity', [ControladorAdministracionCiclos::class, 'capacidad'])->name('api.v1.admin.cycles.capacity');
         Route::get('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'index'])->name('api.v1.admin.non-working-days.index');
         Route::post('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'store'])->name('api.v1.admin.non-working-days.store');
         Route::delete('non-working-days/{fecha}', [ControladorAdministracionDiasNoHabiles::class, 'destroy'])->name('api.v1.admin.non-working-days.destroy');

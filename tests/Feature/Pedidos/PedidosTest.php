@@ -1238,4 +1238,116 @@ final class PedidosTest extends TestCase
         $otro = PedidoModelo::query()->latest('id')->first()->number;
         $this->getJson("/api/v1/admin/orders/{$otro}/receipt")->assertNotFound();
     }
+
+    // ---------- Panel: ciclos, capacidad y «Pasar las ventas al siguiente ciclo» ----------
+
+    private function cicloDelUltimoPedido(): string
+    {
+        return PedidoModelo::query()->latest('id')->firstOrFail()->cycle_date->format('Y-m-d');
+    }
+
+    private function fila(array $json, string $fecha): ?array
+    {
+        return collect($json['data'])->firstWhere('date', $fecha);
+    }
+
+    public function test_el_panel_lista_los_ciclos_con_sus_pedidos_y_la_capacidad_restante(): void
+    {
+        $this->crear()->assertCreated();
+        $this->crear()->assertCreated();
+
+        $this->getJson('/api/v1/admin/cycles')->assertUnauthorized();
+        $this->actingAs(User::factory()->create(), 'api');
+        $this->getJson('/api/v1/admin/cycles')->assertForbidden();
+
+        $this->actingAs(User::factory()->administrador()->create(['name' => 'Josué']), 'api');
+        $r = $this->getJson('/api/v1/admin/cycles')->assertOk()->assertJsonCount(14, 'data')->assertJsonPath('meta.nominal_capacity', 8)->assertJsonPath('meta.tolerance', 10);
+
+        $lunes = $this->fila($r->json(), '2026-11-09');
+        $this->assertSame(2, $lunes['pending_transfer']);
+        $this->assertSame(0, $lunes['paid']);
+        $this->assertSame(2, $lunes['committed']);
+        $this->assertSame(8, $lunes['capacity']);
+        $this->assertSame(6, $lunes['remaining']);
+        $this->assertTrue($lunes['is_offered']);
+        $this->assertFalse($lunes['closed']);
+        $this->assertSame('2026-11-11', $lunes['dispatch_date']);   // lunes → despacho miércoles (tabla del Paso 8)
+        $this->assertSame(['start' => '2026-11-12', 'end' => '2026-11-13'], $lunes['window']);
+        $this->assertSame(0, $this->fila($r->json(), '2026-11-10')['committed']);
+        $this->assertNull($this->fila($r->json(), '2026-11-15'));   // domingo: no se produce, no es ciclo
+        $this->assertSame(1, collect($r->json('data'))->where('is_offered', true)->count());
+    }
+
+    public function test_pasar_las_ventas_al_siguiente_ciclo_y_reabrirlo(): void
+    {
+        $this->crear()->assertCreated();
+        $this->actingAs(User::factory()->administrador()->create(['name' => 'Josué']), 'api');
+
+        $r = $this->postJson('/api/v1/admin/cycles/2026-11-09/close')->assertOk();
+        $lunes = $this->fila($r->json(), '2026-11-09');
+        $this->assertTrue($lunes['closed']);
+        $this->assertSame(1, $lunes['committed']);   // sus pedidos no cambian
+        $this->assertSame(0, $lunes['remaining']);
+        $this->assertFalse($lunes['is_offered']);
+        $this->assertTrue($this->fila($r->json(), '2026-11-10')['is_offered']);
+        $this->assertSame('closed', $lunes['last_event']['type']);
+        $this->assertSame('Josué', $lunes['last_event']['actor_name']);
+
+        $this->crear()->assertCreated();                 // el pedido nuevo va al siguiente ciclo
+        $this->assertSame('2026-11-10', $this->cicloDelUltimoPedido());
+        $this->assertSame(1, PedidoModelo::query()->where('cycle_date', '2026-11-09')->count());
+
+        $this->postJson('/api/v1/admin/cycles/2026-11-09/close')->assertStatus(409)->assertJsonPath('code', 'cycle_already_closed');
+
+        $r = $this->postJson('/api/v1/admin/cycles/2026-11-09/reopen')->assertOk();
+        $this->assertFalse($this->fila($r->json(), '2026-11-09')['closed']);
+        $this->assertSame(7, $this->fila($r->json(), '2026-11-09')['remaining']);
+        $this->assertSame('reopened', $this->fila($r->json(), '2026-11-09')['last_event']['type']);
+        $this->crear()->assertCreated();
+        $this->assertSame('2026-11-09', $this->cicloDelUltimoPedido());
+        $this->postJson('/api/v1/admin/cycles/2026-11-09/reopen')->assertStatus(409)->assertJsonPath('code', 'cycle_not_closed');
+
+        $this->assertDatabaseHas('cycle_events', ['cycle_date' => '2026-11-09', 'type' => 'closed', 'actor_name' => 'Josué']);
+        $this->assertSame(2, \DB::table('cycle_events')->where('cycle_date', '2026-11-09')->count());
+    }
+
+    public function test_cambiar_la_capacidad_de_un_ciclo_puntual_y_volver_a_la_nominal(): void
+    {
+        $this->crear()->assertCreated();
+        $this->crear()->assertCreated();
+        $this->actingAs(User::factory()->administrador()->create(['name' => 'Josué']), 'api');
+
+        $r = $this->putJson('/api/v1/admin/cycles/2026-11-09/capacity', ['capacity' => 2])->assertOk();
+        $lunes = $this->fila($r->json(), '2026-11-09');
+        $this->assertSame(2, $lunes['capacity']);
+        $this->assertSame(2, $lunes['capacity_override']);
+        $this->assertSame(0, $lunes['remaining']);
+        $this->assertSame(['from' => null, 'to' => 2], $lunes['last_event']['data']);
+
+        $this->crear()->assertCreated();                 // lleno con 2: el pedido pasa al siguiente ciclo
+        $this->assertSame('2026-11-10', $this->cicloDelUltimoPedido());
+
+        $r = $this->putJson('/api/v1/admin/cycles/2026-11-09/capacity', ['capacity' => null])->assertOk();
+        $this->assertSame(8, $this->fila($r->json(), '2026-11-09')['capacity']);
+        $this->assertNull($this->fila($r->json(), '2026-11-09')['capacity_override']);
+        $this->crear()->assertCreated();
+        $this->assertSame('2026-11-09', $this->cicloDelUltimoPedido());
+    }
+
+    public function test_el_panel_rechaza_capacidades_y_ciclos_que_no_valen(): void
+    {
+        $this->actingAs(User::factory()->administrador()->create(), 'api');
+
+        foreach ([0, 31, 'mucho', 2.5] as $mala) {
+            $this->putJson('/api/v1/admin/cycles/2026-11-09/capacity', ['capacity' => $mala])->assertStatus(422)->assertJsonValidationErrors('capacity');
+        }
+        $this->putJson('/api/v1/admin/cycles/2026-11-09/capacity', [])->assertStatus(422);
+        $this->putJson('/api/v1/admin/cycles/2026-11-09/capacity', ['capacity' => 5])->assertOk();   // límites incluidos
+        $this->putJson('/api/v1/admin/cycles/2026-11-10/capacity', ['capacity' => 30])->assertOk();
+
+        $this->postJson('/api/v1/admin/cycles/2026-11-08/close')->assertStatus(422)->assertJsonPath('code', 'cycle_not_available');   // ya pasó
+        $this->postJson('/api/v1/admin/cycles/2026-11-15/close')->assertStatus(422)->assertJsonPath('code', 'cycle_not_available');   // domingo
+        $this->postJson('/api/v1/admin/cycles/15-11-2026/close')->assertStatus(422);
+        $this->assertDatabaseMissing('cycle_events', ['cycle_date' => '2026-11-15']);
+    }
 }
