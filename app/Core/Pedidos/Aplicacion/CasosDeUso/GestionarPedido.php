@@ -128,20 +128,54 @@ final class GestionarPedido
     }
 
     /** Con `$notificar` Josué avisa al comprador por correo, con un motivo breve. */
-    public function cancelar(PedidoModelo $p, bool $notificar = false, string $motivo = ''): PedidoModelo
+    public function cancelar(PedidoModelo $p, bool $notificar = false, string $motivo = '', ?int $reembolsoCents = null, ?CarbonImmutable $ahora = null): PedidoModelo
     {
+        $ahora ??= CarbonImmutable::now('UTC');
         if ($p->status === 'cancelled') {
             throw new PedidoRechazado('order_cancelled', 'Este pedido ya está cancelado.', 409);
         }
         if ($p->status === 'shipped') {
             throw new PedidoRechazado('already_shipped', 'Este pedido ya fue enviado: no se puede cancelar desde aquí.', 409);
         }
-        $p->update(['status' => 'cancelled']);
+        if ($reembolsoCents !== null) {
+            $this->validarReembolso($p, $reembolsoCents);
+        }
+        $p->update(['status' => 'cancelled', 'cancel_reason' => $motivo !== '' ? $motivo : null, 'cancelled_at' => $ahora]
+            + ($reembolsoCents !== null ? ['payment_status' => 'refunded', 'refund_cents' => $reembolsoCents, 'refunded_at' => $ahora] : []));
         if ($notificar) {
             $this->avisar($p, NotificarPedido::CANCELADO, ['reason' => $motivo]);
         }
 
         return $p->refresh();
+    }
+
+    /**
+     * Reembolso: Josué devuelve el dinero a mano (en el panel de PayPhone o por transferencia) y aquí solo queda registrado cuánto.
+     * Para un pedido ya cancelado que se pagó y todavía no tiene reembolso registrado.
+     */
+    public function registrarReembolso(PedidoModelo $p, int $cents, ?CarbonImmutable $ahora = null): PedidoModelo
+    {
+        $ahora ??= CarbonImmutable::now('UTC');
+        if ($p->status !== 'cancelled') {
+            throw new PedidoRechazado('not_cancelled', 'Cancela el pedido antes de registrar el reembolso.', 409);
+        }
+        if ($p->payment_status === 'refunded') {
+            throw new PedidoRechazado('already_refunded', 'Este pedido ya tiene un reembolso registrado.', 409);
+        }
+        $this->validarReembolso($p, $cents);
+        $p->update(['payment_status' => 'refunded', 'refund_cents' => $cents, 'refunded_at' => $ahora]);
+
+        return $p->refresh();
+    }
+
+    private function validarReembolso(PedidoModelo $p, int $cents): void
+    {
+        if ($p->payment_status !== 'paid') {
+            throw new ValidacionFallida(['refund_amount' => ['Solo se puede reembolsar un pedido que ya está pagado.']]);
+        }
+        if ($cents < 1 || $cents > $p->total_cents) {
+            throw new ValidacionFallida(['refund_amount' => ['El reembolso debe ser mayor a $0 y no pasar de $'.number_format($p->total_cents / 100, 2).'.']]);
+        }
     }
 
     /**

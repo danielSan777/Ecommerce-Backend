@@ -33,6 +33,9 @@ final class ControladorAdministracionPedidos extends Controller
                 'reason' => $p->delay_reason, 'at' => $p->delayed_at->utc()->format('Y-m-d\TH:i:s\Z'),
                 'original_window' => ['start' => $p->original_window_start?->format('Y-m-d'), 'end' => $p->original_window_end?->format('Y-m-d')],
             ],
+            'cancel_reason' => $p->cancel_reason,
+            'cancelled_at' => $p->cancelled_at?->utc()->format('Y-m-d\TH:i:s\Z'),
+            'refund' => $p->refund_cents === null ? null : ['cents' => $p->refund_cents, 'at' => $p->refunded_at?->utc()->format('Y-m-d\TH:i:s\Z')],
             'deadline_at' => $p->transfer_deadline_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'receipt_uploaded_at' => $p->receipt_uploaded_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'whatsapp_clicked_at' => $p->whatsapp_clicked_at?->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -96,10 +99,27 @@ final class ControladorAdministracionPedidos extends Controller
         $validos = ValidacionFallida::validar($request->all(), [
             'notify_buyer' => ['sometimes', 'boolean'],
             'reason' => ['nullable', 'string', 'max:200'],
-        ], ['reason.max' => 'El motivo puede tener hasta 200 caracteres.']);
+            'refund_amount' => ['nullable', 'string', 'regex:/^\d{1,6}([.,]\d{1,2})?$/'],
+        ], ['reason.max' => 'El motivo puede tener hasta 200 caracteres.', 'refund_amount.regex' => 'Escribe el monto en dólares, por ejemplo 12.50.']);
         $motivo = trim(strip_tags((string) ($validos['reason'] ?? '')));
 
-        return response()->json($this->fila($gestionar->cancelar($this->buscar($numero), (bool) ($validos['notify_buyer'] ?? false), $motivo)->load('items', 'cliente')));
+        return response()->json($this->fila($gestionar->cancelar($this->buscar($numero), (bool) ($validos['notify_buyer'] ?? false), $motivo, $this->centavos($validos['refund_amount'] ?? null))->load('items', 'cliente')));
+    }
+
+    /** Registra cuánto se reembolsó a un pedido ya cancelado; el dinero se devuelve a mano fuera del sistema. */
+    public function reembolso(string $numero, Request $request, GestionarPedido $gestionar): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->all(), [
+            'refund_amount' => ['required', 'string', 'regex:/^\d{1,6}([.,]\d{1,2})?$/'],
+        ], ['refund_amount.required' => 'Escribe el monto reembolsado.', 'refund_amount.regex' => 'Escribe el monto en dólares, por ejemplo 12.50.']);
+
+        return response()->json($this->fila($gestionar->registrarReembolso($this->buscar($numero), (int) $this->centavos($validos['refund_amount']))->load('items', 'cliente')));
+    }
+
+    /** "12.50" o "12,5" → 1250. */
+    private function centavos(?string $dolares): ?int
+    {
+        return $dolares === null || $dolares === '' ? null : (int) round(((float) str_replace(',', '.', $dolares)) * 100);
     }
 
     /** Retraso: nueva fecha de entrega (`window_start`–`window_end`) y motivo breve; el comprador recibe un correo con ella. */

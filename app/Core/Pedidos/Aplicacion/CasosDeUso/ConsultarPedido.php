@@ -61,7 +61,7 @@ final class ConsultarPedido
         return [
             'order_number' => $p->number,
             'visible_status' => match ($p->status) {
-                'cancelled' => 'cancelado', 'in_production' => 'en_produccion', 'shipped' => 'enviado', default => 'confirmado',
+                'cancelled' => $p->payment_status === 'refunded' ? 'reembolsado' : 'cancelado', 'in_production' => 'en_produccion', 'shipped' => 'enviado', default => 'confirmado',
             },
             'payment' => ['method' => $p->payment_method, 'status' => $p->payment_status, 'paid_at' => $p->paid_at?->utc()->format('Y-m-d\TH:i:s\Z')],
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d')],

@@ -870,6 +870,45 @@ final class PedidosTest extends TestCase
         $this->assertNotNull($r->json('production_started_at'));
     }
 
+    public function test_cancelar_un_pedido_pagado_registra_el_reembolso_y_el_comprador_lo_ve(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
+        $total = $p->total_cents;
+
+        // monto inválido: no se cancela nada
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/cancel", ['refund_amount' => 'doce'])->assertStatus(422)->assertJsonValidationErrors(['refund_amount']);
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/cancel", ['refund_amount' => (string) (($total / 100) + 1)])->assertStatus(422)->assertJsonValidationErrors(['refund_amount']);
+        $this->assertSame('in_production', $p->refresh()->status);
+
+        $r = $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/cancel", ['notify_buyer' => true, 'reason' => 'Se rompió', 'refund_amount' => '1,50'])->assertOk();
+        $r->assertJsonPath('status', 'cancelled')->assertJsonPath('payment_status', 'refunded')->assertJsonPath('refund.cents', 150)->assertJsonPath('cancel_reason', 'Se rompió');
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Tu pedido {$p->number} fue cancelado") && str_contains($m->render(), 'reembolso de $1.50'));
+        $this->getJson("/api/v1/orders/{$p->refresh()->token}")->assertJsonPath('visible_status', 'reembolsado');
+
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/refund", ['refund_amount' => '1'])->assertStatus(409)->assertJsonPath('code', 'already_refunded');
+    }
+
+    public function test_el_reembolso_se_puede_registrar_despues_de_cancelar_pero_no_en_un_pedido_sin_pagar(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/refund", ['refund_amount' => '1'])->assertStatus(409)->assertJsonPath('code', 'not_cancelled');
+
+        $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/cancel")->assertOk()->assertJsonPath('payment_status', 'paid')->assertJsonPath('refund', null);
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/refund", [])->assertStatus(422);
+
+        $r = $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/refund", ['refund_amount' => number_format($p->total_cents / 100, 2, '.', '')])->assertOk();
+        $r->assertJsonPath('payment_status', 'refunded')->assertJsonPath('refund.cents', $p->total_cents);
+
+        // un pedido que nunca se pagó no admite reembolso al cancelar
+        $q = $this->pedidoConCorreos();
+        $this->admin()->postJson("/api/v1/admin/orders/{$q->number}/cancel", ['refund_amount' => '1'])->assertStatus(422)->assertJsonValidationErrors(['refund_amount']);
+        $this->assertNotSame('cancelled', $q->refresh()->status);
+    }
+
     public function test_el_retraso_exige_pedido_pagado_sin_cancelar_y_fechas_validas(): void
     {
         Mail::fake();

@@ -83,7 +83,7 @@ final class NotificarPedido
         $clave = match ($motivo) {
             self::RECIBIDO, self::VENCIDO => 'pagos',
             self::ENVIADO => 'soporte',
-            self::CANCELADO => $p->payment_status === 'paid' ? 'pagos' : 'pedidos',
+            self::CANCELADO => $p->paid_at !== null ? 'pagos' : 'pedidos',
             default => 'pedidos',
         };
 
@@ -152,7 +152,7 @@ final class NotificarPedido
                 'titulo' => 'Tu pedido fue cancelado',
                 'intro' => 'Cancelamos tu pedido.',
                 'motivo' => ($extra['reason'] ?? '') !== '' ? $extra['reason'] : null,
-                'detalle' => $p->payment_status === 'paid' ? 'Como ya habías pagado, te escribiremos para coordinar el reembolso.' : null,
+                'detalle' => $p->refund_cents ? 'Registramos el reembolso de $'.number_format($p->refund_cents / 100, 2).' por tu pago. Si necesitamos algo más, te escribiremos.' : ($p->paid_at !== null ? 'Como ya habías pagado, te escribiremos para coordinar el reembolso.' : null),
                 'boton' => 'Ver mi pedido',
             ]],
             self::RETRASADO => ["Nueva fecha de entrega · Pedido {$p->number}", $base + [
