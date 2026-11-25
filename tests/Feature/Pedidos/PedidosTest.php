@@ -824,7 +824,7 @@ final class PedidosTest extends TestCase
 
         $r = $this->admin()->getJson("/api/v1/admin/orders/{$b->number}")->assertOk();
         $r->assertJsonPath('send_by', $hoy->addDays(2)->format('Y-m-d'));
-        $this->assertSame($hoy->addDays(2)->endOfDay()->utc()->format('Y-m-d\TH:i:s\Z'), $r->json('send_by_at'));
+        $this->assertSame($hoy->addDays(2)->setTime(7, 0)->utc()->format('Y-m-d\TH:i:s\Z'), $r->json('send_by_at'));
     }
 
     public function test_marcar_pagado_manualmente_deja_el_pedido_en_produccion(): void

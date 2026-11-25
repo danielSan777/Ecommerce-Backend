@@ -26,9 +26,9 @@ final class ControladorAdministracionPedidos extends Controller
             'total_cents' => $p->total_cents, 'discount_cents' => $p->discount_cents, 'card_fee_cents' => $p->card_fee_cents, 'shipping_cents' => $p->shipping_cents, 'shipping_zone' => $p->shipping_zone,
             'cycle_date' => $p->cycle_date->format('Y-m-d'), 'dispatch_date' => $p->dispatch_date->format('Y-m-d'),
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d'), 'type' => $p->window_type],
-            // Se envía un día antes del inicio de la entrega; el plazo corre hasta el final de ese día en Guayaquil.
+            // Se envía un día antes del inicio de la entrega; el plazo vence a las 7:00 de ese día en Guayaquil.
             'send_by' => $p->window_start->subDay()->format('Y-m-d'),
-            'send_by_at' => CarbonImmutable::parse($p->window_start->subDay()->format('Y-m-d'), 'America/Guayaquil')->endOfDay()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'send_by_at' => CarbonImmutable::parse($p->window_start->subDay()->format('Y-m-d'), 'America/Guayaquil')->setTime(7, 0)->utc()->format('Y-m-d\TH:i:s\Z'),
             'delay' => $p->delayed_at === null ? null : [
                 'reason' => $p->delay_reason, 'at' => $p->delayed_at->utc()->format('Y-m-d\TH:i:s\Z'),
                 'original_window' => ['start' => $p->original_window_start?->format('Y-m-d'), 'end' => $p->original_window_end?->format('Y-m-d')],
