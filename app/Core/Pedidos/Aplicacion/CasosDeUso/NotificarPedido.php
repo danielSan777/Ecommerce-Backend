@@ -31,6 +31,9 @@ final class NotificarPedido
 
     public const CANCELADO = 'cancelled';
 
+    /** Josué avisa un retraso y la nueva fecha de entrega (puede haber varios, uno por cada fecha nueva). */
+    public const RETRASADO = 'delayed';
+
     private const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
     private const MESES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -38,7 +41,7 @@ final class NotificarPedido
     public function __construct(private readonly RepositorioConfiguracion $ajustes) {}
 
     /**
-     * @param  array{reason?: string}  $extra  para «cancelado»: el motivo breve que escribió Josué
+     * @param  array{reason?: string, previous_window?: string}  $extra  el motivo breve que escribió Josué (cancelado y retraso) y, en el retraso, la fecha anterior ya escrita
      * @return bool true si se envió ahora; false si ya se había enviado o no se pudo enviar
      */
     public function __invoke(PedidoModelo $p, string $motivo, array $extra = []): bool
@@ -53,7 +56,8 @@ final class NotificarPedido
         try {
             $evento = EventoDePedidoModelo::query()->create([
                 'order_id' => $p->id, 'type' => 'email', 'reason' => $motivo,
-                'idempotency_key' => "correo:{$p->id}:{$motivo}",
+                // el retraso lleva las fechas en la clave: cada fecha nueva es un aviso nuevo; repetir la misma no reenvía
+                'idempotency_key' => "correo:{$p->id}:{$motivo}".($motivo === self::RETRASADO ? ':'.$p->window_start->format('Ymd').'-'.$p->window_end->format('Ymd') : ''),
                 'data' => ['to' => $destino, 'subject' => $asunto],
             ]);
         } catch (UniqueConstraintViolationException) {
@@ -151,6 +155,14 @@ final class NotificarPedido
                 'detalle' => $p->payment_status === 'paid' ? 'Como ya habías pagado, te escribiremos para coordinar el reembolso.' : null,
                 'boton' => 'Ver mi pedido',
             ]],
+            self::RETRASADO => ["Nueva fecha de entrega · Pedido {$p->number}", $base + [
+                'titulo' => 'Tu pedido tiene una nueva fecha de entrega',
+                'intro' => 'Tuvimos un inconveniente con tu pedido y se va a retrasar. Lamentamos las molestias: lo estamos resolviendo para que te llegue perfecto.',
+                'motivo' => ($extra['reason'] ?? '') !== '' ? $extra['reason'] : null,
+                'ventana' => $this->ventana($p),
+                'ventanaAnterior' => $extra['previous_window'] ?? null,
+                'boton' => 'Ver el seguimiento de mi pedido',
+            ]],
             default => throw new \InvalidArgumentException("Motivo de correo desconocido: {$motivo}"),
         };
     }
@@ -183,10 +195,16 @@ final class NotificarPedido
     }
 
     /** «martes 17 de noviembre» o «del martes 17 al miércoles 18 de noviembre». */
-    private function ventana(PedidoModelo $p): string
+    public function ventana(PedidoModelo $p): string
     {
-        $a = CarbonImmutable::parse($p->window_start->format('Y-m-d'), 'America/Guayaquil');
-        $b = CarbonImmutable::parse($p->window_end->format('Y-m-d'), 'America/Guayaquil');
+        return $this->etiquetaDeVentana($p->window_start->format('Y-m-d'), $p->window_end->format('Y-m-d'));
+    }
+
+    /** Igual que `ventana`, para dos fechas `Y-m-d` cualesquiera (por ejemplo, la fecha anterior a un retraso). */
+    public function etiquetaDeVentana(string $inicio, string $fin): string
+    {
+        $a = CarbonImmutable::parse($inicio, 'America/Guayaquil');
+        $b = CarbonImmutable::parse($fin, 'America/Guayaquil');
         $dia = fn (CarbonImmutable $d) => self::DIAS[$d->dayOfWeekIso].' '.$d->day;
         if ($a->isSameDay($b)) {
             return $dia($a).' de '.self::MESES[$a->month];

@@ -21,6 +21,7 @@ class PedidoModelo extends Model
         return [
             'shipping' => 'array', 'billing' => 'array', 'contact' => 'array', 'tracking' => 'array', 'grace_applied' => 'boolean',
             'window_start' => 'date:Y-m-d', 'window_end' => 'date:Y-m-d', 'cycle_date' => 'date:Y-m-d', 'dispatch_date' => 'date:Y-m-d',
+            'original_window_start' => 'date:Y-m-d', 'original_window_end' => 'date:Y-m-d', 'delayed_at' => 'datetime',
             'transfer_deadline_at' => 'datetime', 'card_reserved_until' => 'datetime', 'receipt_uploaded_at' => 'datetime', 'whatsapp_clicked_at' => 'datetime',
             'paid_at' => 'datetime', 'production_started_at' => 'datetime', 'shipped_at' => 'datetime', 'expired_at' => 'datetime', 'terms_accepted_at' => 'datetime',
         ];

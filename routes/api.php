@@ -73,6 +73,7 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{numero}/mark-paid', [ControladorAdministracionPedidos::class, 'marcarPagado'])->name('api.v1.admin.orders.mark-paid');
         Route::post('orders/{numero}/production', [ControladorAdministracionPedidos::class, 'enProduccion'])->name('api.v1.admin.orders.production');
         Route::post('orders/{numero}/ship', [ControladorAdministracionPedidos::class, 'enviado'])->name('api.v1.admin.orders.ship');
+        Route::post('orders/{numero}/delay', [ControladorAdministracionPedidos::class, 'retraso'])->name('api.v1.admin.orders.delay');
         Route::post('orders/{numero}/cancel', [ControladorAdministracionPedidos::class, 'cancelar'])->name('api.v1.admin.orders.cancel');
         Route::get('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'index'])->name('api.v1.admin.non-working-days.index');
         Route::post('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'store'])->name('api.v1.admin.non-working-days.store');

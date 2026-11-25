@@ -775,6 +775,49 @@ final class PedidosTest extends TestCase
         Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Tu pedido {$p->number} fue cancelado") && str_contains($m->render(), 'Sin stock del producto'));
     }
 
+    public function test_un_retraso_cambia_la_fecha_de_entrega_guarda_la_original_y_avisa_al_comprador(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $p->update(['payment_status' => 'paid', 'status' => 'ready_for_production', 'paid_at' => now()]);
+        $antes = $p->window_start->format('Y-m-d').'|'.$p->window_end->format('Y-m-d');
+        $inicio = now('America/Guayaquil')->addDays(10)->format('Y-m-d');
+        $fin = now('America/Guayaquil')->addDays(11)->format('Y-m-d');
+
+        $r = $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $inicio, 'window_end' => $fin, 'reason' => '<b>Se rompió</b> la maceta'])->assertOk();
+
+        $r->assertJsonPath('window.start', $inicio)->assertJsonPath('window.end', $fin)->assertJsonPath('delay.reason', 'Se rompió la maceta');
+        $this->assertSame($antes, $r->json('delay.original_window.start').'|'.$r->json('delay.original_window.end'));
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Nueva fecha de entrega · Pedido {$p->number}")
+            && $m->hasReplyTo('pedidos@jardindesele.com')
+            && str_contains($m->render(), 'Se rompió la maceta') && str_contains($m->render(), 'Nueva fecha de entrega') && str_contains($m->render(), 'Fecha anterior'));
+
+        // las mismas fechas no reenvían el correo; unas nuevas, sí, y la fecha original sigue siendo la de la compra
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $inicio, 'window_end' => $fin])->assertOk();
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Nueva fecha de entrega · Pedido {$p->number}"), 1);
+        $otro = now('America/Guayaquil')->addDays(14)->format('Y-m-d');
+        $r2 = $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $otro, 'window_end' => $otro])->assertOk();
+        $this->assertSame($antes, $r2->json('delay.original_window.start').'|'.$r2->json('delay.original_window.end'));
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Nueva fecha de entrega · Pedido {$p->number}"), 2);
+    }
+
+    public function test_el_retraso_exige_pedido_pagado_sin_cancelar_y_fechas_validas(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $manana = now('America/Guayaquil')->addDay()->format('Y-m-d');
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $manana, 'window_end' => $manana])->assertStatus(409)->assertJsonPath('code', 'not_paid');
+
+        $p->update(['payment_status' => 'paid', 'status' => 'ready_for_production', 'paid_at' => now()]);
+        $ayer = now('America/Guayaquil')->subDay()->format('Y-m-d');
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $ayer, 'window_end' => $manana])->assertStatus(422)->assertJsonValidationErrors(['window_start']);
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $manana, 'window_end' => $ayer])->assertStatus(422)->assertJsonValidationErrors(['window_end']);
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => 'mañana'])->assertStatus(422);
+
+        $p->update(['status' => 'cancelled']);
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $manana, 'window_end' => $manana])->assertStatus(409)->assertJsonPath('code', 'order_cancelled');
+    }
+
     public function test_si_el_correo_falla_el_pedido_se_crea_igual_y_se_puede_reintentar(): void
     {
         Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP caído'));

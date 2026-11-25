@@ -144,6 +144,45 @@ final class GestionarPedido
         return $p->refresh();
     }
 
+    /**
+     * Retraso (por ejemplo, se rompió la maceta): Josué fija la nueva fecha de entrega y el comprador recibe un correo con ella.
+     * Solo un pedido pagado, sin cancelar. Se guarda la fecha prometida al comprar la primera vez, para no perder el dato.
+     * Repetir el aviso con las mismas fechas no reenvía el correo; con fechas distintas, sí.
+     */
+    public function registrarRetraso(PedidoModelo $p, string $inicio, string $fin, string $motivo = '', ?CarbonImmutable $ahora = null): PedidoModelo
+    {
+        $this->exigirPagadoSinCancelar($p);
+        $ahora ??= CarbonImmutable::now('UTC');
+        $hoy = $ahora->setTimezone('America/Guayaquil')->format('Y-m-d');
+        $errores = [];
+        $a = \DateTimeImmutable::createFromFormat('!Y-m-d', $inicio);
+        $b = \DateTimeImmutable::createFromFormat('!Y-m-d', $fin);
+        if ($a === false || $a->format('Y-m-d') !== $inicio) {
+            $errores['window_start'] = ['Elige la fecha desde la que entregas.'];
+        } elseif ($inicio < $hoy) {
+            $errores['window_start'] = ['La nueva fecha no puede ser anterior a hoy.'];
+        }
+        if ($b === false || $b->format('Y-m-d') !== $fin) {
+            $errores['window_end'] = ['Elige la fecha hasta la que entregas.'];
+        } elseif ($a !== false && $fin < $inicio) {
+            $errores['window_end'] = ['La fecha final no puede ser anterior a la inicial.'];
+        }
+        if ($errores !== []) {
+            throw new ValidacionFallida($errores);
+        }
+
+        $anterior = $this->correo->etiquetaDeVentana($p->window_start->format('Y-m-d'), $p->window_end->format('Y-m-d'));
+        $p->update([
+            'original_window_start' => $p->original_window_start ?? $p->window_start,
+            'original_window_end' => $p->original_window_end ?? $p->window_end,
+            'window_start' => $inicio, 'window_end' => $fin,
+            'delay_reason' => $motivo !== '' ? $motivo : null, 'delayed_at' => $ahora,
+        ]);
+        $this->avisar($p, NotificarPedido::RETRASADO, ['reason' => $motivo, 'previous_window' => $anterior]);
+
+        return $p->refresh();
+    }
+
     /** «En producción»: solo un pedido pagado que todavía no salió. */
     public function marcarEnProduccion(PedidoModelo $p, ?CarbonImmutable $ahora = null): PedidoModelo
     {

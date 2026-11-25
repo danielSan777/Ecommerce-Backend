@@ -25,6 +25,10 @@ final class ControladorAdministracionPedidos extends Controller
             'total_cents' => $p->total_cents, 'discount_cents' => $p->discount_cents, 'card_fee_cents' => $p->card_fee_cents, 'shipping_cents' => $p->shipping_cents, 'shipping_zone' => $p->shipping_zone,
             'cycle_date' => $p->cycle_date->format('Y-m-d'), 'dispatch_date' => $p->dispatch_date->format('Y-m-d'),
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d'), 'type' => $p->window_type],
+            'delay' => $p->delayed_at === null ? null : [
+                'reason' => $p->delay_reason, 'at' => $p->delayed_at->utc()->format('Y-m-d\TH:i:s\Z'),
+                'original_window' => ['start' => $p->original_window_start?->format('Y-m-d'), 'end' => $p->original_window_end?->format('Y-m-d')],
+            ],
             'deadline_at' => $p->transfer_deadline_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'receipt_uploaded_at' => $p->receipt_uploaded_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'whatsapp_clicked_at' => $p->whatsapp_clicked_at?->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -87,6 +91,23 @@ final class ControladorAdministracionPedidos extends Controller
         $motivo = trim(strip_tags((string) ($validos['reason'] ?? '')));
 
         return response()->json($this->fila($gestionar->cancelar($this->buscar($numero), (bool) ($validos['notify_buyer'] ?? false), $motivo)->load('items', 'cliente')));
+    }
+
+    /** Retraso: nueva fecha de entrega (`window_start`–`window_end`) y motivo breve; el comprador recibe un correo con ella. */
+    public function retraso(string $numero, Request $request, GestionarPedido $gestionar): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->all(), [
+            'window_start' => ['required', 'date_format:Y-m-d'],
+            'window_end' => ['required', 'date_format:Y-m-d'],
+            'reason' => ['nullable', 'string', 'max:200'],
+        ], [
+            'window_start.required' => 'Elige la fecha desde la que entregas.', 'window_start.date_format' => 'Elige la fecha desde la que entregas.',
+            'window_end.required' => 'Elige la fecha hasta la que entregas.', 'window_end.date_format' => 'Elige la fecha hasta la que entregas.',
+            'reason.max' => 'El motivo puede tener hasta 200 caracteres.',
+        ]);
+        $motivo = trim(strip_tags((string) ($validos['reason'] ?? '')));
+
+        return response()->json($this->fila($gestionar->registrarRetraso($this->buscar($numero), $validos['window_start'], $validos['window_end'], $motivo)->load('items', 'cliente')));
     }
 
     /** El comprobante vive en el disco privado: solo el administrador lo descarga. */

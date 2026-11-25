@@ -15,7 +15,8 @@
 <strong>Pedido {{ $numero }}</strong><br>
 @foreach ($productos as $nombre)• {{ $nombre }}<br>@endforeach
 Total: <strong>${{ $total }}</strong>
-@isset($ventana)<br>Entrega estimada: <strong>{{ $ventana }}</strong>@endisset
+@isset($ventana)<br>{{ isset($ventanaAnterior) ? 'Nueva fecha de entrega' : 'Entrega estimada' }}: <strong>{{ $ventana }}</strong>@endisset
+@isset($ventanaAnterior)<br><span style="color:#6b7280;font-size:13px;">Fecha anterior: {{ $ventanaAnterior }}</span>@endisset
 </td></tr></table>
 
 @isset($limite)<p style="margin:0 0 12px;line-height:1.5;"><strong>{{ $limite }}</strong></p>@endisset
