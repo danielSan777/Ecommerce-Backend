@@ -190,4 +190,49 @@ final class EntregaTest extends TestCase
         $this->deleteJson('/api/v1/admin/non-working-days/2026-12-31')->assertNoContent();
         $this->deleteJson('/api/v1/admin/non-working-days/2026-12-31')->assertNotFound();
     }
+
+    public function test_el_administrador_bloquea_un_rango_de_dias_y_el_calendario_los_salta(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-09 21:18:00', 'UTC'));
+        $this->actingAs(User::factory()->administrador()->create(), 'api');
+
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-12-01', 'end_date' => '2026-12-03', 'type' => 'closure', 'note' => 'Viaje'])
+            ->assertCreated()->assertJsonCount(3, 'data')->assertJsonPath('data.2.date', '2026-12-03')->assertJsonPath('data.1.note', 'Viaje');
+        $this->assertSame(3, DiaNoHabilModelo::query()->where('type', 'closure')->count());
+
+        $dias = collect($this->getJson('/api/v1/delivery/windows')->assertOk()->json('windows'))->pluck('start');
+        foreach (['2026-12-01', '2026-12-02', '2026-12-03'] as $cerrado) {
+            $this->assertFalse($dias->contains($cerrado), "$cerrado está cerrado y aun así tiene ventana");
+        }
+
+        // volver a guardar el mismo rango no duplica
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-12-01', 'end_date' => '2026-12-03', 'type' => 'closure'])->assertCreated();
+        $this->assertSame(3, DiaNoHabilModelo::query()->count() - DiaNoHabilModelo::query()->where('type', '!=', 'closure')->count());
+    }
+
+    public function test_el_rango_de_dias_se_valida(): void
+    {
+        $this->actingAs(User::factory()->administrador()->create(), 'api');
+
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-12-05', 'end_date' => '2026-12-01', 'type' => 'closure'])
+            ->assertStatus(422)->assertJsonValidationErrors('end_date');
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2026-01-01', 'end_date' => '2026-12-31', 'type' => 'closure'])
+            ->assertStatus(422)->assertJsonValidationErrors('end_date');
+        $this->assertSame(0, DiaNoHabilModelo::query()->where('type', 'closure')->count());
+    }
+
+    public function test_el_listado_dice_cuantos_feriados_nacionales_hay_para_el_año_siguiente(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-09 21:18:00', 'UTC'));
+        $this->actingAs(User::factory()->administrador()->create(), 'api');
+        DiaNoHabilModelo::query()->delete();
+
+        $this->getJson('/api/v1/admin/non-working-days')->assertOk()
+            ->assertJsonPath('meta.next_year', 2027)->assertJsonPath('meta.national_holidays_next_year', 0);
+
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2027-01-01', 'type' => 'national_holiday'])->assertCreated();
+        $this->postJson('/api/v1/admin/non-working-days', ['date' => '2027-02-05', 'type' => 'local_holiday'])->assertCreated();
+
+        $this->getJson('/api/v1/admin/non-working-days')->assertJsonPath('meta.national_holidays_next_year', 1);
+    }
 }
