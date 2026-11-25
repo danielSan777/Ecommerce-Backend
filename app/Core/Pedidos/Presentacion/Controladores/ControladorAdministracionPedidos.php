@@ -8,6 +8,7 @@ use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
 use App\Http\Controllers\Controller;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\Request;
@@ -25,6 +26,9 @@ final class ControladorAdministracionPedidos extends Controller
             'total_cents' => $p->total_cents, 'discount_cents' => $p->discount_cents, 'card_fee_cents' => $p->card_fee_cents, 'shipping_cents' => $p->shipping_cents, 'shipping_zone' => $p->shipping_zone,
             'cycle_date' => $p->cycle_date->format('Y-m-d'), 'dispatch_date' => $p->dispatch_date->format('Y-m-d'),
             'window' => ['start' => $p->window_start->format('Y-m-d'), 'end' => $p->window_end->format('Y-m-d'), 'type' => $p->window_type],
+            // Se envía un día antes del inicio de la entrega; el plazo corre hasta el final de ese día en Guayaquil.
+            'send_by' => $p->window_start->subDay()->format('Y-m-d'),
+            'send_by_at' => CarbonImmutable::parse($p->window_start->subDay()->format('Y-m-d'), 'America/Guayaquil')->endOfDay()->utc()->format('Y-m-d\TH:i:s\Z'),
             'delay' => $p->delayed_at === null ? null : [
                 'reason' => $p->delay_reason, 'at' => $p->delayed_at->utc()->format('Y-m-d\TH:i:s\Z'),
                 'original_window' => ['start' => $p->original_window_start?->format('Y-m-d'), 'end' => $p->original_window_end?->format('Y-m-d')],
@@ -50,12 +54,17 @@ final class ControladorAdministracionPedidos extends Controller
             ->when($buscar !== '', fn ($q) => $q->where('number', 'like', '%'.addcslashes($buscar, '%_\\').'%'))
             ->when($filtro === 'pending', fn ($q) => $q->where('payment_status', 'pending_validation')->where('status', 'created'))
             ->when($filtro === 'paid', fn ($q) => $q->where('payment_status', 'paid'))
-            ->when($filtro === 'to_produce', fn ($q) => $q->where('status', 'ready_for_production'))
             ->when($filtro === 'in_production', fn ($q) => $q->where('status', 'in_production'))
             ->when($filtro === 'shipped', fn ($q) => $q->where('status', 'shipped'))
             ->when($filtro === 'expired', fn ($q) => $q->where('status', 'expired'))
             ->when($filtro === 'cancelled', fn ($q) => $q->where('status', 'cancelled'))
-            ->orderByDesc('id')->limit(200)->get();
+            ->when($filtro === 'in_production',
+                // Producción: lo más cercano a vencer primero (default) o los de mayor monto; el desempate es siempre el vencimiento.
+                fn ($q) => $request->query('sort') === 'amount'
+                    ? $q->orderByDesc('total_cents')->orderBy('window_start')->orderBy('id')
+                    : $q->orderBy('window_start')->orderByDesc('total_cents')->orderBy('id'),
+                fn ($q) => $q->orderByDesc('id'))
+            ->limit(200)->get();
 
         return response()->json(['data' => $pedidos->map(fn ($p) => $this->fila($p))->all()]);
     }

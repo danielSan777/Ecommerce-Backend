@@ -95,7 +95,7 @@ final class GestionarPedido
         }
 
         return DB::transaction(function () use ($p, $fueraDePlazo, $confirmarSobrecupo, $ahora) {
-            $cambios = ['payment_status' => 'paid', 'status' => 'ready_for_production', 'paid_at' => $ahora, 'expired_at' => null];
+            $cambios = ['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => $ahora, 'production_started_at' => $ahora, 'expired_at' => null];
 
             if ($fueraDePlazo) {
                 $ciclo = $this->motor->ciclo($ahora)['cycle_date'];

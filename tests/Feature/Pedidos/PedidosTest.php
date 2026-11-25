@@ -576,7 +576,7 @@ final class PedidosTest extends TestCase
         $this->assertSame($p->number, $r->json('order_number'));
         $p->refresh();
         $this->assertSame('paid', $p->payment_status);
-        $this->assertSame('ready_for_production', $p->status);
+        $this->assertSame('in_production', $p->status);
         $intento = IntentoDePagoModelo::query()->firstOrFail();
         $this->assertSame(['approved', 555, 'SIM555'], [$intento->status, $intento->payphone_transaction_id, $intento->authorization_code]);
 
@@ -779,7 +779,7 @@ final class PedidosTest extends TestCase
     {
         Mail::fake();
         $p = $this->pedidoConCorreos();
-        $p->update(['payment_status' => 'paid', 'status' => 'ready_for_production', 'paid_at' => now()]);
+        $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
         $antes = $p->window_start->format('Y-m-d').'|'.$p->window_end->format('Y-m-d');
         $inicio = now('America/Guayaquil')->addDays(10)->format('Y-m-d');
         $fin = now('America/Guayaquil')->addDays(11)->format('Y-m-d');
@@ -801,6 +801,41 @@ final class PedidosTest extends TestCase
         Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Nueva fecha de entrega · Pedido {$p->number}"), 2);
     }
 
+    public function test_el_pago_pasa_directo_a_produccion_y_la_lista_se_ordena_por_vencimiento_o_monto(): void
+    {
+        Mail::fake();
+        $a = $this->pedidoConCorreos();
+        $b = $this->pedidoConCorreos();
+        $c = $this->pedidoConCorreos();
+        $hoy = now('America/Guayaquil')->toImmutable();
+        foreach ([[$a, 10, 5000], [$b, 3, 9000], [$c, 3, 20000]] as [$p, $dias, $total]) {
+            $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now(),
+                'window_start' => $hoy->addDays($dias)->format('Y-m-d'), 'window_end' => $hoy->addDays($dias + 1)->format('Y-m-d'), 'total_cents' => $total]);
+        }
+
+        $porVencimiento = $this->admin()->getJson('/api/v1/admin/orders?status=in_production')->assertOk()->json('data.*.number');
+        $this->assertSame([$c->number, $b->number, $a->number], $porVencimiento); // empate de fecha: mayor monto primero
+
+        $porMonto = $this->admin()->getJson('/api/v1/admin/orders?status=in_production&sort=amount')->assertOk()->json('data.*.number');
+        $this->assertSame([$c->number, $b->number, $a->number], $porMonto);
+        $a->update(['total_cents' => 99000]);
+        $porMonto = $this->admin()->getJson('/api/v1/admin/orders?status=in_production&sort=amount')->json('data.*.number');
+        $this->assertSame([$a->number, $c->number, $b->number], $porMonto);
+
+        $r = $this->admin()->getJson("/api/v1/admin/orders/{$b->number}")->assertOk();
+        $r->assertJsonPath('send_by', $hoy->addDays(2)->format('Y-m-d'));
+        $this->assertSame($hoy->addDays(2)->endOfDay()->utc()->format('Y-m-d\TH:i:s\Z'), $r->json('send_by_at'));
+    }
+
+    public function test_marcar_pagado_manualmente_deja_el_pedido_en_produccion(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $r = $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/mark-paid")->assertOk();
+        $this->assertSame('in_production', $p->fresh()->status);
+        $this->assertNotNull($r->json('production_started_at'));
+    }
+
     public function test_el_retraso_exige_pedido_pagado_sin_cancelar_y_fechas_validas(): void
     {
         Mail::fake();
@@ -808,7 +843,7 @@ final class PedidosTest extends TestCase
         $manana = now('America/Guayaquil')->addDay()->format('Y-m-d');
         $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $manana, 'window_end' => $manana])->assertStatus(409)->assertJsonPath('code', 'not_paid');
 
-        $p->update(['payment_status' => 'paid', 'status' => 'ready_for_production', 'paid_at' => now()]);
+        $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
         $ayer = now('America/Guayaquil')->subDay()->format('Y-m-d');
         $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $ayer, 'window_end' => $manana])->assertStatus(422)->assertJsonValidationErrors(['window_start']);
         $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/delay", ['window_start' => $manana, 'window_end' => $ayer])->assertStatus(422)->assertJsonValidationErrors(['window_end']);
@@ -867,7 +902,7 @@ final class PedidosTest extends TestCase
         $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertOk()->assertJsonPath('payment_status', 'paid')->assertJsonPath('cycle_date', '2026-11-09');
         $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertStatus(409)->assertJsonPath('code', 'already_paid');
 
-        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'confirmado')->assertJsonPath('payment.status', 'paid');
+        $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'en_produccion')->assertJsonPath('payment.status', 'paid');
     }
 
     /** @return array<string, AccesorioModelo> accesorios de prueba, con los comportamientos que el pedido debe exigir */
@@ -941,12 +976,7 @@ final class PedidosTest extends TestCase
         // Antes de pagar no se puede producir ni enviar
         $this->postJson("/api/v1/admin/orders/{$n}/production")->assertStatus(409)->assertJsonPath('code', 'not_paid');
         $this->postJson("/api/v1/admin/orders/{$n}/mark-paid")->assertOk();
-        $this->getJson('/api/v1/admin/orders?status=to_produce')->assertJsonPath('data.0.number', $n);
-
-        // Y tampoco enviar sin haber pasado por producción
-        $this->postJson("/api/v1/admin/orders/{$n}/ship", ['tracking_number' => '1234567890'])->assertStatus(409)->assertJsonPath('code', 'not_in_production');
-
-        $this->postJson("/api/v1/admin/orders/{$n}/production")->assertOk()->assertJsonPath('status', 'in_production');
+        // Al pagar pasa directo a producción (ya no existe «por producir»)
         $this->getJson("/api/v1/orders/{$token}")->assertJsonPath('visible_status', 'en_produccion')->assertJsonPath('shipment.tracking_number', null);
         $this->getJson('/api/v1/admin/orders?status=in_production')->assertJsonPath('data.0.number', $n);
 
@@ -996,7 +1026,7 @@ final class PedidosTest extends TestCase
 
         // Ciclo con 10 pagados: otro vencido que pagó a tiempo pide confirmación explícita
         for ($i = 0; $i < 10; $i++) {
-            PedidoModelo::query()->create($this->base($vencido, ['number' => "JDS-P{$i}", 'token' => bin2hex(random_bytes(32)), 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'payment_status' => 'paid', 'status' => 'ready_for_production']));
+            PedidoModelo::query()->create($this->base($vencido, ['number' => "JDS-P{$i}", 'token' => bin2hex(random_bytes(32)), 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'payment_status' => 'paid', 'status' => 'in_production']));
         }
         $otro = PedidoModelo::query()->create($this->base($vencido, ['number' => 'JDS-X', 'token' => bin2hex(random_bytes(32)), 'uuid' => (string) \Illuminate\Support\Str::uuid(), 'payment_status' => 'pending_validation', 'status' => 'expired']));
         $this->postJson('/api/v1/admin/orders/JDS-X/mark-paid')->assertStatus(409)->assertJsonPath('code', 'capacity_over_limit');
