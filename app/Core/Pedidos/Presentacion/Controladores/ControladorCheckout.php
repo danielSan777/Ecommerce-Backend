@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Pedidos\Presentacion\Controladores;
 
 use App\Core\Pedidos\Aplicacion\CasosDeUso\ConsultarPedido;
+use App\Core\Pedidos\Aplicacion\CasosDeUso\CotizarCarrito;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\CrearPedido;
 use App\Core\Pedidos\Aplicacion\CasosDeUso\NotificarPedido;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,19 @@ final class ControladorCheckout extends Controller
         'terms.accepted.accepted' => 'Debes aceptar los términos y condiciones para continuar.',
         'payment_method.in' => 'El método de pago no es válido.',
     ];
+
+    /** Cotización del carrito (precios, descuento, envío y recargo): Angular solo muestra lo que responde Laravel. */
+    public function cotizar(Request $request, CotizarCarrito $cotizar): JsonResponse
+    {
+        $datos = ValidacionFallida::validar($request->all(), [
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.slug' => ['required', 'string', 'max:150'],
+            'items.*.quantity' => ['sometimes', 'integer', 'min:1', 'max:20'],
+            'canton_code' => ['nullable', 'string', 'max:12'],
+        ], self::MENSAJES);
+
+        return response()->json($cotizar($datos['items'], $datos['canton_code'] ?? null));
+    }
 
     public function store(Request $request, CrearPedido $crear, ConsultarPedido $consultar, NotificarPedido $notificar): JsonResponse
     {

@@ -870,6 +870,53 @@ final class PedidosTest extends TestCase
         $this->assertNotNull($r->json('production_started_at'));
     }
 
+    public function test_la_cotizacion_del_carrito_da_los_mismos_numeros_que_el_pedido(): void
+    {
+        $slug = $this->slug();
+        $q = $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $slug]], 'canton_code' => '0901'])->assertOk();
+
+        // lo que cotiza es exactamente lo que cobraría el pedido, por transferencia y por tarjeta
+        $transferencia = $this->crear(['expected_total_cents' => 1])->assertStatus(409)->json('details');
+        $tarjeta = $this->crear(['payment_method' => 'card', 'expected_total_cents' => 1])->assertStatus(409)->json('details');
+        $this->assertSame($transferencia['total_cents'], $q->json('total_transfer_cents'));
+        $this->assertSame($tarjeta['total_cents'], $q->json('total_card_cents'));
+        $this->assertSame($tarjeta['card_fee_cents'], $q->json('card_fee_cents'));
+        $this->assertSame([$transferencia['subtotal_cents'], $transferencia['shipping_cents'], 0], [$q->json('subtotal_cents'), $q->json('shipping_cents'), $q->json('discount_cents')]);
+        $this->assertTrue($q->json('shipping_available'));
+        $this->assertFalse($q->json('free_shipping'));
+    }
+
+    public function test_la_cotizacion_sin_canton_no_inventa_la_tarifa_y_con_dos_macetas_el_envio_es_gratis(): void
+    {
+        [$a, $b] = $this->dosMacetasDe2000y1900();
+
+        $uno = $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $a['slug']]]])->assertOk();
+        $this->assertNull($uno->json('shipping_cents'));
+        $this->assertNull($uno->json('total_card_cents'));
+        $this->assertNull($uno->json('shipping_available'));
+        $this->assertSame(2000, $uno->json('subtotal_cents'));
+
+        $dos = $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $a['slug']], ['slug' => $b['slug']]]])->assertOk();
+        $this->assertSame([3900, 0, true], [$dos->json('subtotal_cents'), $dos->json('shipping_cents'), $dos->json('free_shipping')]);
+        $this->assertSame(3900 + (int) floor(3900 * 0.06 + 0.5), $dos->json('total_card_cents'));   // recargo del modo estándar
+    }
+
+    public function test_la_cotizacion_en_modo_todo_gratis_calcula_el_descuento_y_no_cobra_recargo(): void
+    {
+        [$a, $b] = $this->dosMacetasDe2000y1900();
+        app(\App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion::class)->guardar('sales_mode', 'free_shipping_discount');
+
+        $q = $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $a['slug']], ['slug' => $b['slug']]]])->assertOk();
+        $this->assertSame(['free_shipping_discount', 570, [1], 3330, 3330], [$q->json('mode'), $q->json('discount_cents'), $q->json('discounted_lines'), $q->json('total_transfer_cents'), $q->json('total_card_cents')]);
+        $this->assertSame(0, $q->json('card_fee_cents'));
+    }
+
+    public function test_la_cotizacion_rechaza_carritos_vacios_y_productos_inexistentes(): void
+    {
+        $this->postJson('/api/v1/cart/quote', ['items' => []])->assertStatus(422);
+        $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => 'no-existe']]])->assertStatus(422)->assertJsonValidationErrors(['items.0.slug']);
+    }
+
     public function test_cancelar_un_pedido_pagado_registra_el_reembolso_y_el_comprador_lo_ve(): void
     {
         Mail::fake();

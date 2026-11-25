@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Core\Pedidos\Aplicacion\CasosDeUso;
 
-use App\Core\Catalogo\Dominio\ValueObjects\Precio;
 use App\Core\Catalogo\Infraestructura\Modelos\ProductoModelo;
 use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
 use App\Core\Configurador\Infraestructura\Modelos\AccesorioModelo;
@@ -221,7 +220,8 @@ final class CrearPedido
                 throw new ValidacionFallida(["items.$i.slug" => ['Uno de los productos ya no está disponible. Revisa tu carrito.']]);
             }
             $personalizable = $producto->type === 'personalizable';
-            $cantidad = $personalizable ? 1 : max(1, min(20, (int) ($item['quantity'] ?? 1)));
+            $precio = CotizarCarrito::linea($producto, $item['quantity'] ?? 1);
+            $cantidad = $precio['quantity'];
             $personalizacion = null;
             $fotoMarco = null;
 
@@ -230,11 +230,10 @@ final class CrearPedido
                 [$personalizacion, $fotoMarco] = $this->normalizarPersonalizacion($item['personalization'] ?? null, $i);
             }
 
-            $precio = Precio::conDescuentoPorcentaje((int) $producto->base_price_cents, $producto->discount_percent ?? 0);
             $lineas[] = [
                 'product_sku' => $producto->sku, 'product_slug' => $producto->slug, 'product_name' => $producto->name, 'type' => $producto->type,
-                'quantity' => $cantidad, 'unit_price_cents' => $precio->baseCents, 'discount_cents' => $precio->descuentoCents() * $cantidad,
-                'cost_cents' => (int) $producto->cost_cents, 'line_total_cents' => $precio->finalCents * $cantidad,
+                'quantity' => $cantidad, 'unit_price_cents' => $precio['unit_price_cents'], 'discount_cents' => $precio['discount_cents'],
+                'cost_cents' => (int) $producto->cost_cents, 'line_total_cents' => $precio['line_total_cents'],
                 'personalization' => $personalizacion, 'preview_image' => $this->imagen($item['preview_image'] ?? null, $i), 'frame_photo' => $fotoMarco,
             ];
         }

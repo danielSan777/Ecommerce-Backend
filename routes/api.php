@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('delivery/promise', [ControladorEntrega::class, 'promesa'])->name('api.v1.delivery.promise');
     Route::get('delivery/windows', [ControladorEntrega::class, 'ventanas'])->name('api.v1.delivery.windows');
+    Route::post('cart/quote', [ControladorCheckout::class, 'cotizar'])->middleware('throttle:cotizar')->name('api.v1.cart.quote');
     Route::post('checkout', [ControladorCheckout::class, 'store'])->middleware('throttle:checkout')->name('api.v1.checkout');
     Route::post('orders/{token}/payphone', [ControladorPagos::class, 'iniciar'])->middleware('throttle:pagos')->name('api.v1.orders.payphone');
     Route::post('payments/payphone/confirm', [ControladorPagos::class, 'confirmar'])->middleware('throttle:pagos')->name('api.v1.payments.payphone.confirm');
