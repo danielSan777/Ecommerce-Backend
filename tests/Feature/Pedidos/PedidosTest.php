@@ -1350,4 +1350,154 @@ final class PedidosTest extends TestCase
         $this->postJson('/api/v1/admin/cycles/15-11-2026/close')->assertStatus(422);
         $this->assertDatabaseMissing('cycle_events', ['cycle_date' => '2026-11-15']);
     }
+
+    // ---------- Paso 19: hoja de producción, lista de envíos y «Enviado» por lote ----------
+
+    /** Crea un pedido y lo deja pagado (queda en producción); devuelve su modelo. */
+    private function pedidoPagado(array $cambios = []): PedidoModelo
+    {
+        $this->crear($cambios)->assertCreated();
+        $p = PedidoModelo::query()->latest('id')->firstOrFail();
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/mark-paid")->assertOk();
+
+        return $p->refresh();
+    }
+
+    public function test_la_hoja_de_produccion_trae_los_pedidos_pagados_del_ciclo_sin_precios(): void
+    {
+        $this->pedidoPagado(['items' => [['personalization' => ['name_text' => 'Ñandú Pérez', 'dedication' => ['mode' => 'text', 'text' => 'Para ti, con cariño']]]]]);
+        $sinDedicatoria = $this->pedidoPagado(['items' => [['personalization' => ['name_text' => 'Ana', 'dedication' => ['mode' => 'none', 'text' => '']]]]]);
+        $this->crear()->assertCreated();   // sin pagar: no entra en la hoja
+
+        $r = $this->admin()->getJson('/api/v1/admin/cycles/2026-11-09/production')->assertOk()
+            ->assertJsonPath('cycle.dispatch_date', '2026-11-11')->assertJsonPath('cycle.window.start', '2026-11-12')
+            ->assertJsonPath('totals.orders', 2)->assertJsonPath('totals.planters', 2);
+
+        $primero = $r->json('orders.0');
+        $this->assertSame('Ñandú Pérez', $primero['items'][0]['plate_text']);       // el texto exacto para copiar, con ñ y tildes
+        $this->assertSame('Para ti, con cariño', $primero['items'][0]['dedication']);
+        $this->assertSame('web', $primero['channel']);
+        $this->assertSame('transfer', $primero['payment_method']);
+        $this->assertSame('paid', $primero['payment_status']);
+        $this->assertFalse($primero['scheduled']);
+        $this->assertSame(0, $primero['extra_days']);
+        $this->assertNull($r->json('orders.1.items.0.dedication'));
+        $this->assertSame($sinDedicatoria->number, $r->json('orders.1.number'));
+        $this->assertStringNotContainsString('cents', json_encode($r->json()), 'la hoja de producción no lleva precios');
+        $this->assertStringNotContainsString('total', json_encode($r->json('orders')));
+
+        $this->admin()->getJson('/api/v1/admin/cycles/2026-11-10/production')->assertOk()->assertJsonPath('totals.orders', 0);
+    }
+
+    public function test_la_hoja_marca_el_pedido_programado_y_la_amazonia_con_su_dia_adicional_y_los_complementos(): void
+    {
+        $this->pedidoPagado(['shipping' => ['province_code' => '15', 'canton_code' => '1501']]);   // Amazonía
+
+        $r = $this->admin()->getJson('/api/v1/admin/cycles/2026-11-09/production')->assertOk();
+        $this->assertSame(1, $r->json('orders.0.extra_days'));
+        $this->assertSame(1, $r->json('orders.0.planters'));
+        $this->assertSame('personalizable', $r->json('orders.0.items.0.type'));
+    }
+
+    public function test_la_hoja_y_la_lista_de_envios_dejan_fuera_cancelados_y_exigen_administrador(): void
+    {
+        $cancelado = $this->pedidoPagado();
+        $this->admin()->postJson("/api/v1/admin/orders/{$cancelado->number}/cancel", ['reason' => 'Pidió cancelar'])->assertOk();
+        $vigente = $this->pedidoPagado();
+
+        $this->assertSame([$vigente->number], collect($this->admin()->getJson('/api/v1/admin/cycles/2026-11-09/production')->json('orders'))->pluck('number')->all());
+        $this->assertSame([$vigente->number], collect($this->admin()->getJson('/api/v1/admin/cycles/2026-11-09/shipping')->json('orders'))->pluck('number')->all());
+        $this->admin()->getJson('/api/v1/admin/cycles/09-11-2026/production')->assertStatus(422);
+
+        $this->app['auth']->forgetGuards();
+        $this->actingAs(User::factory()->create(), 'api');
+        $this->getJson('/api/v1/admin/cycles/2026-11-09/production')->assertForbidden();
+        $this->getJson('/api/v1/admin/cycles/2026-11-09/shipping')->assertForbidden();
+        $this->postJson('/api/v1/admin/orders/ship-batch', ['orders' => [['number' => $vigente->number, 'tracking_number' => 'SERV-12345']]])->assertForbidden();
+    }
+
+    public function test_la_lista_de_envios_trae_los_datos_para_la_guia(): void
+    {
+        $p = $this->pedidoPagado();
+
+        $fila = $this->admin()->getJson('/api/v1/admin/cycles/2026-11-09/shipping')->assertOk()->assertJsonPath('cycle.date', '2026-11-09')->json('orders.0');
+
+        $this->assertSame($p->number, $fila['number']);
+        $this->assertSame('Josué de Santis', $fila['name']);
+        $this->assertSame('cedula', $fila['id_type']);
+        $this->assertSame('0930247994', $fila['id_number']);
+        $this->assertNotSame('', $fila['phone']);
+        $this->assertSame('Guayas', $fila['province']);
+        $this->assertSame('Av. Principal 123', $fila['address']);
+        $this->assertSame('Frente al parque', $fila['reference']);
+        $this->assertNull($fila['tracking_number']);
+        $this->assertSame('in_production', $fila['status']);
+    }
+
+    public function test_enviado_por_lote_marca_cada_pedido_con_su_guia_y_avisa_a_cada_comprador(): void
+    {
+        Mail::fake();
+        $a = $this->pedidoPagado();
+        $b = $this->pedidoPagado();
+
+        $r = $this->admin()->postJson('/api/v1/admin/orders/ship-batch', ['orders' => [
+            ['number' => $a->number, 'tracking_number' => 'SERV-10001'],
+            ['number' => $b->number, 'tracking_number' => 'SERV-10002'],
+        ]])->assertOk()->assertJsonPath('shipped', 2);
+
+        $this->assertSame([true, true], collect($r->json('results'))->pluck('ok')->all());
+        $this->assertSame('shipped', $a->refresh()->status);
+        $this->assertSame('SERV-10001', $a->tracking_number);
+        $this->assertSame('SERV-10002', $b->refresh()->tracking_number);
+        $this->assertDatabaseHas('order_events', ['order_id' => $a->id, 'reason' => 'shipped']);
+
+        // la lista de envíos ya muestra las guías y el estado
+        $fila = collect($this->admin()->getJson('/api/v1/admin/cycles/2026-11-09/shipping')->json('orders'))->firstWhere('number', $a->number);
+        $this->assertSame('SERV-10001', $fila['tracking_number']);
+        $this->assertSame('shipped', $fila['status']);
+    }
+
+    public function test_enviado_por_lote_no_se_detiene_por_un_pedido_que_falla_y_dice_cual_y_por_que(): void
+    {
+        Mail::fake();
+        $bueno = $this->pedidoPagado();
+        $sinPagar = null;
+        $this->crear()->assertCreated();
+        $sinPagar = PedidoModelo::query()->latest('id')->firstOrFail();
+
+        $r = $this->admin()->postJson('/api/v1/admin/orders/ship-batch', ['orders' => [
+            ['number' => $sinPagar->number, 'tracking_number' => 'SERV-20001'],
+            ['number' => 'JDS-9999', 'tracking_number' => 'SERV-20002'],
+            ['number' => $bueno->number, 'tracking_number' => 'mala guia!'],
+            ['number' => $bueno->number.'x', 'tracking_number' => 'SERV-20003'],
+        ]])->assertOk()->assertJsonPath('shipped', 0);
+
+        $resultados = collect($r->json('results'));
+        $this->assertSame([false, false, false, false], $resultados->pluck('ok')->all());
+        $this->assertStringContainsString('pagado', $resultados[0]['message']);
+        $this->assertStringContainsString('No existe', $resultados[1]['message']);
+        $this->assertStringContainsString('guía', $resultados[2]['message']);
+        $this->assertSame('in_production', $bueno->refresh()->status);
+
+        // ahora uno bueno y uno malo juntos: el bueno sale
+        $ok = $this->admin()->postJson('/api/v1/admin/orders/ship-batch', ['orders' => [
+            ['number' => $sinPagar->number, 'tracking_number' => 'SERV-30001'],
+            ['number' => $bueno->number, 'tracking_number' => 'SERV-30002'],
+        ]])->assertOk()->assertJsonPath('shipped', 1);
+        $this->assertSame([false, true], collect($ok->json('results'))->pluck('ok')->all());
+        $this->assertSame('shipped', $bueno->refresh()->status);
+    }
+
+    public function test_enviado_por_lote_valida_la_peticion(): void
+    {
+        $p = $this->pedidoPagado();
+
+        $this->admin()->postJson('/api/v1/admin/orders/ship-batch', ['orders' => []])->assertStatus(422);
+        $this->admin()->postJson('/api/v1/admin/orders/ship-batch', [])->assertStatus(422);
+        $this->admin()->postJson('/api/v1/admin/orders/ship-batch', ['orders' => [['number' => $p->number]]])->assertStatus(422);
+        $this->admin()->postJson('/api/v1/admin/orders/ship-batch', ['orders' => [
+            ['number' => $p->number, 'tracking_number' => 'SERV-1'], ['number' => $p->number, 'tracking_number' => 'SERV-2'],
+        ]])->assertStatus(422);
+        $this->assertSame('in_production', $p->refresh()->status);
+    }
 }

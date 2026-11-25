@@ -16,6 +16,7 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionCo
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
 use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionCiclos;
+use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionHojas;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionPedidos;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorCheckout;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorPedidos;
@@ -81,6 +82,9 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{numero}/delay', [ControladorAdministracionPedidos::class, 'retraso'])->name('api.v1.admin.orders.delay');
         Route::post('orders/{numero}/refund', [ControladorAdministracionPedidos::class, 'reembolso'])->name('api.v1.admin.orders.refund');
         Route::post('orders/{numero}/cancel', [ControladorAdministracionPedidos::class, 'cancelar'])->name('api.v1.admin.orders.cancel');
+        Route::get('cycles/{fecha}/production', [ControladorAdministracionHojas::class, 'produccion'])->name('api.v1.admin.cycles.production');
+        Route::get('cycles/{fecha}/shipping', [ControladorAdministracionHojas::class, 'envios'])->name('api.v1.admin.cycles.shipping');
+        Route::post('orders/ship-batch', [ControladorAdministracionHojas::class, 'enviarLote'])->name('api.v1.admin.orders.ship-batch');
         Route::get('cycles', [ControladorAdministracionCiclos::class, 'index'])->name('api.v1.admin.cycles.index');
         Route::post('cycles/{fecha}/close', [ControladorAdministracionCiclos::class, 'cerrar'])->name('api.v1.admin.cycles.close');
         Route::post('cycles/{fecha}/reopen', [ControladorAdministracionCiclos::class, 'reabrir'])->name('api.v1.admin.cycles.reopen');
