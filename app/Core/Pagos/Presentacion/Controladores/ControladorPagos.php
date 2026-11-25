@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 final class ControladorPagos extends Controller
 {
@@ -22,6 +23,46 @@ final class ControladorPagos extends Controller
     public function iniciar(Request $request, string $token, IniciarPagoConTarjeta $iniciar): JsonResponse
     {
         return response()->json($iniciar($token, null, $request->boolean('renew')));
+    }
+
+    /**
+     * Notificación Externa de PayPhone: avisa de un pago aprobado aunque el comprador haya cerrado el navegador.
+     * PayPhone no firma el aviso, así que NO se confía en su contenido: solo se toma `TransactionId` y `ClientTransactionId`
+     * y se llama a Confirm (la misma confirmación de la ruta de respuesta, idempotente). Responde en el formato de PayPhone.
+     */
+    public function notificacion(Request $request, ConfirmarPagoConTarjeta $confirmar): JsonResponse
+    {
+        $id = $request->input('TransactionId', $request->input('transactionId'));
+        $cx = $request->input('ClientTransactionId', $request->input('clientTransactionId'));
+        $tienda = $request->input('StoreId', $request->input('storeId'));
+
+        if (! is_numeric($id) || (int) $id < 1 || ! is_string($cx) || $cx === '' || mb_strlen($cx) > 50) {
+            return response()->json(['Response' => false, 'ErrorCode' => '444']);
+        }
+        $esperada = (string) config('payphone.store_id');
+        if ($esperada !== '' && is_string($tienda) && $tienda !== '' && $tienda !== $esperada) {
+            Log::warning("PayPhone notificación: StoreId {$tienda} no es el de esta tienda ({$cx})");
+
+            return response()->json(['Response' => false, 'ErrorCode' => '666']);
+        }
+        if (! IntentoDePagoModelo::query()->where('client_transaction_id', $cx)->exists()) {
+            Log::warning("PayPhone notificación de un pago desconocido: {$cx}");
+
+            return response()->json(['Response' => true, 'ErrorCode' => '000']);   // nada que reintentar: no es un intento nuestro
+        }
+
+        try {
+            $r = $confirmar((int) $id, $cx);
+        } catch (\App\Core\Pedidos\Dominio\PedidoRechazado $e) {
+            Log::warning("PayPhone notificación {$cx}: {$e->getMessage()}");
+
+            return response()->json(['Response' => false, 'ErrorCode' => '222']);
+        }
+
+        // «error» = PayPhone no respondió a Confirm: se pide que reintenten la notificación (corre el límite de 5 minutos)
+        return response()->json($r['result'] === ConfirmarPagoConTarjeta::ERROR
+            ? ['Response' => false, 'ErrorCode' => '222']
+            : ['Response' => true, 'ErrorCode' => '000']);
     }
 
     /** Ruta de respuesta de PayPhone: recibe `id` y `clientTransactionId`; Laravel confirma y responde el resultado. */

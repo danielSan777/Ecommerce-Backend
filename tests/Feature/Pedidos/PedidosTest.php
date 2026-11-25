@@ -599,6 +599,40 @@ final class PedidosTest extends TestCase
         $this->assertSame("{$p->number}-2", $otro);
     }
 
+    public function test_la_notificacion_externa_confirma_el_pago_aunque_el_comprador_cierre_el_navegador(): void
+    {
+        Mail::fake();
+        config(['payphone.mode' => 'real', 'payphone.token' => 'TOKEN-SECRETO', 'payphone.store_id' => 'STORE-1']);
+        [$p, $token] = $this->pedidoConTarjeta();
+        $cx = $this->postJson("/api/v1/orders/{$token}/payphone")->assertOk()->json('client_transaction_id');
+        $aviso = ['TransactionId' => 9100, 'ClientTransactionId' => $cx, 'StoreId' => 'STORE-1', 'StatusCode' => 3, 'Amount' => 1];   // el contenido del aviso no se usa para decidir
+        $url = '/api/v1/payments/payphone/NotificacionPago';
+
+        // Datos incompletos, otra tienda o un pago que no es nuestro: no se paga nada
+        $this->postJson($url, [])->assertOk()->assertJson(['Response' => false, 'ErrorCode' => '444']);
+        $this->postJson($url, ['StoreId' => 'OTRA'] + $aviso)->assertOk()->assertJson(['Response' => false, 'ErrorCode' => '666']);
+        $this->postJson($url, ['ClientTransactionId' => 'JDS-9999-1'] + $aviso)->assertOk()->assertJson(['Response' => true, 'ErrorCode' => '000']);
+        $this->assertSame('unpaid', $p->refresh()->payment_status);
+
+        // PayPhone no responde a Confirm: se pide reintentar y el pedido sigue sin pagar
+        Http::fake(['*' => Http::sequence()
+            ->push(['message' => 'no existe', 'errorCode' => 20], 404)
+            ->push(['statusCode' => 3, 'transactionId' => 9100, 'clientTransactionId' => $cx, 'authorizationCode' => 'AUTH1', 'amount' => $p->total_cents])]);
+        $this->postJson($url, $aviso)->assertOk()->assertJson(['Response' => false, 'ErrorCode' => '222']);
+        $this->assertSame('unpaid', $p->refresh()->payment_status);
+
+        // El reintento confirma con PayPhone (el monto sale de Confirm, no del aviso) y deja el pedido en producción
+        $this->postJson($url, $aviso)->assertOk()->assertJson(['Response' => true, 'ErrorCode' => '000']);
+        $p->refresh();
+        $this->assertSame(['paid', 'in_production'], [$p->payment_status, $p->status]);
+        $this->assertSame(9100, IntentoDePagoModelo::query()->where('client_transaction_id', $cx)->firstOrFail()->payphone_transaction_id);
+
+        // Un aviso repetido y luego el regreso del comprador no reprocesan: el comprador igual recibe su confirmación
+        $this->postJson($url, $aviso)->assertOk()->assertJson(['Response' => true, 'ErrorCode' => '000']);
+        $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 9100, 'client_transaction_id' => $cx])->assertOk()->assertJsonPath('result', 'approved')->assertJsonPath('token', $token);
+        Http::assertSentCount(2);
+    }
+
     public function test_confirmar_un_pago_inexistente_o_sin_datos_falla(): void
     {
         $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 5, 'client_transaction_id' => 'JDS-9999-1'])->assertStatus(404)->assertJsonPath('code', 'attempt_not_found');

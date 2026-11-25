@@ -36,6 +36,8 @@ Route::prefix('v1')->group(function () {
     Route::post('checkout', [ControladorCheckout::class, 'store'])->middleware('throttle:checkout')->name('api.v1.checkout');
     Route::post('orders/{token}/payphone', [ControladorPagos::class, 'iniciar'])->middleware('throttle:pagos')->name('api.v1.orders.payphone');
     Route::post('payments/payphone/confirm', [ControladorPagos::class, 'confirmar'])->middleware('throttle:pagos')->name('api.v1.payments.payphone.confirm');
+    // Notificación Externa de PayPhone (POST «NotificacionPago»): sin firma, así que solo avisa; Laravel confirma con PayPhone.
+    Route::post('payments/payphone/NotificacionPago', [ControladorPagos::class, 'notificacion'])->name('api.v1.payments.payphone.notification');
     Route::get('orders/{token}', [ControladorPedidos::class, 'show'])->name('api.v1.orders.show');
     Route::post('orders/{token}/receipt', [ControladorPedidos::class, 'comprobante'])->middleware('throttle:comprobantes')->name('api.v1.orders.receipt');
     Route::get('orders/{token}/whatsapp', [ControladorPedidos::class, 'whatsapp'])->name('api.v1.orders.whatsapp');
