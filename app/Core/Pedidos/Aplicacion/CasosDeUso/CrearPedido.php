@@ -38,6 +38,7 @@ final class CrearPedido
         private readonly TokenDePromesa $tokens,
         private readonly BusinessCalendar $calendario,
         private readonly CalculadoraDeTotales $calculadora,
+        private readonly RegistrarEventoDePedido $historial,
     ) {}
 
     /**
@@ -123,6 +124,8 @@ final class CrearPedido
 
             return $pedido;
         });
+
+        ($this->historial)($pedido, 'created', ['channel' => $pedido->channel, 'method' => $pedido->payment_method, 'total_cents' => $pedido->total_cents], 'buyer');
 
         return $pedido->load('items', 'cliente');
     }

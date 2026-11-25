@@ -771,7 +771,7 @@ final class PedidosTest extends TestCase
         $this->assertFalse($notificar($p, NotificarPedido::RECIBIDO));
         $this->assertFalse($notificar($p, NotificarPedido::RECIBIDO));
         Mail::assertSent(CorreoDePedido::class, 1);
-        $this->assertSame(1, EventoDePedidoModelo::query()->where('order_id', $p->id)->count());
+        $this->assertSame(1, EventoDePedidoModelo::query()->where('order_id', $p->id)->where('type', 'email')->count());
     }
 
     public function test_pago_enviado_y_vencido_envian_su_correo_una_sola_vez(): void
@@ -794,7 +794,7 @@ final class PedidosTest extends TestCase
         $gestionar->vencer(CarbonImmutable::now('UTC')->addDays(3));
         Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Tu pedido {$otro->number} venció"));
         $gestionar->vencer(CarbonImmutable::now('UTC')->addDays(4));
-        $this->assertSame(1, EventoDePedidoModelo::query()->where('order_id', $otro->id)->where('reason', 'expired')->count());
+        $this->assertSame(1, EventoDePedidoModelo::query()->where('order_id', $otro->id)->where('type', 'email')->where('reason', 'expired')->count());
     }
 
     public function test_cancelar_solo_envia_correo_si_josue_marca_notificar_y_lleva_el_motivo(): void
@@ -956,6 +956,48 @@ final class PedidosTest extends TestCase
         $this->assertNotSame('cancelled', $q->refresh()->status);
     }
 
+    public function test_el_historial_del_pedido_registra_cada_hecho_con_su_autor(): void
+    {
+        Mail::fake();
+        $this->withoutDefer();
+        $p = $this->pedidoConCorreos();
+        $this->assertSame(['created'], EventoDePedidoModelo::query()->where('order_id', $p->id)->where('type', 'order')->pluck('reason')->all());
+
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/mark-paid")->assertOk();
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/ship", ['tracking_number' => 'AB-12345'])->assertOk();
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/ship", ['tracking_number' => 'AB-99999'])->assertOk();
+
+        $h = $this->admin()->getJson("/api/v1/admin/orders/{$p->number}/history")->assertOk()->json('data');
+        $hechos = array_values(array_map(fn ($e) => $e['type'].':'.$e['reason'].':'.$e['actor'], $h));
+        $this->assertContains('order:created:buyer', $hechos);
+        $this->assertContains('order:paid:admin', $hechos);
+        $this->assertContains('order:shipped:admin', $hechos);
+        $this->assertContains('order:tracking_corrected:admin', $hechos);
+        $this->assertContains('email:paid:system', $hechos);
+        $textos = implode(' | ', array_column($h, 'text'));
+        $this->assertStringContainsString('Enviado, guía AB-12345', $textos);
+        $this->assertStringContainsString('Guía corregida: AB-12345 → AB-99999', $textos);
+        $this->assertSame(array_column($h, 'at'), collect(array_column($h, 'at'))->sort()->values()->all());   // del más antiguo al más reciente
+
+        // cancelar con reembolso queda en el historial; el aviso por correo no cuenta como acción del administrador sobre el pago
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/cancel", ['reason' => 'Se rompió'])->assertStatus(409);   // ya enviado: no se cancela
+        $q = $this->pedidoConCorreos();
+        $q->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
+        $this->admin()->postJson("/api/v1/admin/orders/{$q->number}/cancel", ['reason' => 'Se rompió', 'refund_amount' => '1.00'])->assertOk();
+        $textosQ = implode(' | ', array_column($this->admin()->getJson("/api/v1/admin/orders/{$q->number}/history")->json('data'), 'text'));
+        $this->assertStringContainsString('Pedido cancelado: Se rompió', $textosQ);
+        $this->assertStringContainsString('Reembolso registrado: $1.00', $textosQ);
+    }
+
+    public function test_el_comprador_y_el_sistema_aparecen_como_autores_y_el_historial_exige_sesion_de_administrador(): void
+    {
+        Mail::fake();
+        [$p, $token] = $this->pedidoConTarjeta();
+        $this->getJson("/api/v1/admin/orders/{$p->number}/history")->assertUnauthorized();
+        $actores = EventoDePedidoModelo::query()->where('order_id', $p->id)->where('type', 'order')->pluck('actor', 'reason')->all();
+        $this->assertSame('buyer', $actores['created']);
+    }
+
     public function test_el_retraso_exige_pedido_pagado_sin_cancelar_y_fechas_validas(): void
     {
         Mail::fake();
@@ -979,7 +1021,7 @@ final class PedidosTest extends TestCase
         $p = $this->pedidoConCorreos();
 
         $this->assertNotNull($p->number);
-        $this->assertSame(0, EventoDePedidoModelo::query()->where('order_id', $p->id)->count()); // quedó libre para reintentar
+        $this->assertSame(0, EventoDePedidoModelo::query()->where('order_id', $p->id)->where('type', 'email')->count()); // quedó libre para reintentar
     }
 
     private function admin(): static

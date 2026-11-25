@@ -6,6 +6,7 @@ namespace App\Core\Pedidos\Presentacion\Controladores;
 
 use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
+use App\Core\Pedidos\Infraestructura\Modelos\EventoDePedidoModelo;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
 use App\Http\Controllers\Controller;
 use Carbon\CarbonImmutable;
@@ -70,6 +71,47 @@ final class ControladorAdministracionPedidos extends Controller
             ->limit(200)->get();
 
         return response()->json(['data' => $pedidos->map(fn ($p) => $this->fila($p))->all()]);
+    }
+
+    /** Historial del pedido, del más antiguo al más reciente: cada hecho con su texto, su fecha y quién lo hizo. */
+    public function historial(string $numero): JsonResponse
+    {
+        $pedido = $this->buscar($numero);
+        $eventos = EventoDePedidoModelo::query()->where('order_id', $pedido->id)->orderBy('created_at')->orderBy('id')->get()
+            ->map(fn (EventoDePedidoModelo $e) => [
+                'id' => $e->id, 'type' => $e->type, 'reason' => $e->reason,
+                'text' => $this->textoDeEvento($e),
+                'actor' => $e->actor, 'actor_name' => $e->actor_name,
+                'at' => $e->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
+            ])->all();
+
+        return response()->json(['data' => $eventos]);
+    }
+
+    private function textoDeEvento(EventoDePedidoModelo $e): string
+    {
+        $d = $e->data ?? [];
+        $dolares = fn ($c) => '$'.number_format(((int) $c) / 100, 2);
+        $metodo = fn ($m) => $m === 'card' ? 'tarjeta' : 'transferencia';
+
+        if ($e->type === 'email') {
+            return 'Correo enviado al comprador: '.($d['subject'] ?? $e->reason);
+        }
+
+        return match ($e->reason) {
+            'created' => 'Pedido creado ('.($d['channel'] ?? 'web').', '.$metodo($d['method'] ?? '').', '.$dolares($d['total_cents'] ?? 0).')',
+            'receipt_uploaded' => 'El comprador subió el comprobante (intento '.($d['attempt'] ?? 1).')',
+            'whatsapp_clicked' => 'El comprador tocó el botón de WhatsApp',
+            'paid' => 'Pago confirmado por '.$metodo($d['method'] ?? '').(($d['late'] ?? false) ? ' (fuera de plazo)' : '').'; entrega '.($d['window'] ?? ''),
+            'expired' => ($d['method'] ?? '') === 'card' ? 'Venció el cupo apartado para pagar con tarjeta' : 'Venció el plazo para transferir',
+            'in_production' => 'Pasó a producción',
+            'shipped' => 'Enviado, guía '.($d['tracking_number'] ?? ''),
+            'tracking_corrected' => 'Guía corregida: '.($d['from'] ?? '—').' → '.($d['to'] ?? ''),
+            'delayed' => 'Retraso: nueva entrega '.($d['to'] ?? '').' (antes '.($d['from'] ?? '').')'.(($d['reason'] ?? null) ? ' · '.$d['reason'] : ''),
+            'cancelled' => 'Pedido cancelado'.(($d['reason'] ?? null) ? ': '.$d['reason'] : '').(($d['notify_buyer'] ?? false) ? ' · se avisó al comprador' : ''),
+            'refunded' => 'Reembolso registrado: '.$dolares($d['cents'] ?? 0),
+            default => $e->reason,
+        };
     }
 
     public function show(string $numero): JsonResponse

@@ -22,6 +22,7 @@ final class GestionarPedido
         private readonly MotorDeEntrega $motor,
         private readonly CapacidadDeCiclos $capacidad,
         private readonly NotificarPedido $correo,
+        private readonly RegistrarEventoDePedido $historial,
     ) {}
 
     /** El correo sale después de responder (no hace esperar a nadie) y, si falla, no rompe la acción. */
@@ -52,6 +53,7 @@ final class GestionarPedido
             'receipt_path' => $ruta, 'receipt_original_name' => mb_substr($archivo->getClientOriginalName(), 0, 255),
             'receipt_uploaded_at' => $ahora, 'receipt_attempts' => $p->receipt_attempts + 1,
         ]);
+        ($this->historial)($p, 'receipt_uploaded', ['attempt' => $p->receipt_attempts], 'buyer');
 
         return $p->refresh();
     }
@@ -59,6 +61,7 @@ final class GestionarPedido
     public function registrarClicDeWhatsapp(PedidoModelo $p, ?CarbonImmutable $ahora = null): void
     {
         $p->update(['whatsapp_clicked_at' => $ahora ?? CarbonImmutable::now('UTC')]);
+        ($this->historial)($p, 'whatsapp_clicked', [], 'buyer');
     }
 
     /** Pasa a `expired` las transferencias cuyo plazo terminó: libera el cupo y no borra nada. */
@@ -70,14 +73,19 @@ final class GestionarPedido
             ->where('transfer_deadline_at', '<=', $ahora)->get();
         foreach ($vencidos as $pedido) {
             $pedido->update(['status' => 'expired', 'expired_at' => $ahora]);
+            ($this->historial)($pedido, 'expired', ['method' => 'transfer']);
             $this->avisar($pedido, NotificarPedido::VENCIDO);
         }
 
         // Pedidos con tarjeta sin pagar cuyo cupo apartado (15 min) terminó: se liberan sin avisar al comprador
         $tarjetas = PedidoModelo::query()->where('payment_method', 'card')->where('payment_status', 'unpaid')->where('status', 'created')
-            ->where('card_reserved_until', '<=', $ahora)->update(['status' => 'expired', 'expired_at' => $ahora]);
+            ->where('card_reserved_until', '<=', $ahora)->get();
+        foreach ($tarjetas as $pedido) {
+            $pedido->update(['status' => 'expired', 'expired_at' => $ahora]);
+            ($this->historial)($pedido, 'expired', ['method' => 'card']);
+        }
 
-        return $vencidos->count() + $tarjetas;
+        return $vencidos->count() + $tarjetas->count();
     }
 
     /**
@@ -121,6 +129,7 @@ final class GestionarPedido
                 }
             }
             $p->update($cambios);
+            ($this->historial)($p, 'paid', ['method' => $p->payment_method, 'late' => $fueraDePlazo, 'cycle_date' => $p->cycle_date->format('Y-m-d'), 'window' => $p->window_start->format('Y-m-d').' – '.$p->window_end->format('Y-m-d')]);
             $this->avisar($p, NotificarPedido::PAGADO);
 
             return $p->refresh();
@@ -142,6 +151,10 @@ final class GestionarPedido
         }
         $p->update(['status' => 'cancelled', 'cancel_reason' => $motivo !== '' ? $motivo : null, 'cancelled_at' => $ahora]
             + ($reembolsoCents !== null ? ['payment_status' => 'refunded', 'refund_cents' => $reembolsoCents, 'refunded_at' => $ahora] : []));
+        ($this->historial)($p, 'cancelled', ['reason' => $motivo !== '' ? $motivo : null, 'notify_buyer' => $notificar, 'was_paid' => $p->paid_at !== null]);
+        if ($reembolsoCents !== null) {
+            ($this->historial)($p, 'refunded', ['cents' => $reembolsoCents]);
+        }
         if ($notificar) {
             $this->avisar($p, NotificarPedido::CANCELADO, ['reason' => $motivo]);
         }
@@ -164,6 +177,7 @@ final class GestionarPedido
         }
         $this->validarReembolso($p, $cents);
         $p->update(['payment_status' => 'refunded', 'refund_cents' => $cents, 'refunded_at' => $ahora]);
+        ($this->historial)($p, 'refunded', ['cents' => $cents]);
 
         return $p->refresh();
     }
@@ -212,6 +226,7 @@ final class GestionarPedido
             'window_start' => $inicio, 'window_end' => $fin,
             'delay_reason' => $motivo !== '' ? $motivo : null, 'delayed_at' => $ahora,
         ]);
+        ($this->historial)($p, 'delayed', ['from' => $anterior, 'to' => $this->correo->etiquetaDeVentana($inicio, $fin), 'reason' => $motivo !== '' ? $motivo : null]);
         $this->avisar($p, NotificarPedido::RETRASADO, ['reason' => $motivo, 'previous_window' => $anterior]);
 
         return $p->refresh();
@@ -226,6 +241,7 @@ final class GestionarPedido
         }
         if ($p->status !== 'in_production') {
             $p->update(['status' => 'in_production', 'production_started_at' => $ahora ?? CarbonImmutable::now('UTC')]);
+            ($this->historial)($p, 'in_production');
         }
 
         return $p->refresh();
@@ -247,11 +263,14 @@ final class GestionarPedido
             throw new ValidacionFallida(['tracking_number' => ['Escribe la guía de Servientrega (solo letras, números y guiones, de 5 a 40 caracteres).']]);
         }
         $ahora ??= CarbonImmutable::now('UTC');
+        $yaEnviado = $p->status === 'shipped';
+        $guiaAnterior = $p->tracking_number;
         $p->update([
             'status' => 'shipped', 'tracking_number' => $guia,
             'production_started_at' => $p->production_started_at ?? $ahora,
             'shipped_at' => $p->shipped_at ?? $ahora,
         ]);
+        ($this->historial)($p, $yaEnviado ? 'tracking_corrected' : 'shipped', $yaEnviado ? ['from' => $guiaAnterior, 'to' => $guia] : ['tracking_number' => $guia]);
         $this->avisar($p, NotificarPedido::ENVIADO); // una sola vez: corregir la guía después no vuelve a enviarlo
 
         return $p->refresh();
