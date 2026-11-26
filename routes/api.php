@@ -3,6 +3,7 @@
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCampanas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionCategorias;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionInicio;
+use App\Core\Catalogo\Presentacion\Controladores\ControladorBusquedas;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionMedios;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionProductos;
 use App\Core\Catalogo\Presentacion\Controladores\ControladorAdministracionSubcategorias;
@@ -36,6 +37,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('delivery/promise', [ControladorEntrega::class, 'promesa'])->name('api.v1.delivery.promise');
     Route::get('delivery/windows', [ControladorEntrega::class, 'ventanas'])->name('api.v1.delivery.windows');
+    Route::post('search-log', [ControladorBusquedas::class, 'registrar'])->middleware('throttle:busquedas')->name('api.v1.search-log');
     Route::post('cart/quote', [ControladorCheckout::class, 'cotizar'])->middleware('throttle:cotizar')->name('api.v1.cart.quote');
     Route::post('checkout', [ControladorCheckout::class, 'store'])->middleware('throttle:checkout')->name('api.v1.checkout');
     Route::post('orders/{token}/payphone', [ControladorPagos::class, 'iniciar'])->middleware('throttle:pagos')->name('api.v1.orders.payphone');
@@ -80,6 +82,7 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{numero}/production', [ControladorAdministracionPedidos::class, 'enProduccion'])->name('api.v1.admin.orders.production');
         Route::post('orders/{numero}/ship', [ControladorAdministracionPedidos::class, 'enviado'])->name('api.v1.admin.orders.ship');
         Route::get('orders/{numero}/history', [ControladorAdministracionPedidos::class, 'historial'])->name('api.v1.admin.orders.history');
+        Route::get('searches/no-results', [ControladorBusquedas::class, 'sinResultados'])->name('api.v1.admin.searches.no-results');
         Route::post('orders/{numero}/move-cycle', [ControladorAdministracionPedidos::class, 'moverDeCiclo'])->name('api.v1.admin.orders.move-cycle');
         Route::post('orders/{numero}/delay', [ControladorAdministracionPedidos::class, 'retraso'])->name('api.v1.admin.orders.delay');
         Route::post('orders/{numero}/refund', [ControladorAdministracionPedidos::class, 'reembolso'])->name('api.v1.admin.orders.refund');

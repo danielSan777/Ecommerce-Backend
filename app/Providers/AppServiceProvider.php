@@ -59,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('checkout', fn (Request $r) => Limit::perMinute(10)->by($r->ip()));
+        RateLimiter::for('busquedas', fn (Request $r) => Limit::perMinute(30)->by($r->ip()));
         RateLimiter::for('cotizar', fn (Request $r) => Limit::perMinute(90)->by($r->ip()));
         RateLimiter::for('registro', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
