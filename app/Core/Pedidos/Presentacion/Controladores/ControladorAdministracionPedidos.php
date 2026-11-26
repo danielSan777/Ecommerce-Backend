@@ -42,6 +42,7 @@ final class ControladorAdministracionPedidos extends Controller
             'whatsapp_clicked_at' => $p->whatsapp_clicked_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'paid_at' => $p->paid_at?->utc()->format('Y-m-d\TH:i:s\Z'),
             'production_started_at' => $p->production_started_at?->utc()->format('Y-m-d\TH:i:s\Z'),
+            'invoiced_at' => $p->invoiced_at?->utc()->format('Y-m-d\TH:i:s\Z'), 'invoice_number' => $p->invoice_number,
             'shipped_at' => $p->shipped_at?->utc()->format('Y-m-d\TH:i:s\Z'), 'tracking_number' => $p->tracking_number,
             'created_at' => $p->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
             'items' => $p->items->map(fn ($i) => ['id' => $i->id, 'has_preview' => $i->preview_path !== null, 'has_frame_photo' => $i->frame_photo_path !== null, 'sku' => $i->product_sku, 'name' => $i->product_name, 'type' => $i->type, 'line_total_cents' => $i->line_total_cents, 'personalization' => $i->personalization])->all(),
@@ -110,6 +111,9 @@ final class ControladorAdministracionPedidos extends Controller
             'delayed' => 'Retraso: nueva entrega '.($d['to'] ?? '').' (antes '.($d['from'] ?? '').')'.(($d['reason'] ?? null) ? ' · '.$d['reason'] : ''),
             'cancelled' => 'Pedido cancelado'.(($d['reason'] ?? null) ? ': '.$d['reason'] : '').(($d['notify_buyer'] ?? false) ? ' · se avisó al comprador' : ''),
             'refunded' => 'Reembolso registrado: '.$dolares($d['cents'] ?? 0),
+            'invoiced' => 'Marcado como facturado'.(($d['invoice_number'] ?? null) ? ', factura '.$d['invoice_number'] : ''),
+            'invoice_corrected' => 'Número de factura corregido: '.($d['from'] ?? '—').' → '.($d['to'] ?? ''),
+            'invoice_cleared' => 'Se quitó la marca de facturado'.(($d['invoice_number'] ?? null) ? ' (factura '.$d['invoice_number'].')' : ''),
             default => $e->reason,
         };
     }

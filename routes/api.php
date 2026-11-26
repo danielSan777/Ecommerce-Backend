@@ -16,6 +16,7 @@ use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionCo
 use App\Core\Configurador\Presentacion\Controladores\ControladorAdministracionUbicaciones;
 use App\Core\Configurador\Presentacion\Controladores\ControladorConfigurador;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionCiclos;
+use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionFacturacion;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionHojas;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorAdministracionPedidos;
 use App\Core\Pedidos\Presentacion\Controladores\ControladorCheckout;
@@ -85,6 +86,9 @@ Route::prefix('v1')->group(function () {
         Route::get('cycles/{fecha}/production', [ControladorAdministracionHojas::class, 'produccion'])->name('api.v1.admin.cycles.production');
         Route::get('cycles/{fecha}/shipping', [ControladorAdministracionHojas::class, 'envios'])->name('api.v1.admin.cycles.shipping');
         Route::post('orders/ship-batch', [ControladorAdministracionHojas::class, 'enviarLote'])->name('api.v1.admin.orders.ship-batch');
+        Route::get('invoicing', [ControladorAdministracionFacturacion::class, 'index'])->name('api.v1.admin.invoicing.index');
+        Route::post('invoicing/batch', [ControladorAdministracionFacturacion::class, 'marcarLote'])->name('api.v1.admin.invoicing.batch');
+        Route::delete('invoicing/{numero}', [ControladorAdministracionFacturacion::class, 'quitar'])->name('api.v1.admin.invoicing.clear');
         Route::get('cycles', [ControladorAdministracionCiclos::class, 'index'])->name('api.v1.admin.cycles.index');
         Route::post('cycles/{fecha}/close', [ControladorAdministracionCiclos::class, 'cerrar'])->name('api.v1.admin.cycles.close');
         Route::post('cycles/{fecha}/reopen', [ControladorAdministracionCiclos::class, 'reabrir'])->name('api.v1.admin.cycles.reopen');

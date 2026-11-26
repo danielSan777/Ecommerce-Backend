@@ -276,6 +276,47 @@ final class GestionarPedido
         return $p->refresh();
     }
 
+    /**
+     * Marca «Facturado» (la factura SRI la emite Josué a mano), con el número de factura si lo escribe. Solo pedidos pagados que
+     * siguen vivos. Repetir la marca no cambia nada, salvo que traiga un número distinto: entonces lo corrige y queda en el historial.
+     */
+    public function marcarFacturado(PedidoModelo $p, ?string $numero = null, ?CarbonImmutable $ahora = null): PedidoModelo
+    {
+        $this->exigirPagadoSinCancelar($p);
+        if ($p->status === 'expired') {
+            throw new PedidoRechazado('order_expired', 'Este pedido venció: no se factura.', 409);
+        }
+        $numero = $numero === null || trim($numero) === '' ? null : trim($numero);
+        if ($numero !== null && preg_match('/^[A-Za-z0-9-]{1,30}$/', $numero) !== 1) {
+            throw new ValidacionFallida(['invoice_number' => ['El número de factura solo lleva letras, números y guiones (hasta 30 caracteres).']]);
+        }
+        $ya = $p->invoiced_at !== null;
+        if ($ya && $numero === null) {
+            return $p;
+        }
+        if ($ya && $numero === $p->invoice_number) {
+            return $p;
+        }
+        $antes = $p->invoice_number;
+        $p->update(['invoiced_at' => $p->invoiced_at ?? ($ahora ?? CarbonImmutable::now('UTC')), 'invoice_number' => $numero ?? $p->invoice_number]);
+        ($this->historial)($p, $ya ? 'invoice_corrected' : 'invoiced', $ya ? ['from' => $antes, 'to' => $numero] : ['invoice_number' => $numero]);
+
+        return $p->refresh();
+    }
+
+    /** Quita la marca «Facturado» (por si se marcó por error). Queda en el historial. */
+    public function quitarFacturado(PedidoModelo $p): PedidoModelo
+    {
+        if ($p->invoiced_at === null) {
+            return $p;
+        }
+        $numero = $p->invoice_number;
+        $p->update(['invoiced_at' => null, 'invoice_number' => null]);
+        ($this->historial)($p, 'invoice_cleared', $numero === null ? [] : ['invoice_number' => $numero]);
+
+        return $p->refresh();
+    }
+
     private function exigirPagadoSinCancelar(PedidoModelo $p): void
     {
         if ($p->status === 'cancelled') {

@@ -1500,4 +1500,133 @@ final class PedidosTest extends TestCase
         ]])->assertStatus(422);
         $this->assertSame('in_production', $p->refresh()->status);
     }
+
+    // ---------- Paso 19: facturación manual («Por facturar» y «Facturado») ----------
+
+    public function test_por_facturar_lista_los_pagados_sin_facturar_con_los_datos_para_la_factura(): void
+    {
+        $a = $this->pedidoPagado();
+        $this->crear()->assertCreated();   // sin pagar: no se factura
+        $cancelado = $this->pedidoPagado();
+        $this->admin()->postJson("/api/v1/admin/orders/{$cancelado->number}/cancel", ['reason' => 'x'])->assertOk();
+
+        $r = $this->admin()->getJson('/api/v1/admin/invoicing')->assertOk()->assertJsonPath('meta.pending_count', 1)->assertJsonCount(1, 'data');
+        $fila = $r->json('data.0');
+
+        $this->assertSame($a->number, $fila['number']);
+        $this->assertSame($a->total_cents, $fila['total_cents']);
+        $this->assertNull($fila['invoiced_at']);
+        $this->assertSame('Josué de Santis', $fila['invoice_to']['name']);          // igual que el envío
+        $this->assertSame('0930247994', $fila['invoice_to']['id_number']);
+        $this->assertSame('josue@correo.com', $fila['invoice_to']['email']);
+        $this->assertSame('Av. Principal 123', $fila['invoice_to']['address']);
+        $this->assertSame('Guayas', $fila['invoice_to']['province']);
+        $this->assertSame('yes', $fila['invoice_to']['same_as_shipping']);
+        $this->assertSame(1, $fila['items'][0]['quantity']);
+    }
+
+    public function test_si_el_comprador_pidio_otros_datos_de_facturacion_se_facturan_esos(): void
+    {
+        $this->pedidoPagado(['billing' => ['same_as_shipping' => false, 'name' => 'Jardín SA', 'id_type' => 'ruc', 'id_number' => '0930247994001',
+            'email' => 'Conta@Empresa.com', 'phone' => '099 765 4321', 'province_code' => '17', 'canton_code' => '1701', 'address' => 'Av. Amazonas 100']]);
+
+        $to = $this->admin()->getJson('/api/v1/admin/invoicing')->assertOk()->json('data.0.invoice_to');
+        $this->assertSame('0930247994001', $to['id_number']);
+        $this->assertSame('conta@empresa.com', $to['email']);
+        $this->assertSame('Jardín SA', $to['name']);
+        $this->assertSame('ruc', $to['id_type']);
+        $this->assertSame('Av. Amazonas 100', $to['address']);
+        $this->assertSame('no', $to['same_as_shipping']);
+        $this->assertNotSame('', $to['province']);
+    }
+
+    public function test_marcar_facturado_por_lote_con_numero_de_factura_opcional_y_queda_en_el_historial(): void
+    {
+        $a = $this->pedidoPagado();
+        $b = $this->pedidoPagado();
+
+        $r = $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [
+            ['number' => $a->number, 'invoice_number' => '001-001-000000123'],
+            ['number' => $b->number],
+        ]])->assertOk()->assertJsonPath('invoiced', 2);
+        $this->assertSame([true, true], collect($r->json('results'))->pluck('ok')->all());
+
+        $this->assertNotNull($a->refresh()->invoiced_at);
+        $this->assertSame('001-001-000000123', $a->invoice_number);
+        $this->assertNotNull($b->refresh()->invoiced_at);
+        $this->assertNull($b->invoice_number);
+        $this->assertDatabaseHas('order_events', ['order_id' => $a->id, 'reason' => 'invoiced']);
+
+        $this->admin()->getJson('/api/v1/admin/invoicing')->assertJsonPath('meta.pending_count', 0)->assertJsonCount(0, 'data');
+        $hechos = $this->admin()->getJson('/api/v1/admin/invoicing?state=done')->assertJsonCount(2, 'data');
+        $this->assertContains('001-001-000000123', collect($hechos->json('data'))->pluck('invoice_number')->all());
+
+        $texto = collect($this->admin()->getJson("/api/v1/admin/orders/{$a->number}/history")->json('data'))->pluck('text')->implode('|');
+        $this->assertStringContainsString('Marcado como facturado, factura 001-001-000000123', $texto);
+        // el listado de pedidos también dice si está facturado
+        $this->assertSame('001-001-000000123', collect($this->admin()->getJson('/api/v1/admin/orders?status=all')->json('data'))->firstWhere('number', $a->number)['invoice_number']);
+    }
+
+    public function test_repetir_la_marca_no_duplica_el_historial_y_un_numero_distinto_lo_corrige(): void
+    {
+        $p = $this->pedidoPagado();
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $p->number, 'invoice_number' => 'F-100']]])->assertOk();
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $p->number, 'invoice_number' => 'F-100']]])->assertOk()->assertJsonPath('invoiced', 1);
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $p->number]]])->assertOk();
+        $this->assertSame(1, \DB::table('order_events')->where('order_id', $p->id)->where('reason', 'invoiced')->count());
+        $this->assertSame('F-100', $p->refresh()->invoice_number);
+
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $p->number, 'invoice_number' => 'F-101']]])->assertOk();
+        $this->assertSame('F-101', $p->refresh()->invoice_number);
+        $this->assertSame(1, \DB::table('order_events')->where('order_id', $p->id)->where('reason', 'invoice_corrected')->count());
+    }
+
+    public function test_quitar_la_marca_de_facturado_vuelve_el_pedido_a_por_facturar(): void
+    {
+        $p = $this->pedidoPagado();
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $p->number, 'invoice_number' => 'F-100']]])->assertOk();
+
+        $this->admin()->deleteJson("/api/v1/admin/invoicing/{$p->number}")->assertOk()->assertJsonPath('invoiced_at', null)->assertJsonPath('invoice_number', null);
+        $this->assertNull($p->refresh()->invoiced_at);
+        $this->admin()->getJson('/api/v1/admin/invoicing')->assertJsonPath('meta.pending_count', 1);
+        $this->assertDatabaseHas('order_events', ['order_id' => $p->id, 'reason' => 'invoice_cleared']);
+        $this->admin()->deleteJson('/api/v1/admin/invoicing/JDS-9999')->assertStatus(404);
+    }
+
+    public function test_el_lote_de_facturacion_dice_cual_pedido_fallo_y_por_que_y_valida_el_numero(): void
+    {
+        $bueno = $this->pedidoPagado();
+        $this->crear()->assertCreated();
+        $sinPagar = PedidoModelo::query()->latest('id')->firstOrFail();
+        $cancelado = $this->pedidoPagado();
+        $this->admin()->postJson("/api/v1/admin/orders/{$cancelado->number}/cancel", ['reason' => 'x'])->assertOk();
+
+        $r = $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [
+            ['number' => $sinPagar->number], ['number' => 'JDS-9999'], ['number' => $cancelado->number],
+            ['number' => $bueno->number, 'invoice_number' => 'mala factura!'],
+        ]])->assertOk()->assertJsonPath('invoiced', 0);
+        $m = collect($r->json('results'));
+        $this->assertSame([false, false, false, false], $m->pluck('ok')->all());
+        $this->assertStringContainsString('pagado', $m[0]['message']);
+        $this->assertStringContainsString('No existe', $m[1]['message']);
+        $this->assertStringContainsString('cancelado', $m[2]['message']);
+        $this->assertStringContainsString('número de factura', $m[3]['message']);
+        $this->assertNull($bueno->refresh()->invoiced_at);
+
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => []])->assertStatus(422);
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $bueno->number], ['number' => $bueno->number]]])->assertStatus(422);
+        $this->admin()->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $bueno->number, 'invoice_number' => str_repeat('1', 31)]]])->assertStatus(422);
+    }
+
+    public function test_solo_el_administrador_factura(): void
+    {
+        $p = $this->pedidoPagado();
+        $this->app['auth']->forgetGuards();
+        $this->actingAs(User::factory()->create(), 'api');
+
+        $this->getJson('/api/v1/admin/invoicing')->assertForbidden();
+        $this->postJson('/api/v1/admin/invoicing/batch', ['orders' => [['number' => $p->number]]])->assertForbidden();
+        $this->deleteJson("/api/v1/admin/invoicing/{$p->number}")->assertForbidden();
+        $this->assertNull($p->refresh()->invoiced_at);
+    }
 }
