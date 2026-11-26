@@ -43,6 +43,10 @@ final class CotizarCarrito
             if ($producto === null) {
                 throw new ValidacionFallida(["items.$i.slug" => ['Uno de los productos ya no está disponible. Revisa tu carrito.']]);
             }
+            // Agotado (lo marca Josué): se ve en la tienda pero no se vende
+            if (! $producto->is_available) {
+                throw new ValidacionFallida(["items.$i.slug" => ["«{$producto->name}» está agotado. Quítalo del carrito para continuar."]]);
+            }
             $lineas[] = ['type' => $producto->type] + self::linea($producto, $item['quantity'] ?? 1);
         }
 

@@ -917,6 +917,22 @@ final class PedidosTest extends TestCase
         $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => 'no-existe']]])->assertStatus(422)->assertJsonValidationErrors(['items.0.slug']);
     }
 
+    public function test_un_producto_agotado_no_se_cotiza_ni_se_compra_y_al_reactivarlo_vuelve_a_venderse(): void
+    {
+        $peticion = $this->peticion();
+        $slug = $peticion['items'][0]['slug'];
+        $producto = ProductoModelo::query()->where('slug', $slug)->firstOrFail();
+        $producto->update(['is_available' => false]);
+
+        $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $slug, 'quantity' => 1]]])->assertStatus(422)->assertJsonValidationErrors(['items.0.slug']);
+        $this->crear()->assertStatus(422)->assertJsonValidationErrors(['items.0.slug']);
+        $this->assertSame(0, PedidoModelo::query()->count());
+
+        $producto->update(['is_available' => true]);
+        $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $slug, 'quantity' => 1]]])->assertOk();
+        $this->crear()->assertCreated();
+    }
+
     public function test_cancelar_un_pedido_pagado_registra_el_reembolso_y_el_comprador_lo_ve(): void
     {
         Mail::fake();
@@ -1052,6 +1068,24 @@ final class PedidosTest extends TestCase
         $this->getJson('/api/v1/admin/orders?status=pending&q=JDS-9999')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/v1/admin/orders?status=shipped&q='.$n)->assertOk()->assertJsonCount(0, 'data');             // otro filtro: no aparece
         $this->getJson('/api/v1/admin/orders?status=pending&q=%25')->assertOk()->assertJsonCount(0, 'data');             // % no es comodín
+    }
+
+    public function test_el_admin_filtra_pedidos_por_canal_metodo_de_pago_y_ciclo_y_pide_mas_para_exportar(): void
+    {
+        $this->crear()->assertCreated();
+        $a = PedidoModelo::query()->latest('id')->firstOrFail();
+        $this->crear()->assertCreated();
+        $b = PedidoModelo::query()->latest('id')->firstOrFail();
+        $a->update(['channel' => 'whatsapp', 'payment_method' => 'transfer']);
+        $b->update(['channel' => 'web', 'payment_method' => 'card', 'cycle_date' => '2026-11-16']);
+        $this->admin();
+
+        $this->getJson('/api/v1/admin/orders?status=all')->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/v1/admin/orders?status=all&channel=whatsapp')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $a->number);
+        $this->getJson('/api/v1/admin/orders?status=all&payment_method=card')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $b->number);
+        $this->getJson('/api/v1/admin/orders?status=all&cycle=2026-11-16')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $b->number);
+        $this->getJson('/api/v1/admin/orders?status=all&channel=web&payment_method=transfer')->assertOk()->assertJsonCount(0, 'data');   // se combinan
+        $this->getJson('/api/v1/admin/orders?status=all&limit=1')->assertOk()->assertJsonCount(1, 'data');
     }
 
     public function test_marcar_pagado_conserva_el_ciclo_y_el_comprador_ve_el_seguimiento(): void

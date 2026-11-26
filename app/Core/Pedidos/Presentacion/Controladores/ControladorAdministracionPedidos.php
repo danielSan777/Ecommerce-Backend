@@ -55,8 +55,14 @@ final class ControladorAdministracionPedidos extends Controller
         $filtro = (string) $request->query('status', 'all');
         // Búsqueda por código (JDS-1005 o solo 1005): dentro del filtro elegido. Se escapan % y _ para que cuenten como texto.
         $buscar = mb_substr(trim((string) $request->query('q', '')), 0, 30);
+        // La lista muestra 200; la exportación CSV pide más (hasta 2000) con los mismos filtros.
+        $limite = max(1, min(2000, (int) $request->query('limit', 200)));
         $pedidos = PedidoModelo::query()->with('items', 'cliente')
             ->when($buscar !== '', fn ($q) => $q->where('number', 'like', '%'.addcslashes($buscar, '%_\\').'%'))
+            // Filtros de operación: canal, método de pago y ciclo (fecha del ciclo, YYYY-MM-DD). Valores desconocidos no filtran por error: no devuelven nada.
+            ->when(in_array($request->query('channel'), ['web', 'whatsapp'], true), fn ($q) => $q->where('channel', $request->query('channel')))
+            ->when(in_array($request->query('payment_method'), ['transfer', 'card'], true), fn ($q) => $q->where('payment_method', $request->query('payment_method')))
+            ->when(is_string($request->query('cycle')) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('cycle')), fn ($q) => $q->whereDate('cycle_date', $request->query('cycle')))
             ->when($filtro === 'pending', fn ($q) => $q->where('payment_status', 'pending_validation')->where('status', 'created'))
             ->when($filtro === 'paid', fn ($q) => $q->where('payment_status', 'paid'))
             ->when($filtro === 'in_production', fn ($q) => $q->where('status', 'in_production'))
@@ -69,7 +75,7 @@ final class ControladorAdministracionPedidos extends Controller
                     ? $q->orderByDesc('total_cents')->orderBy('window_start')->orderBy('id')
                     : $q->orderBy('window_start')->orderByDesc('total_cents')->orderBy('id'),
                 fn ($q) => $q->orderByDesc('id'))
-            ->limit(200)->get();
+            ->limit($limite)->get();
 
         return response()->json(['data' => $pedidos->map(fn ($p) => $this->fila($p))->all()]);
     }
