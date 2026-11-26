@@ -62,7 +62,7 @@ final class ControladorCheckout extends Controller
             'terms' => ['required', 'array'],
             'terms.accepted' => ['accepted'],
             'terms.version' => ['required', 'string', 'max:20'],
-            'tracking' => ['sometimes', 'nullable', 'array'],
+            'tracking' => ['sometimes', 'nullable'],   // atribución: si viene mal formada se ignora; nunca debe impedir una compra
         ], self::MENSAJES);
 
         // Los campos de envío/facturación se validan uno por uno dentro del caso de uso (mensajes por campo)

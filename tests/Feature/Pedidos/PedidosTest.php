@@ -917,6 +917,41 @@ final class PedidosTest extends TestCase
         $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => 'no-existe']]])->assertStatus(422)->assertJsonValidationErrors(['items.0.slug']);
     }
 
+    public function test_la_atribucion_se_limpia_se_guarda_y_el_panel_filtra_por_fuente_campana_y_anuncio(): void
+    {
+        $toque = fn (string $campana, string $anuncio) => [
+            'utm' => ['source' => 'meta', 'medium' => 'paid', 'campaign' => $campana, 'content' => $anuncio, 'term' => null],
+            'fbclid' => 'IwAR123', 'ttclid' => null, 'landing_url' => 'https://jardindesele.com/?utm_campaign='.$campana, 'date' => '2026-11-20T10:00:00Z',
+        ];
+        $this->crear(['tracking' => [
+            'fbp' => "fb.1.123.456\n", 'ga_client_id' => '111.222', 'cualquier_cosa' => 'se descarta', 'utm' => ['source' => 'organico'],
+            'first_touch' => $toque('antigua', '1'), 'last_touch' => $toque('dia-madre', 'AD-777'),
+            'cookie_consent' => ['marketing' => true], 'user_agent' => str_repeat('x', 900),
+        ]])->assertCreated();
+        $conCampana = PedidoModelo::query()->latest('id')->firstOrFail();
+        $this->crear(['tracking' => 'basura'])->assertCreated();      // algo que no es un arreglo: se ignora
+        $this->crear()->assertCreated();                               // sin tracking
+        $this->assertSame(3, PedidoModelo::query()->count());
+
+        $guardado = $conCampana->refresh()->tracking;
+        $this->assertSame('fb.1.123.456', $guardado['fbp']);            // sin caracteres de control
+        $this->assertArrayNotHasKey('cualquier_cosa', $guardado);
+        $this->assertSame(500, mb_strlen($guardado['user_agent']));
+        $this->assertTrue($guardado['cookie_consent']['marketing']);
+        $this->assertSame('antigua', $guardado['first_touch']['utm']['campaign']);
+
+        $this->admin();
+        $r = $this->getJson('/api/v1/admin/orders?status=all&campaign=dia-madre')->assertOk()->assertJsonCount(1, 'data');
+        $r->assertJsonPath('data.0.number', $conCampana->number)->assertJsonPath('data.0.attribution.source', 'meta')
+            ->assertJsonPath('data.0.attribution.campaign', 'dia-madre')->assertJsonPath('data.0.attribution.ad_id', 'AD-777');
+        $this->getJson('/api/v1/admin/orders?status=all&ad=AD-777')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/v1/admin/orders?status=all&source=meta')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/v1/admin/orders?status=all&campaign=antigua')->assertOk()->assertJsonCount(0, 'data');   // la primera visita no cuenta: es el último toque
+        $this->getJson('/api/v1/admin/orders?status=all&campaign=dia-madre&source=tiktok')->assertOk()->assertJsonCount(0, 'data');
+        $sin = collect($this->getJson('/api/v1/admin/orders?status=all')->json('data'))->firstWhere('number', '!=', $conCampana->number);
+        $this->assertNull($sin['attribution']['campaign']);
+    }
+
     public function test_un_producto_agotado_no_se_cotiza_ni_se_compra_y_al_reactivarlo_vuelve_a_venderse(): void
     {
         $peticion = $this->peticion();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Pedidos\Presentacion\Controladores;
 
 use App\Core\Pedidos\Aplicacion\CasosDeUso\GestionarPedido;
+use App\Core\Pedidos\Dominio\AtribucionDelPedido;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\EventoDePedidoModelo;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
@@ -47,6 +48,8 @@ final class ControladorAdministracionPedidos extends Controller
             'created_at' => $p->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
             'items' => $p->items->map(fn ($i) => ['id' => $i->id, 'has_preview' => $i->preview_path !== null, 'has_frame_photo' => $i->frame_photo_path !== null, 'sku' => $i->product_sku, 'name' => $i->product_name, 'type' => $i->type, 'line_total_cents' => $i->line_total_cents, 'personalization' => $i->personalization])->all(),
             'shipping' => $p->shipping, 'billing' => $p->billing,
+            // De dónde vino la venta (último toque): fuente, campaña y anuncio (ID)
+            'attribution' => AtribucionDelPedido::resumen($p->tracking),
         ];
     }
 
@@ -63,6 +66,10 @@ final class ControladorAdministracionPedidos extends Controller
             ->when(in_array($request->query('channel'), ['web', 'whatsapp'], true), fn ($q) => $q->where('channel', $request->query('channel')))
             ->when(in_array($request->query('payment_method'), ['transfer', 'card'], true), fn ($q) => $q->where('payment_method', $request->query('payment_method')))
             ->when(is_string($request->query('cycle')) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('cycle')), fn ($q) => $q->whereDate('cycle_date', $request->query('cycle')))
+            // Origen de la venta (último toque): fuente, campaña o anuncio exactos, o `none` para los pedidos sin campaña
+            ->when(is_string($request->query('source')) && $request->query('source') !== '', fn ($q) => $this->porUtm($q, 'source', (string) $request->query('source')))
+            ->when(is_string($request->query('campaign')) && $request->query('campaign') !== '', fn ($q) => $this->porUtm($q, 'campaign', (string) $request->query('campaign')))
+            ->when(is_string($request->query('ad')) && $request->query('ad') !== '', fn ($q) => $this->porUtm($q, 'content', (string) $request->query('ad')))
             ->when($filtro === 'pending', fn ($q) => $q->where('payment_status', 'pending_validation')->where('status', 'created'))
             ->when($filtro === 'paid', fn ($q) => $q->where('payment_status', 'paid'))
             ->when($filtro === 'in_production', fn ($q) => $q->where('status', 'in_production'))
@@ -78,6 +85,15 @@ final class ControladorAdministracionPedidos extends Controller
             ->limit($limite)->get();
 
         return response()->json(['data' => $pedidos->map(fn ($p) => $this->fila($p))->all()]);
+    }
+
+    /** Filtra por un campo UTM del último toque (o del `utm` plano si el pedido no trae toques). */
+    private function porUtm(\Illuminate\Database\Eloquent\Builder $q, string $campo, string $valor): \Illuminate\Database\Eloquent\Builder
+    {
+        $valor = mb_substr($valor, 0, 200);
+
+        return $q->where(fn ($w) => $w->where("tracking->last_touch->utm->{$campo}", $valor)
+            ->orWhere(fn ($x) => $x->whereNull("tracking->last_touch->utm->{$campo}")->where("tracking->utm->{$campo}", $valor)));
     }
 
     /** Historial del pedido, del más antiguo al más reciente: cada hecho con su texto, su fecha y quién lo hizo. */

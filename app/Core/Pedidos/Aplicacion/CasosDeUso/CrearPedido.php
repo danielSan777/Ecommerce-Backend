@@ -12,6 +12,7 @@ use App\Core\Entrega\Dominio\MotorDeEntrega;
 use App\Core\Entrega\Dominio\TokenDePromesa;
 use App\Core\Envios\Infraestructura\Modelos\CantonModelo;
 use App\Core\Pedidos\Aplicacion\CalculadoraDeTotales;
+use App\Core\Pedidos\Dominio\AtribucionDelPedido;
 use App\Core\Pedidos\Dominio\Documentos;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\ClienteModelo;
@@ -101,7 +102,7 @@ final class CrearPedido
                 'event_id' => 'purchase-'.$uuid,
                 'terms_version' => (string) $datos['terms']['version'], 'terms_accepted_at' => $ahora,
                 'ip' => $ip, 'user_agent' => $userAgent !== null ? mb_substr($userAgent, 0, 255) : null,
-                'tracking' => $datos['tracking'] ?? null,
+                'tracking' => AtribucionDelPedido::limpiar($datos['tracking'] ?? null),
             ]);
             $pedido->update(['number' => 'JDS-'.(1000 + $pedido->id)]);
 
