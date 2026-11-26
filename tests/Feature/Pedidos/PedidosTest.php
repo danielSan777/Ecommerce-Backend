@@ -1739,4 +1739,96 @@ final class PedidosTest extends TestCase
         $this->deleteJson("/api/v1/admin/invoicing/{$p->number}")->assertForbidden();
         $this->assertNull($p->refresh()->invoiced_at);
     }
+
+    // ----- Paso 20: compras reales a GA4 desde el servidor -----
+
+    private function activarGa4(): void
+    {
+        config(['seguimiento.ga4.measurement_id' => 'G-TEST123', 'seguimiento.ga4.api_secret' => 'secreto']);
+    }
+
+    private function pedidoConGa(array $tracking = ['ga_client_id' => '111.222', 'ga_session_id' => '1700000000']): PedidoModelo
+    {
+        $this->crear(['tracking' => $tracking])->assertCreated();
+
+        return PedidoModelo::query()->latest('id')->firstOrFail();
+    }
+
+    private function pagarComoAdmin(PedidoModelo $p): void
+    {
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/mark-paid")->assertOk();
+    }
+
+    public function test_una_compra_pagada_se_envia_a_ga4_una_vez_con_su_valor_sin_envio_y_queda_registrada(): void
+    {
+        $this->activarGa4();
+        \Illuminate\Support\Facades\Http::fake(['www.google-analytics.com/*' => \Illuminate\Support\Facades\Http::response('', 204)]);
+        $p = $this->pedidoConGa();
+        $this->assertSame(0, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());   // sin pagar: no se envía
+
+        $this->pagarComoAdmin($p);
+
+        \Illuminate\Support\Facades\Http::assertSentCount(1);
+        \Illuminate\Support\Facades\Http::assertSent(function ($r) use ($p) {
+            $e = $r['events'][0];
+
+            return str_contains($r->url(), 'measurement_id=G-TEST123') && str_contains($r->url(), 'api_secret=secreto')
+                && $r['client_id'] === '111.222' && $e['name'] === 'purchase'
+                && $e['params']['transaction_id'] === $p->number && $e['params']['session_id'] === '1700000000'
+                && $e['params']['currency'] === 'USD'
+                && abs($e['params']['value'] - (($p->subtotal_cents - $p->discount_cents) / 100)) < 0.001   // sin envío ni recargo
+                && $e['params']['items'][0]['item_id'] !== '';
+        });
+        $envio = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->firstOrFail();
+        $this->assertSame(['ga4', 'purchase', 'purchase-'.$p->uuid, 'sent', 204], [$envio->platform, $envio->event, $envio->event_id, $envio->status, $envio->http_status]);
+        $this->assertSame($p->id, $envio->order_id);
+        $this->assertNotNull($envio->sent_at);
+    }
+
+    public function test_sin_claves_de_ga4_no_se_envia_nada_ni_se_registra(): void
+    {
+        \Illuminate\Support\Facades\Http::fake();
+        $this->pagarComoAdmin($this->pedidoConGa());
+
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+        $this->assertSame(0, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());
+    }
+
+    public function test_sin_client_id_o_con_pedido_de_whatsapp_no_se_envia_a_ga4(): void
+    {
+        $this->activarGa4();
+        \Illuminate\Support\Facades\Http::fake();
+        $this->pagarComoAdmin($this->pedidoConGa(['fbp' => 'fb.1.1.1']));
+        $envio = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->firstOrFail();
+        $this->assertSame('skipped', $envio->status);
+        $this->assertStringContainsString('client_id', (string) $envio->error);
+
+        $wa = $this->pedidoConGa();
+        $wa->update(['channel' => 'whatsapp']);
+        $this->pagarComoAdmin($wa);
+        $this->assertSame(1, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());   // el de WhatsApp ni se registra
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+    }
+
+    public function test_una_compra_de_mas_de_72_horas_no_se_envia_a_ga4_y_una_falla_queda_registrada(): void
+    {
+        $this->activarGa4();
+        \Illuminate\Support\Facades\Http::fake(['www.google-analytics.com/*' => \Illuminate\Support\Facades\Http::response('error', 500)]);
+        $p = $this->pedidoConGa();
+        try {
+            $this->pagarComoAdmin($p);
+        } catch (\Throwable) {
+            // la cola en pruebas es síncrona: el error del envío sube, pero el registro ya quedó anotado
+        }
+        $envio = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->firstOrFail();
+        $this->assertSame('failed', $envio->status);
+        $this->assertSame(500, $envio->http_status);
+
+        $vieja = $this->pedidoConGa();
+        $vieja->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => \Carbon\CarbonImmutable::now('UTC')->subHours(80)]);
+        $nuevo = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->create(['platform' => 'ga4', 'event' => 'purchase', 'event_id' => $vieja->event_id, 'order_id' => $vieja->id]);
+        (new \App\Core\Seguimiento\Aplicacion\EnviarCompraAPlataforma($nuevo->id))->handle();
+        $this->assertSame('skipped', $nuevo->refresh()->status);
+        $this->assertStringContainsString('72', (string) $nuevo->error);
+    }
 }

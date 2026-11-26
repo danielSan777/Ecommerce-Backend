@@ -8,6 +8,7 @@ use App\Core\Configuracion\Dominio\Repositorios\RepositorioConfiguracion;
 use App\Core\Entrega\Dominio\MotorDeEntrega;
 use App\Core\Pedidos\Dominio\PedidoRechazado;
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
+use App\Core\Seguimiento\Aplicacion\ProgramarEnvioDeCompra;
 use App\Shared\Presentacion\ValidacionFallida;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
@@ -131,6 +132,8 @@ final class GestionarPedido
             $p->update($cambios);
             ($this->historial)($p, 'paid', ['method' => $p->payment_method, 'late' => $fueraDePlazo, 'cycle_date' => $p->cycle_date->format('Y-m-d'), 'window' => $p->window_start->format('Y-m-d').' – '.$p->window_end->format('Y-m-d')]);
             $this->avisar($p, NotificarPedido::PAGADO);
+            // Compra real confirmada: se programa su envío a GA4 (y a Meta y TikTok cuando estén activos)
+            (new ProgramarEnvioDeCompra())($p->refresh());
 
             return $p->refresh();
         });

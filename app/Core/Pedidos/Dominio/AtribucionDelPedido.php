@@ -24,6 +24,10 @@ final class AtribucionDelPedido
         foreach (self::TEXTOS as $clave) {
             $limpio[$clave] = self::texto($crudo[$clave] ?? null, 500);
         }
+        // Los ids de GA4 viajan luego a Google: solo números (el client_id lleva un punto)
+        foreach (['ga_client_id', 'ga_session_id'] as $id) {
+            $limpio[$id] = $limpio[$id] !== null && preg_match('/^\d{1,20}(\.\d{1,20})?$/', $limpio[$id]) === 1 ? $limpio[$id] : null;
+        }
         $limpio['utm'] = self::utm($crudo['utm'] ?? null);
         foreach (['first_touch', 'last_touch'] as $toque) {
             $t = $crudo[$toque] ?? null;
