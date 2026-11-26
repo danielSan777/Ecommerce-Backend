@@ -1014,6 +1014,47 @@ final class PedidosTest extends TestCase
         $this->assertSame('buyer', $actores['created']);
     }
 
+    public function test_mover_un_pedido_de_ciclo_recalcula_la_ventana_avisa_al_comprador_y_queda_en_el_historial(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
+        $cicloAntes = $p->cycle_date->format('Y-m-d');
+        $ventanaAntes = $p->window_start->format('Y-m-d');
+
+        $r = $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/move-cycle")->assertOk();
+
+        $this->assertGreaterThan($cicloAntes, $r->json('cycle_date'));
+        $this->assertGreaterThan($ventanaAntes, $r->json('window.start'));
+        $this->assertGreaterThan($p->dispatch_date->format('Y-m-d'), $r->json('dispatch_date'));
+        $r->assertJsonPath('delay.original_window.start', $ventanaAntes);
+        Mail::assertSent(CorreoDePedido::class, fn (CorreoDePedido $m) => $m->hasSubject("Nueva fecha de entrega · Pedido {$p->number}"));
+        $textos = collect($this->getJson("/api/v1/admin/orders/{$p->number}/history")->assertOk()->json('data'))->pluck('text')->implode('|');
+        $this->assertStringContainsString('Pasó del ciclo del '.$cicloAntes, $textos);
+
+        // un ciclo igual o anterior, o un domingo, se rechaza
+        $this->postJson("/api/v1/admin/orders/{$p->number}/move-cycle", ['cycle' => $cicloAntes])->assertStatus(422)->assertJsonValidationErrors(['cycle']);
+        $this->postJson("/api/v1/admin/orders/{$p->number}/move-cycle", ['cycle' => '2026-12-13'])->assertStatus(422)->assertJsonValidationErrors(['cycle']);
+    }
+
+    public function test_mover_de_ciclo_a_uno_lleno_pide_confirmacion_y_no_mueve_pedidos_enviados_ni_sin_pagar(): void
+    {
+        Mail::fake();
+        $p = $this->pedidoConCorreos();
+        $this->admin()->postJson("/api/v1/admin/orders/{$p->number}/move-cycle")->assertStatus(409)->assertJsonPath('code', 'not_paid');
+        $p->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => now()]);
+
+        $destino = app(\App\Core\Pedidos\Aplicacion\CasosDeUso\CapacidadDeCiclos::class)->siguienteDiaDeProduccion($p->cycle_date->format('Y-m-d'));
+        \App\Core\Pedidos\Infraestructura\Modelos\CicloModelo::query()->create(['date' => $destino, 'closed_manually' => true]);
+
+        $this->postJson("/api/v1/admin/orders/{$p->number}/move-cycle")->assertStatus(409)->assertJsonPath('code', 'capacity_over_limit');
+        $this->assertSame($destino > $p->cycle_date->format('Y-m-d') ? $p->fresh()->cycle_date->format('Y-m-d') : '', $p->cycle_date->format('Y-m-d'));
+        $this->postJson("/api/v1/admin/orders/{$p->number}/move-cycle", ['confirm_over_capacity' => true])->assertOk()->assertJsonPath('cycle_date', $destino);
+
+        $p->update(['status' => 'shipped']);
+        $this->postJson("/api/v1/admin/orders/{$p->number}/move-cycle")->assertStatus(409)->assertJsonPath('code', 'already_shipped');
+    }
+
     public function test_el_retraso_exige_pedido_pagado_sin_cancelar_y_fechas_validas(): void
     {
         Mail::fake();

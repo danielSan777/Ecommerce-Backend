@@ -80,6 +80,7 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{numero}/production', [ControladorAdministracionPedidos::class, 'enProduccion'])->name('api.v1.admin.orders.production');
         Route::post('orders/{numero}/ship', [ControladorAdministracionPedidos::class, 'enviado'])->name('api.v1.admin.orders.ship');
         Route::get('orders/{numero}/history', [ControladorAdministracionPedidos::class, 'historial'])->name('api.v1.admin.orders.history');
+        Route::post('orders/{numero}/move-cycle', [ControladorAdministracionPedidos::class, 'moverDeCiclo'])->name('api.v1.admin.orders.move-cycle');
         Route::post('orders/{numero}/delay', [ControladorAdministracionPedidos::class, 'retraso'])->name('api.v1.admin.orders.delay');
         Route::post('orders/{numero}/refund', [ControladorAdministracionPedidos::class, 'reembolso'])->name('api.v1.admin.orders.refund');
         Route::post('orders/{numero}/cancel', [ControladorAdministracionPedidos::class, 'cancelar'])->name('api.v1.admin.orders.cancel');

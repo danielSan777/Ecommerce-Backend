@@ -232,6 +232,53 @@ final class GestionarPedido
         return $p->refresh();
     }
 
+    /**
+     * Mover un pedido pagado a otro ciclo (por defecto, el siguiente día de producción). Laravel recalcula solo el despacho y la ventana
+     * (con el día extra de la Amazonía) y el comprador recibe el correo con la nueva fecha. Si el ciclo destino ya no tiene cupo
+     * (límite con tolerancia), exige confirmación explícita. Todo queda en el historial.
+     */
+    public function moverDeCiclo(PedidoModelo $p, ?string $destino = null, bool $confirmarSobrecupo = false, ?CarbonImmutable $ahora = null): PedidoModelo
+    {
+        $this->exigirPagadoSinCancelar($p);
+        $ahora ??= CarbonImmutable::now('UTC');
+        if ($p->status === 'shipped') {
+            throw new PedidoRechazado('already_shipped', 'Este pedido ya fue enviado.', 409);
+        }
+        if ($p->window_type === 'scheduled') {
+            throw new PedidoRechazado('scheduled_order', 'Este pedido tiene una fecha de entrega que eligió el comprador: cámbiala con «Avisar retraso».', 409);
+        }
+        $actual = $p->cycle_date->format('Y-m-d');
+        $destino ??= $this->capacidad->siguienteDiaDeProduccion($actual);
+        if ($destino <= $actual) {
+            throw new ValidacionFallida(['cycle' => ['Elige un ciclo posterior al actual ('.$actual.').']]);
+        }
+        if (! $this->motor->seProduce($destino)) {
+            throw new ValidacionFallida(['cycle' => ['Ese día no se produce (domingo o feriado). Elige otro.']]);
+        }
+
+        return DB::transaction(function () use ($p, $destino, $actual, $confirmarSobrecupo, $ahora) {
+            $this->capacidad->bloquear($destino);
+            $enElDestino = $this->capacidad->comprometidos($destino, $ahora);
+            $limite = $this->capacidad->limite($destino, true);
+            if ($enElDestino >= $limite && ! $confirmarSobrecupo) {
+                throw new PedidoRechazado('capacity_over_limit', "El ciclo del {$destino} ya tiene {$enElDestino} pedidos (límite {$limite}). Confirma para superarlo.", 409, ['committed' => $enElDestino, 'limit' => $limite]);
+            }
+            $despacho = $this->motor->despacho($destino);
+            $ventana = $this->motor->ventana($despacho, $p->shipping_zone === 'B' ? 1 : 0);
+            $anterior = $this->correo->etiquetaDeVentana($p->window_start->format('Y-m-d'), $p->window_end->format('Y-m-d'));
+            $p->update([
+                'original_window_start' => $p->original_window_start ?? $p->window_start,
+                'original_window_end' => $p->original_window_end ?? $p->window_end,
+                'cycle_date' => $destino, 'dispatch_date' => $despacho, 'window_start' => $ventana['start'], 'window_end' => $ventana['end'],
+                'delay_reason' => 'Cambio de ciclo', 'delayed_at' => $ahora,
+            ]);
+            ($this->historial)($p, 'cycle_moved', ['from_cycle' => $actual, 'to_cycle' => $destino, 'from' => $anterior, 'to' => $this->correo->etiquetaDeVentana($ventana['start'], $ventana['end']), 'over_capacity' => $enElDestino >= $limite]);
+            $this->avisar($p, NotificarPedido::RETRASADO, ['reason' => 'Cambio de ciclo de producción', 'previous_window' => $anterior]);
+
+            return $p->refresh();
+        });
+    }
+
     /** «En producción»: solo un pedido pagado que todavía no salió. */
     public function marcarEnProduccion(PedidoModelo $p, ?CarbonImmutable $ahora = null): PedidoModelo
     {

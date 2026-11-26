@@ -112,6 +112,7 @@ final class ControladorAdministracionPedidos extends Controller
             'paid' => 'Pago confirmado por '.$metodo($d['method'] ?? '').(($d['late'] ?? false) ? ' (fuera de plazo)' : '').'; entrega '.($d['window'] ?? ''),
             'expired' => ($d['method'] ?? '') === 'card' ? 'Venció el cupo apartado para pagar con tarjeta' : 'Venció el plazo para transferir',
             'in_production' => 'Pasó a producción',
+            'cycle_moved' => 'Pasó del ciclo del '.($d['from_cycle'] ?? '').' al del '.($d['to_cycle'] ?? '').': entrega '.($d['to'] ?? '').' (antes '.($d['from'] ?? '').')'.(($d['over_capacity'] ?? false) ? ' · superó la capacidad, confirmado' : ''),
             'shipped' => 'Enviado, guía '.($d['tracking_number'] ?? ''),
             'tracking_corrected' => 'Guía corregida: '.($d['from'] ?? '—').' → '.($d['to'] ?? ''),
             'delayed' => 'Retraso: nueva entrega '.($d['to'] ?? '').' (antes '.($d['from'] ?? '').')'.(($d['reason'] ?? null) ? ' · '.$d['reason'] : ''),
@@ -132,6 +133,17 @@ final class ControladorAdministracionPedidos extends Controller
     public function marcarPagado(string $numero, Request $request, GestionarPedido $gestionar): JsonResponse
     {
         $pedido = $gestionar->marcarPagado($this->buscar($numero), $request->boolean('late'), $request->boolean('confirm_over_capacity'));
+
+        return response()->json($this->fila($pedido->load('items', 'cliente')));
+    }
+
+    /** Pasa el pedido al siguiente ciclo (o al `cycle` elegido); la ventana se recalcula sola. */
+    public function moverDeCiclo(string $numero, Request $request, GestionarPedido $gestionar): JsonResponse
+    {
+        $validos = ValidacionFallida::validar($request->all(), [
+            'cycle' => ['nullable', 'date_format:Y-m-d'],
+        ], ['cycle.date_format' => 'Elige un ciclo válido.']);
+        $pedido = $gestionar->moverDeCiclo($this->buscar($numero), $validos['cycle'] ?? null, $request->boolean('confirm_over_capacity'));
 
         return response()->json($this->fila($pedido->load('items', 'cliente')));
     }
