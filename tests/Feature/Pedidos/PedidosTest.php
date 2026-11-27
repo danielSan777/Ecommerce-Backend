@@ -1831,4 +1831,95 @@ final class PedidosTest extends TestCase
         $this->assertSame('skipped', $nuevo->refresh()->status);
         $this->assertStringContainsString('72', (string) $nuevo->error);
     }
+
+    // ----- Paso 20: compras reales a Meta (API de Conversiones) desde el servidor -----
+
+    private function activarMeta(array $extra = []): void
+    {
+        config(array_replace(['seguimiento.meta.pixel_id' => '123456789', 'seguimiento.meta.access_token' => 'token-secreto', 'seguimiento.meta.test_event_code' => null], $extra));
+    }
+
+    private function pedidoConMeta(array $tracking = []): PedidoModelo
+    {
+        return $this->pedidoConGa(array_replace_recursive([
+            'ga_client_id' => '111.222', 'ga_session_id' => '1700000000', 'fbp' => 'fb.1.1700000000000.123', 'fbclid' => 'AbCdEf', 'page_url' => 'https://jardindesele.com/producto/abc',
+            'last_touch' => ['utm' => ['source' => 'meta'], 'fbclid' => 'AbCdEf', 'date' => '2026-11-20T15:00:00Z'], 'cookie_consent' => ['marketing' => true],
+        ], $tracking));
+    }
+
+    public function test_una_compra_pagada_se_envia_a_meta_con_datos_en_hash_y_el_event_id_del_pedido(): void
+    {
+        $this->activarMeta();
+        \Illuminate\Support\Facades\Http::fake(['graph.facebook.com/*' => \Illuminate\Support\Facades\Http::response('{"events_received":1}', 200)]);
+        $p = $this->pedidoConMeta();
+        \Illuminate\Support\Facades\Http::assertNothingSent();   // sin pagar: no se envía
+
+        $this->pagarComoAdmin($p);
+        $p->refresh();
+
+        \Illuminate\Support\Facades\Http::assertSentCount(1);
+        \Illuminate\Support\Facades\Http::assertSent(function ($r) use ($p) {
+            $e = $r['data'][0];
+
+            return str_contains($r->url(), '/v25.0/123456789/events') && ! str_contains($r->url(), 'token-secreto')   // el token va en el cuerpo, no en la URL
+                && $r['access_token'] === 'token-secreto' && ! isset($r['test_event_code'])
+                && $e['event_name'] === 'Purchase' && $e['event_id'] === 'purchase-'.$p->uuid && $e['action_source'] === 'website'
+                && $e['event_time'] === $p->paid_at->getTimestamp() && $e['event_source_url'] === 'https://jardindesele.com/producto/abc'
+                && $e['user_data']['em'] === [hash('sha256', 'josue@correo.com')]
+                && $e['user_data']['ph'] === [hash('sha256', '593991234567')]
+                && $e['user_data']['external_id'] === [hash('sha256', (string) $p->customer_id)]
+                && $e['user_data']['fbp'] === 'fb.1.1700000000000.123' && $e['user_data']['fbc'] === 'fb.1.'.(\Carbon\CarbonImmutable::parse('2026-11-20T15:00:00Z')->getTimestamp() * 1000).'.AbCdEf'
+                && $e['custom_data']['currency'] === 'USD' && $e['custom_data']['content_type'] === 'product'
+                && abs($e['custom_data']['value'] - (($p->subtotal_cents - $p->discount_cents) / 100)) < 0.001   // sin envío ni recargo
+                && $e['custom_data']['order_id'] === $p->number && $e['custom_data']['content_ids'] !== [] && $e['custom_data']['num_items'] >= 1
+                && ! str_contains(json_encode($e), 'josue@correo.com') && ! str_contains(json_encode($e), '991234567');   // nada de datos personales en claro
+        });
+        $envio = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->where('platform', 'meta')->firstOrFail();
+        $this->assertSame(['purchase', 'purchase-'.$p->uuid, 'sent', 200], [$envio->event, $envio->event_id, $envio->status, $envio->http_status]);
+    }
+
+    public function test_el_codigo_de_prueba_de_meta_viaja_solo_si_esta_puesto(): void
+    {
+        $this->activarMeta(['seguimiento.meta.test_event_code' => 'TEST123']);
+        \Illuminate\Support\Facades\Http::fake(['graph.facebook.com/*' => \Illuminate\Support\Facades\Http::response('{}', 200)]);
+        $this->pagarComoAdmin($this->pedidoConMeta());
+
+        \Illuminate\Support\Facades\Http::assertSent(fn ($r) => $r['test_event_code'] === 'TEST123');
+    }
+
+    public function test_sin_claves_de_meta_o_sin_cookies_de_marketing_no_se_envia_nada_a_meta(): void
+    {
+        \Illuminate\Support\Facades\Http::fake();
+        $this->pagarComoAdmin($this->pedidoConMeta());   // Meta apagada: ni se registra
+        $this->assertSame(0, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());
+
+        $this->activarMeta();
+        $this->pagarComoAdmin($this->pedidoConMeta(['cookie_consent' => ['marketing' => false]]));
+        $envio = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->where('platform', 'meta')->firstOrFail();
+        $this->assertSame('skipped', $envio->status);
+        $this->assertStringContainsString('cookies de marketing', (string) $envio->error);
+
+        $wa = $this->pedidoConMeta();
+        $wa->update(['channel' => 'whatsapp']);
+        $this->pagarComoAdmin($wa);   // pedido de WhatsApp: ni se registra
+        $this->assertSame(1, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+    }
+
+    public function test_con_ga4_y_meta_activas_cada_plataforma_tiene_su_registro_y_una_compra_de_mas_de_7_dias_no_va_a_meta(): void
+    {
+        $this->activarGa4();
+        $this->activarMeta();
+        \Illuminate\Support\Facades\Http::fake(['www.google-analytics.com/*' => \Illuminate\Support\Facades\Http::response('', 204), 'graph.facebook.com/*' => \Illuminate\Support\Facades\Http::response('{}', 200)]);
+        $p = $this->pedidoConMeta();
+        $this->pagarComoAdmin($p);
+        $this->assertSame(['ga4' => 'sent', 'meta' => 'sent'], \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->pluck('status', 'platform')->all());
+
+        $vieja = $this->pedidoConMeta();
+        $vieja->update(['payment_status' => 'paid', 'status' => 'in_production', 'paid_at' => \Carbon\CarbonImmutable::now('UTC')->subDays(8)]);
+        $nuevo = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->create(['platform' => 'meta', 'event' => 'purchase', 'event_id' => $vieja->event_id, 'order_id' => $vieja->id]);
+        (new \App\Core\Seguimiento\Aplicacion\EnviarCompraAPlataforma($nuevo->id))->handle();
+        $this->assertSame('skipped', $nuevo->refresh()->status);
+        $this->assertStringContainsString('7 días', (string) $nuevo->error);
+    }
 }

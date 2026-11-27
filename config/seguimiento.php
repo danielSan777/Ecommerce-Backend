@@ -10,4 +10,13 @@ return [
         'max_horas' => 72,
         'url' => 'https://www.google-analytics.com/mp/collect',
     ],
+    'meta' => [
+        'pixel_id' => env('META_PIXEL_ID'),
+        'access_token' => env('META_ACCESS_TOKEN'),
+        // Solo para probar en el Administrador de eventos (pestaña «Probar eventos»); vacío en producción
+        'test_event_code' => env('META_TEST_EVENT_CODE'),
+        'api_version' => env('META_API_VERSION', 'v25.0'),
+        // Meta rechaza todo el lote si un evento tiene más de 7 días
+        'max_dias' => 7,
+    ],
 ];
