@@ -62,6 +62,8 @@ final class CotizarCarrito
             'mode' => $transferencia['mode'],
             'subtotal_cents' => $transferencia['subtotal_cents'],
             'discount_cents' => $transferencia['discount_cents'],
+            // Valor de los productos netos de descuento, sin envío ni recargo: el que Meta, TikTok y GA4 reciben como `value`
+            'merchandise_value_cents' => $transferencia['subtotal_cents'] - $transferencia['discount_cents'],
             'discounted_lines' => $transferencia['discounted_lines'],
             'free_shipping' => $transferencia['free_shipping'],
             'shipping_cents' => $envioConocido ? $transferencia['shipping_cents'] : null,

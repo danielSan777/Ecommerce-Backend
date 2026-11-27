@@ -268,6 +268,19 @@ final class PedidosTest extends TestCase
         $r->assertJsonPath('order.status', 'pending_payment')->assertJsonPath('order.deadline_label', 'Paga antes del lunes 9 de noviembre, 22:00');
     }
 
+    public function test_el_checkout_entrega_los_datos_de_compra_para_el_navegador_sin_envio_ni_recargo(): void
+    {
+        $r = $this->crear()->assertCreated();
+        $pedido = PedidoModelo::query()->firstOrFail();
+
+        $this->assertSame('purchase-'.$pedido->uuid, $r->json('analytics.event_id'));
+        $this->assertSame($pedido->number, $r->json('analytics.transaction_id'));
+        $this->assertSame($this->precio($this->slug()), $r->json('analytics.value_cents'));   // sin los 350 de envío
+        $this->assertSame('USD', $r->json('analytics.currency'));
+        $linea = $pedido->items->first();
+        $this->assertSame([['sku' => $linea->product_sku, 'name' => $linea->product_name, 'price_cents' => $linea->unit_price_cents, 'quantity' => $linea->quantity]], $r->json('analytics.items'));
+    }
+
     public function test_ningun_valor_de_angular_decide_el_total(): void
     {
         $esperado = $this->precio($this->slug()) + 350;
@@ -574,6 +587,7 @@ final class PedidosTest extends TestCase
         $r = $this->postJson('/api/v1/payments/payphone/confirm', ['id' => 555, 'client_transaction_id' => $cx])->assertOk()
             ->assertJsonPath('result', 'approved')->assertJsonPath('token', $token);
         $this->assertSame($p->number, $r->json('order_number'));
+        $this->assertSame(['purchase-'.$p->uuid, $p->number, $p->subtotal_cents - $p->discount_cents], [$r->json('analytics.event_id'), $r->json('analytics.transaction_id'), $r->json('analytics.value_cents')]);
         $p->refresh();
         $this->assertSame('paid', $p->payment_status);
         $this->assertSame('in_production', $p->status);
@@ -909,6 +923,7 @@ final class PedidosTest extends TestCase
         $q = $this->postJson('/api/v1/cart/quote', ['items' => [['slug' => $a['slug']], ['slug' => $b['slug']]]])->assertOk();
         $this->assertSame(['free_shipping_discount', 570, [1], 3330, 3330], [$q->json('mode'), $q->json('discount_cents'), $q->json('discounted_lines'), $q->json('total_transfer_cents'), $q->json('total_card_cents')]);
         $this->assertSame(0, $q->json('card_fee_cents'));
+        $this->assertSame(3330, $q->json('merchandise_value_cents'));   // productos netos de descuento, sin envío ni recargo
     }
 
     public function test_la_cotizacion_rechaza_carritos_vacios_y_productos_inexistentes(): void

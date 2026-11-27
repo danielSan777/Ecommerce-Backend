@@ -79,6 +79,7 @@ final class ControladorCheckout extends Controller
             'order_number' => $pedido->number,
             'token' => $pedido->token,
             'event_id' => $pedido->event_id,
+            'analytics' => $consultar->datosDeCompra($pedido),
             'order' => $consultar->vista($pedido),
         ], 201);
     }

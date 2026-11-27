@@ -84,6 +84,7 @@ final class ControladorPagos extends Controller
             // Solo un pago aprobado entrega el enlace privado del pedido y su vista
             'token' => $aprobado ? $r['order']->token : null,
             'event_id' => $aprobado ? $r['order']->event_id : null,
+            'analytics' => $aprobado ? $consultar->datosDeCompra($r['order']) : null,
             'order' => $aprobado ? $consultar->vista($r['order']) : null,
         ]);
     }

@@ -35,6 +35,25 @@ final class ConsultarPedido
         return $p->payment_status === 'paid' || $p->status === 'cancelled' ? $this->seguimiento($p) : $this->pendiente($p, $ahora);
     }
 
+    /**
+     * Lo que el navegador necesita para avisar la compra a Meta y TikTok (`Purchase` con tarjeta): el mismo `event_id` que usa el servidor,
+     * el valor de los productos netos de descuento (sin envío ni recargo) y las líneas con su SKU. Dinero en centavos; Angular lo pasa a dólares.
+     *
+     * @return array<string, mixed>
+     */
+    public function datosDeCompra(PedidoModelo $p): array
+    {
+        $p->loadMissing('items');
+
+        return [
+            'event_id' => $p->event_id,
+            'transaction_id' => $p->number,
+            'value_cents' => $p->subtotal_cents - $p->discount_cents,
+            'currency' => 'USD',
+            'items' => $p->items->map(fn ($i) => ['sku' => $i->product_sku, 'name' => $i->product_name, 'price_cents' => $i->unit_price_cents, 'quantity' => $i->quantity])->all(),
+        ];
+    }
+
     /** @return array<string, mixed> */
     private function pendiente(PedidoModelo $p, CarbonImmutable $ahora): array
     {
