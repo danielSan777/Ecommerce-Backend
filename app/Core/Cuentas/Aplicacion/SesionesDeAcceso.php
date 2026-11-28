@@ -34,6 +34,10 @@ final class SesionesDeAcceso
         if ($usuario === null || ! $valida) {
             return null;
         }
+        // Un cliente solo entra después de confirmar su correo (se dice solo con la contraseña correcta, para no revelar qué correos existen)
+        if ($usuario->role === User::ROL_CLIENTE && $usuario->email_verified_at === null) {
+            throw new CorreoSinConfirmar();
+        }
 
         return $this->abrir($usuario, $dispositivo);
     }

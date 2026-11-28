@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Core\Cuentas\Presentacion\Controladores;
 
+use App\Core\Cuentas\Aplicacion\CorreoSinConfirmar;
 use App\Core\Cuentas\Aplicacion\PedidosDeLaCuenta;
 use App\Core\Cuentas\Aplicacion\RecuperacionDeCuenta;
 use App\Core\Cuentas\Aplicacion\SesionesDeAcceso;
@@ -19,8 +20,19 @@ use Illuminate\Validation\Rules\Password;
 /** Cuenta única para clientes y administradores: la respuesta incluye el rol y Angular decide a dónde llevar al usuario. */
 final class ControladorCuenta extends Controller
 {
+    /**
+     * La cuenta no abre sesión al crearse: primero se confirma el correo con el enlace que llega a la bandeja.
+     * Si ese correo ya tenía un registro sin confirmar, se reenvía el enlace sin tocar nada de lo que había.
+     */
     public function register(Request $request, SesionesDeAcceso $sesiones, RecuperacionDeCuenta $recuperacion): JsonResponse
     {
+        $pendiente = is_string($request->input('email')) ? User::query()->where('email', mb_strtolower(trim($request->input('email'))))->where('role', User::ROL_CLIENTE)->whereNull('email_verified_at')->first() : null;
+        if ($pendiente !== null) {
+            defer(fn () => $recuperacion->pedirConfirmacion($pendiente));
+
+            return $this->pideConfirmar();
+        }
+
         $validador = Validator::make($request->all(), [
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['required', 'string', 'email:rfc', 'max:255', 'unique:users,email'],
@@ -45,7 +57,25 @@ final class ControladorCuenta extends Controller
 
         defer(fn () => $recuperacion->pedirConfirmacion($usuario));   // el correo de confirmación sale después de responder
 
-        return $this->conSesion($sesiones->abrir($usuario, $request->input('device')), 201);
+        return $this->pideConfirmar();
+    }
+
+    private function pideConfirmar(): JsonResponse
+    {
+        return response()->json(['email_verification_required' => true, 'message' => 'Te enviamos un correo para confirmar tu cuenta. Toca el enlace del correo y luego ingresa. Revisa también la carpeta de spam.'], 202);
+    }
+
+    /** Siempre responde igual: no revela si el correo tiene cuenta ni si ya la confirmó. */
+    public function reenviarCorreoDeConfirmacion(Request $request, RecuperacionDeCuenta $recuperacion): JsonResponse
+    {
+        $validador = Validator::make($request->all(), ['email' => ['required', 'string', 'email', 'max:255']], ['email.required' => 'Escribe tu correo.', 'email.email' => 'Escribe un correo válido.']);
+        if ($validador->fails()) {
+            return $this->invalido($validador->errors()->toArray());
+        }
+        $correo = $request->string('email')->toString();
+        defer(fn () => $recuperacion->reenviarConfirmacion($correo));
+
+        return response()->json(['message' => 'Si ese correo tiene una cuenta sin confirmar, te enviamos el enlace de nuevo. Revisa también la carpeta de spam.']);
     }
 
     /** Siempre responde igual, exista o no la cuenta: no se puede usar para averiguar qué correos están registrados. */
@@ -91,14 +121,6 @@ final class ControladorCuenta extends Controller
         return response()->json(['message' => 'Correo confirmado.']);
     }
 
-    public function reenviarConfirmacion(Request $request, RecuperacionDeCuenta $recuperacion): Response
-    {
-        $usuario = $request->user('api');
-        defer(fn () => $recuperacion->pedirConfirmacion($usuario));
-
-        return response()->noContent();
-    }
-
     public function pedidos(Request $request, PedidosDeLaCuenta $pedidos): JsonResponse
     {
         return response()->json(['data' => $pedidos->lista($request->user('api'))]);
@@ -125,7 +147,11 @@ final class ControladorCuenta extends Controller
             return $this->invalido($validador->errors()->toArray());
         }
 
-        $sesion = $sesiones->iniciar($request->string('email')->toString(), $request->string('password')->toString(), $request->input('device'));
+        try {
+            $sesion = $sesiones->iniciar($request->string('email')->toString(), $request->string('password')->toString(), $request->input('device'));
+        } catch (CorreoSinConfirmar) {
+            return response()->json(['code' => 'email_not_verified', 'message' => 'Confirma tu correo para ingresar. Te enviamos un enlace al crear tu cuenta.'], 403);
+        }
 
         if ($sesion === null) {
             return response()->json(['code' => 'invalid_credentials', 'message' => 'Correo o contraseña incorrectos.'], 401);

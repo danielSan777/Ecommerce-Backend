@@ -33,6 +33,15 @@ final class RecuperacionDeCuenta
         $this->enviar($usuario, new CorreoDeCuenta('Confirma tu correo · Jardín de Sele', 'Confirma tu correo', 'Gracias por crear tu cuenta. Confirma tu correo para ver aquí también los pedidos que hiciste antes con este mismo correo.', 'Confirmar mi correo', $enlace, 'Si no creaste una cuenta en Jardín de Sele, ignora este mensaje. El enlace vence en 3 días.'));
     }
 
+    /** Reenvío desde la pantalla de ingreso, sin sesión. Solo si el correo es de un cliente que aún no confirmó; nunca revela si existe. */
+    public function reenviarConfirmacion(string $correo): void
+    {
+        $usuario = User::query()->where('email', mb_strtolower(trim($correo)))->first();
+        if ($usuario !== null) {
+            $this->pedirConfirmacion($usuario);
+        }
+    }
+
     public function pedirRestablecer(string $correo): void
     {
         $usuario = User::query()->where('email', mb_strtolower(trim($correo)))->where('role', User::ROL_CLIENTE)->first();

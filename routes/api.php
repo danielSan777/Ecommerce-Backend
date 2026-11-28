@@ -66,6 +66,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register', [ControladorCuenta::class, 'register'])->middleware('throttle:registro')->name('api.v1.auth.register');
         Route::post('login', [ControladorCuenta::class, 'login'])->middleware('throttle:login')->name('api.v1.auth.login');
+        Route::post('resend-confirmation', [ControladorCuenta::class, 'reenviarCorreoDeConfirmacion'])->middleware('throttle:recuperar')->name('api.v1.auth.resend-confirmation');
         Route::post('forgot-password', [ControladorCuenta::class, 'olvide'])->middleware('throttle:recuperar')->name('api.v1.auth.forgot-password');
         Route::post('reset-password', [ControladorCuenta::class, 'restablecer'])->middleware('throttle:recuperar')->name('api.v1.auth.reset-password');
         Route::post('verify-email', [ControladorCuenta::class, 'confirmarCorreo'])->middleware('throttle:recuperar')->name('api.v1.auth.verify-email');
@@ -73,7 +74,6 @@ Route::prefix('v1')->group(function () {
             Route::get('me', [ControladorCuenta::class, 'me'])->name('api.v1.auth.me');
             Route::get('orders', [ControladorCuenta::class, 'pedidos'])->name('api.v1.auth.orders');
             Route::get('checkout-data', [ControladorCuenta::class, 'datosDelCheckout'])->name('api.v1.auth.checkout-data');
-            Route::post('resend-verification', [ControladorCuenta::class, 'reenviarConfirmacion'])->middleware('throttle:recuperar')->name('api.v1.auth.resend-verification');
             Route::post('logout', [ControladorCuenta::class, 'logout'])->name('api.v1.auth.logout');
             Route::post('logout-all', [ControladorCuenta::class, 'logoutAll'])->name('api.v1.auth.logout-all');
         });

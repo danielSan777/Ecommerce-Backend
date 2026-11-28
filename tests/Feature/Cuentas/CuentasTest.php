@@ -156,21 +156,65 @@ final class CuentasTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => self::CLAVE])->assertOk()->assertJsonPath('user.role', 'customer');
     }
 
-    public function test_registro_crea_un_cliente_con_sesion_y_guarda_la_clave_cifrada(): void
+    public function test_registro_crea_un_cliente_sin_sesion_hasta_confirmar_el_correo_y_guarda_la_clave_cifrada(): void
     {
         $r = $this->postJson('/api/v1/auth/register', ['name' => 'Ana Pérez', 'email' => 'Ana@Correo.com', 'password' => 'clave-segura-1', 'password_confirmation' => 'clave-segura-1'])
-            ->assertCreated()->assertJsonPath('user.role', 'customer')->assertJsonPath('user.email', 'ana@correo.com');
+            ->assertStatus(202)->assertJsonPath('email_verification_required', true);
+        $this->assertNull($r->json('token'));
 
         $usuario = User::query()->where('email', 'ana@correo.com')->firstOrFail();
         $this->assertSame('customer', $usuario->role);
+        $this->assertNull($usuario->email_verified_at);
         $this->assertNotSame('clave-segura-1', $usuario->password);
-        $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer '.$r->json('token')])->assertOk()->assertJsonPath('user.name', 'Ana Pérez');
+        $this->assertSame(0, TokenDeAcceso::query()->count());
+    }
+
+    public function test_sin_confirmar_el_correo_no_se_puede_ingresar_y_despues_si(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->postJson('/api/v1/auth/register', ['name' => 'Ana Pérez', 'email' => 'ana@correo.com', 'password' => 'clave-segura-1', 'password_confirmation' => 'clave-segura-1'])->assertStatus(202);
+
+        $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => 'clave-segura-1'])->assertForbidden()->assertJsonPath('code', 'email_not_verified');
+        $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => 'mala'])->assertUnauthorized();   // con clave incorrecta no se revela nada
+
+        $this->postJson('/api/v1/auth/verify-email', ['token' => $this->tokenDelCorreo('confirmar-correo')])->assertOk();
+        $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => 'clave-segura-1'])->assertOk()->assertJsonPath('user.email_verified', true);
+    }
+
+    public function test_registrarse_otra_vez_con_un_correo_sin_confirmar_reenvia_el_enlace_sin_cambiar_la_clave(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->postJson('/api/v1/auth/register', ['name' => 'Ana Pérez', 'email' => 'ana@correo.com', 'password' => 'clave-segura-1', 'password_confirmation' => 'clave-segura-1'])->assertStatus(202);
+        $hash = User::query()->where('email', 'ana@correo.com')->value('password');
+
+        $this->postJson('/api/v1/auth/register', ['name' => 'Otro', 'email' => 'ana@correo.com', 'password' => 'otra-clave-999', 'password_confirmation' => 'otra-clave-999'])->assertStatus(202);
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 2);
+        $this->assertSame($hash, User::query()->where('email', 'ana@correo.com')->value('password'));
+        $this->assertSame('Ana Pérez', User::query()->where('email', 'ana@correo.com')->value('name'));
+        $this->assertSame(1, User::query()->where('email', 'ana@correo.com')->count());
+    }
+
+    public function test_reenviar_la_confirmacion_desde_el_ingreso_responde_igual_y_solo_envia_a_quien_no_confirmo(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->cliente(['email' => 'ana@correo.com', 'email_verified_at' => null]);
+        $this->cliente(['email' => 'luis@correo.com']);   // ya confirmado
+
+        $a = $this->postJson('/api/v1/auth/resend-confirmation', ['email' => 'ana@correo.com'])->assertOk()->json('message');
+        $b = $this->postJson('/api/v1/auth/resend-confirmation', ['email' => 'luis@correo.com'])->assertOk()->json('message');
+        $c = $this->postJson('/api/v1/auth/resend-confirmation', ['email' => 'nadie@correo.com'])->assertOk()->json('message');
+        $this->postJson('/api/v1/auth/resend-confirmation', ['email' => 'no-es-correo'])->assertStatus(422);
+
+        $this->assertSame($a, $b);
+        $this->assertSame($a, $c);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 1);
     }
 
     public function test_el_registro_nunca_permite_elegirse_administrador(): void
     {
         $this->postJson('/api/v1/auth/register', ['name' => 'Intruso', 'email' => 'x@correo.com', 'password' => 'clave-segura-1', 'password_confirmation' => 'clave-segura-1', 'role' => 'admin'])
-            ->assertCreated()->assertJsonPath('user.role', 'customer');
+            ->assertStatus(202);
 
         $this->assertSame('customer', User::query()->where('email', 'x@correo.com')->value('role'));
     }
@@ -300,28 +344,12 @@ final class CuentasTest extends TestCase
     public function test_al_registrarse_llega_el_correo_de_confirmacion_y_el_enlace_confirma_el_correo(): void
     {
         \Illuminate\Support\Facades\Mail::fake();
-        $r = $this->postJson('/api/v1/auth/register', ['name' => 'Ana Pérez', 'email' => 'Ana@Correo.com', 'password' => self::CLAVE, 'password_confirmation' => self::CLAVE])->assertCreated();
-        $r->assertJsonPath('user.email_verified', false);
+        $this->postJson('/api/v1/auth/register', ['name' => 'Ana Pérez', 'email' => 'Ana@Correo.com', 'password' => self::CLAVE, 'password_confirmation' => self::CLAVE])->assertStatus(202);
         $token = $this->tokenDelCorreo('confirmar-correo');
 
         $this->postJson('/api/v1/auth/verify-email', ['token' => 'malo'])->assertStatus(422);
         $this->postJson('/api/v1/auth/verify-email', ['token' => $token])->assertOk();
         $this->postJson('/api/v1/auth/verify-email', ['token' => $token])->assertStatus(422);
-        $this->withHeader('Authorization', 'Bearer '.$r->json('token'))->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('user.email_verified', true);
-    }
-
-    public function test_reenviar_la_confirmacion_pide_sesion_y_no_envia_si_ya_esta_confirmado(): void
-    {
-        \Illuminate\Support\Facades\Mail::fake();
-        $this->postJson('/api/v1/auth/resend-verification')->assertUnauthorized();
-        $u = $this->cliente(['email_verified_at' => null]);
-        $token = $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => self::CLAVE])->json('token');
-
-        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/v1/auth/resend-verification')->assertNoContent();
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 1);
-
-        $u->forceFill(['email_verified_at' => now()])->save();
-        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/v1/auth/resend-verification')->assertNoContent();
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 1);
+        $this->assertNotNull(User::query()->where('email', 'ana@correo.com')->value('email_verified_at'));
     }
 }
