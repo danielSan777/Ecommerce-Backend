@@ -224,4 +224,104 @@ final class CuentasTest extends TestCase
         // El navegador solo acepta la respuesta si el origen coincide: para otro sitio nunca se devuelve su origen ni '*'.
         $this->assertNotContains($ajeno->headers->get('Access-Control-Allow-Origin'), ['https://malo.com', '*']);
     }
+
+    // ---------- Confirmar correo y restablecer contraseña ----------
+
+    private function cliente(array $datos = []): User
+    {
+        return User::factory()->create(array_replace(['email' => 'ana@correo.com', 'password' => self::CLAVE], $datos));
+    }
+
+    /** Pide un enlace y devuelve el token que viajó en el correo (en la base solo queda su hash). */
+    private function tokenDelCorreo(string $ruta): string
+    {
+        $html = '';
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, function ($m) use (&$html) {
+            $html = $m->render();
+
+            return true;
+        });
+        $this->assertSame(1, preg_match('#/'.$ruta.'\?token=([A-Za-z0-9]{64})#', $html, $c));
+
+        return $c[1];
+    }
+
+    public function test_olvide_mi_contrasena_responde_igual_exista_o_no_la_cuenta_y_solo_envia_a_clientes(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->cliente();
+        $this->usuario();   // administrador
+
+        $existe = $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@correo.com'])->assertOk()->json('message');
+        $noExiste = $this->postJson('/api/v1/auth/forgot-password', ['email' => 'nadie@correo.com'])->assertOk()->json('message');
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'sele@jardindesele.com'])->assertOk();
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'no-es-correo'])->assertStatus(422);
+
+        $this->assertSame($existe, $noExiste);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 1);   // solo la clienta existente: ni el inexistente ni el administrador
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, fn ($m) => $m->hasTo('ana@correo.com'));
+    }
+
+    public function test_restablecer_cambia_la_contrasena_una_sola_vez_confirma_el_correo_y_cierra_las_sesiones(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $u = $this->cliente();
+        $vieja = $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => self::CLAVE])->json('token');
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@correo.com'])->assertOk();
+        $token = $this->tokenDelCorreo('restablecer-contrasena');
+        $this->assertDatabaseMissing('account_tokens', ['token_hash' => $token]);   // solo se guarda el hash
+
+        $this->postJson('/api/v1/auth/reset-password', ['token' => $token, 'password' => 'otra', 'password_confirmation' => 'otra'])->assertStatus(422)->assertJsonPath('code', 'validation_error');
+        $this->postJson('/api/v1/auth/reset-password', ['token' => 'x'.$token, 'password' => 'clave-nueva-456', 'password_confirmation' => 'clave-nueva-456'])->assertStatus(422)->assertJsonPath('code', 'invalid_token');
+        $this->postJson('/api/v1/auth/reset-password', ['token' => $token, 'password' => 'clave-nueva-456', 'password_confirmation' => 'clave-nueva-456'])->assertOk();
+
+        $this->assertNotNull($u->fresh()->email_verified_at);
+        $this->postJson('/api/v1/auth/reset-password', ['token' => $token, 'password' => 'otra-clave-789', 'password_confirmation' => 'otra-clave-789'])->assertStatus(422);   // sirve una sola vez
+        $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => self::CLAVE])->assertUnauthorized();
+        $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => 'clave-nueva-456'])->assertOk();
+        $this->withHeader('Authorization', 'Bearer '.$vieja)->getJson('/api/v1/auth/me')->assertUnauthorized();   // la sesión anterior se cerró
+    }
+
+    public function test_el_enlace_de_restablecer_vence_a_la_hora_y_uno_nuevo_anula_el_anterior(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->cliente();
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@correo.com']);
+        $primero = $this->tokenDelCorreo('restablecer-contrasena');
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@correo.com']);
+        $segundo = $this->tokenDelCorreo('restablecer-contrasena');
+
+        $this->postJson('/api/v1/auth/reset-password', ['token' => $primero, 'password' => 'clave-nueva-456', 'password_confirmation' => 'clave-nueva-456'])->assertStatus(422);
+        $this->travel(61)->minutes();
+        $this->postJson('/api/v1/auth/reset-password', ['token' => $segundo, 'password' => 'clave-nueva-456', 'password_confirmation' => 'clave-nueva-456'])->assertStatus(422)->assertJsonPath('code', 'invalid_token');
+    }
+
+    public function test_al_registrarse_llega_el_correo_de_confirmacion_y_el_enlace_confirma_el_correo(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $r = $this->postJson('/api/v1/auth/register', ['name' => 'Ana Pérez', 'email' => 'Ana@Correo.com', 'password' => self::CLAVE, 'password_confirmation' => self::CLAVE])->assertCreated();
+        $r->assertJsonPath('user.email_verified', false);
+        $token = $this->tokenDelCorreo('confirmar-correo');
+
+        $this->postJson('/api/v1/auth/verify-email', ['token' => 'malo'])->assertStatus(422);
+        $this->postJson('/api/v1/auth/verify-email', ['token' => $token])->assertOk();
+        $this->postJson('/api/v1/auth/verify-email', ['token' => $token])->assertStatus(422);
+        $this->withHeader('Authorization', 'Bearer '.$r->json('token'))->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('user.email_verified', true);
+    }
+
+    public function test_reenviar_la_confirmacion_pide_sesion_y_no_envia_si_ya_esta_confirmado(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->postJson('/api/v1/auth/resend-verification')->assertUnauthorized();
+        $u = $this->cliente(['email_verified_at' => null]);
+        $token = $this->postJson('/api/v1/auth/login', ['email' => 'ana@correo.com', 'password' => self::CLAVE])->json('token');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/v1/auth/resend-verification')->assertNoContent();
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 1);
+
+        $u->forceFill(['email_verified_at' => now()])->save();
+        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/v1/auth/resend-verification')->assertNoContent();
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Core\Cuentas\Infraestructura\Correo\CorreoDeCuenta::class, 1);
+    }
 }

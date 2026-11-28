@@ -90,6 +90,7 @@ final class CrearPedido
                 'uuid' => $uuid,
                 'token' => bin2hex(random_bytes(32)),
                 'customer_id' => $cliente->id,
+                'user_id' => $datos['user_id'] ?? null,   // con la sesión de un cliente iniciada; sin sesión, compra de invitado
                 'channel' => 'web', 'payment_method' => $tarjeta ? 'card' : 'transfer', 'payment_status' => $tarjeta ? 'unpaid' : 'pending_validation', 'status' => 'created',
                 'subtotal_cents' => $subtotal, 'discount_cents' => $descuento, 'shipping_cents' => $envioCents, 'card_fee_cents' => $recargo, 'total_cents' => $total,
                 'shipping_zone' => $canton->zona->code,

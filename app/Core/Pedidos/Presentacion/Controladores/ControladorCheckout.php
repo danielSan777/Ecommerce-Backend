@@ -11,7 +11,9 @@ use App\Core\Pedidos\Aplicacion\CasosDeUso\NotificarPedido;
 use App\Http\Controllers\Controller;
 use App\Shared\Presentacion\ValidacionFallida;
 use Illuminate\Http\JsonResponse;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 final class ControladorCheckout extends Controller
@@ -69,6 +71,9 @@ final class ControladorCheckout extends Controller
         $datos['shipping'] = $request->input('shipping');
         $datos['billing'] = $request->input('billing', ['same_as_shipping' => true]);
         $datos['contact'] = $request->input('contact', ['same_as_shipping' => true]);
+        // Sesión opcional: la compra puede ser de invitado. Si el cliente la tiene iniciada, el pedido queda en su cuenta.
+        $usuario = Auth::guard('api')->user();
+        $datos['user_id'] = $usuario?->role === User::ROL_CLIENTE ? $usuario->id : null;
 
         $pedido = $crear($datos, $request->ip(), $request->userAgent());
         if ($pedido->payment_method === 'transfer') {

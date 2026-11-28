@@ -54,6 +54,28 @@ final class ConsultarPedido
         ];
     }
 
+    /**
+     * Una fila de «Mis pedidos»: estado simple, total, fecha y el token para abrir el seguimiento privado (solo lo ve su dueño).
+     *
+     * @return array<string, mixed>
+     */
+    public function resumen(PedidoModelo $p, ?CarbonImmutable $ahora = null): array
+    {
+        $ahora ??= CarbonImmutable::now('UTC');
+        $vista = $this->vista($p, $ahora);
+
+        return [
+            'order_number' => $p->number,
+            'token' => $p->token,
+            'created_at' => $p->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
+            'status' => $vista['visible_status'] ?? $vista['status'],   // pending_payment | expired | confirmado | en_produccion | enviado | cancelado | reembolsado
+            'total_cents' => $p->total_cents,
+            'payment_method' => $p->payment_method,
+            'window' => $vista['window'],
+            'items' => $p->items->map(fn ($i) => $i->product_name)->all(),
+        ];
+    }
+
     /** @return array<string, mixed> */
     private function pendiente(PedidoModelo $p, CarbonImmutable $ahora): array
     {

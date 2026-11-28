@@ -1968,4 +1968,76 @@ final class PedidosTest extends TestCase
         $this->assertSame('skipped', $nuevo->refresh()->status);
         $this->assertStringContainsString('7 días', (string) $nuevo->error);
     }
+
+    // ---------- Pedidos de la cuenta del cliente ----------
+
+    public function test_un_pedido_hecho_con_la_sesion_iniciada_queda_en_la_cuenta_y_sin_sesion_o_como_admin_no(): void
+    {
+        $this->crear()->assertCreated();
+        $this->assertNull(PedidoModelo::query()->latest('id')->firstOrFail()->user_id);   // invitado
+
+        $ana = User::factory()->create(['email' => 'ana@correo.com']);
+        $this->actingAs($ana, 'api')->crear()->assertCreated();
+        $this->assertSame($ana->id, PedidoModelo::query()->latest('id')->firstOrFail()->user_id);
+
+        $this->app['auth']->forgetGuards();
+        $this->actingAs(User::factory()->administrador()->create(), 'api')->crear()->assertCreated();
+        $this->assertNull(PedidoModelo::query()->latest('id')->firstOrFail()->user_id);   // un pedido de prueba del admin no se ata a su cuenta
+    }
+
+    public function test_mi_cuenta_lista_solo_los_pedidos_propios_y_los_de_invitado_solo_con_el_correo_confirmado(): void
+    {
+        $this->getJson('/api/v1/auth/orders')->assertUnauthorized();
+
+        // Pedido de invitado con el correo de Ana (antes de que existiera su cuenta) y pedido de otra persona
+        $this->crear(['shipping' => ['email' => 'ana@correo.com']])->assertCreated();
+        $this->crear(['shipping' => ['email' => 'otra@correo.com']])->assertCreated();
+
+        $ana = User::factory()->create(['email' => 'ana@correo.com', 'email_verified_at' => null]);
+        $this->actingAs($ana, 'api')->crear(['shipping' => ['email' => 'ana@correo.com']])->assertCreated();   // con sesión: es suyo sin dudas
+
+        $sinConfirmar = $this->getJson('/api/v1/auth/orders')->assertOk();
+        $this->assertCount(1, $sinConfirmar->json('data'));   // registrarse con un correo ajeno sin confirmarlo no abre sus pedidos
+
+        $ana->forceFill(['email_verified_at' => now()])->save();
+        $this->app['auth']->forgetGuards();
+        $r = $this->actingAs($ana->fresh(), 'api')->getJson('/api/v1/auth/orders')->assertOk();
+        $this->assertCount(2, $r->json('data'));   // ahora también el de invitado con su mismo correo
+        $fila = $r->json('data.0');
+        $this->assertSame('pending_payment', $fila['status']);
+        $this->assertSame(['order_number', 'token', 'created_at', 'status', 'total_cents', 'payment_method', 'window', 'items'], array_keys($fila));
+        $this->assertSame(64, strlen($fila['token']));
+        $this->assertNotContains('otra@correo.com', array_map('json_encode', $r->json('data')));
+    }
+
+    public function test_el_estado_de_mis_pedidos_sigue_al_pedido_pagado(): void
+    {
+        $ana = User::factory()->create(['email' => 'ana@correo.com']);
+        $this->actingAs($ana, 'api')->crear()->assertCreated();
+        $p = PedidoModelo::query()->firstOrFail();
+        $this->pagarComoAdmin($p);
+        $this->app['auth']->forgetGuards();
+
+        $this->actingAs($ana, 'api')->getJson('/api/v1/auth/orders')->assertJsonPath('data.0.status', 'en_produccion');   // el pago confirmado lo pasa a producción
+    }
+
+    public function test_los_datos_del_checkout_salen_del_ultimo_pedido_de_la_cuenta(): void
+    {
+        $ana = User::factory()->create(['name' => 'Ana Pérez', 'email' => 'ana@correo.com', 'email_verified_at' => null]);
+        $this->actingAs($ana, 'api')->getJson('/api/v1/auth/checkout-data')->assertOk()
+            ->assertJsonPath('name', 'Ana Pérez')->assertJsonPath('email', 'ana@correo.com')->assertJsonPath('shipping', null);
+
+        $this->app['auth']->forgetGuards();
+        $this->crear(['shipping' => ['email' => 'ana@correo.com', 'address' => 'Calle Nueva 456']])->assertCreated();   // como invitado
+        $this->actingAs($ana, 'api');
+        $r = $this->getJson('/api/v1/auth/checkout-data')->assertOk()->assertJsonPath('shipping', null);   // el pedido fue de invitado y su correo no está confirmado
+
+        $ana->forceFill(['email_verified_at' => now()])->save();
+        $this->app['auth']->forgetGuards();
+        $r = $this->actingAs($ana->fresh(), 'api')->getJson('/api/v1/auth/checkout-data')->assertOk();
+        $this->assertSame('Calle Nueva 456', $r->json('shipping.address'));
+        $this->assertSame('0901', $r->json('shipping.canton_code'));
+        $this->assertSame(['Guayas', 'Guayaquil'], [$r->json('shipping.province_name'), $r->json('shipping.canton_name')]);
+        $this->assertSame(['same_as_shipping' => true], $r->json('billing'));
+    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Core\Cuentas\Presentacion\Controladores;
 
+use App\Core\Cuentas\Aplicacion\PedidosDeLaCuenta;
+use App\Core\Cuentas\Aplicacion\RecuperacionDeCuenta;
 use App\Core\Cuentas\Aplicacion\SesionesDeAcceso;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -17,7 +19,7 @@ use Illuminate\Validation\Rules\Password;
 /** Cuenta única para clientes y administradores: la respuesta incluye el rol y Angular decide a dónde llevar al usuario. */
 final class ControladorCuenta extends Controller
 {
-    public function register(Request $request, SesionesDeAcceso $sesiones): JsonResponse
+    public function register(Request $request, SesionesDeAcceso $sesiones, RecuperacionDeCuenta $recuperacion): JsonResponse
     {
         $validador = Validator::make($request->all(), [
             'name' => ['required', 'string', 'min:2', 'max:100'],
@@ -41,7 +43,70 @@ final class ControladorCuenta extends Controller
 
         $usuario = $sesiones->registrar($request->string('name')->trim()->toString(), $request->string('email')->toString(), $request->string('password')->toString());
 
+        defer(fn () => $recuperacion->pedirConfirmacion($usuario));   // el correo de confirmación sale después de responder
+
         return $this->conSesion($sesiones->abrir($usuario, $request->input('device')), 201);
+    }
+
+    /** Siempre responde igual, exista o no la cuenta: no se puede usar para averiguar qué correos están registrados. */
+    public function olvide(Request $request, RecuperacionDeCuenta $recuperacion): JsonResponse
+    {
+        $validador = Validator::make($request->all(), ['email' => ['required', 'string', 'email', 'max:255']], ['email.required' => 'Escribe tu correo.', 'email.email' => 'Escribe un correo válido.']);
+        if ($validador->fails()) {
+            return $this->invalido($validador->errors()->toArray());
+        }
+        $correo = $request->string('email')->toString();
+        defer(fn () => $recuperacion->pedirRestablecer($correo));
+
+        return response()->json(['message' => 'Si ese correo tiene una cuenta, te enviamos un enlace para elegir una nueva contraseña. Revisa también la carpeta de spam.']);
+    }
+
+    public function restablecer(Request $request, RecuperacionDeCuenta $recuperacion): JsonResponse
+    {
+        $validador = Validator::make($request->all(), [
+            'token' => ['required', 'string', 'max:100'],
+            'password' => ['required', 'string', Password::min(8)->max(255), 'confirmed'],
+        ], [
+            'password.required' => 'Escribe una contraseña.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.confirmed' => 'Las contraseñas no coinciden.',
+        ]);
+        if ($validador->fails()) {
+            return $this->invalido($validador->errors()->toArray());
+        }
+        if (! $recuperacion->restablecer($request->string('token')->toString(), $request->string('password')->toString())) {
+            return response()->json(['code' => 'invalid_token', 'message' => 'Este enlace ya no sirve. Pide uno nuevo.'], 422);
+        }
+
+        return response()->json(['message' => 'Listo, cambiaste tu contraseña. Ya puedes iniciar sesión.']);
+    }
+
+    public function confirmarCorreo(Request $request, RecuperacionDeCuenta $recuperacion): JsonResponse
+    {
+        $token = (string) $request->input('token', '');
+        if ($token === '' || mb_strlen($token) > 100 || ! $recuperacion->confirmar($token)) {
+            return response()->json(['code' => 'invalid_token', 'message' => 'Este enlace ya no sirve. Pide uno nuevo desde Mi cuenta.'], 422);
+        }
+
+        return response()->json(['message' => 'Correo confirmado.']);
+    }
+
+    public function reenviarConfirmacion(Request $request, RecuperacionDeCuenta $recuperacion): Response
+    {
+        $usuario = $request->user('api');
+        defer(fn () => $recuperacion->pedirConfirmacion($usuario));
+
+        return response()->noContent();
+    }
+
+    public function pedidos(Request $request, PedidosDeLaCuenta $pedidos): JsonResponse
+    {
+        return response()->json(['data' => $pedidos->lista($request->user('api'))]);
+    }
+
+    public function datosDelCheckout(Request $request, PedidosDeLaCuenta $pedidos): JsonResponse
+    {
+        return response()->json($pedidos->datosParaElCheckout($request->user('api')));
     }
 
     public function login(Request $request, SesionesDeAcceso $sesiones): JsonResponse
@@ -108,9 +173,9 @@ final class ControladorCuenta extends Controller
         return response()->json(['code' => 'validation_error', 'message' => 'Revisa los datos ingresados.', 'errors' => $errores], 422);
     }
 
-    /** @return array{name: string, email: string, role: string} */
+    /** @return array{name: string, email: string, role: string, email_verified: bool} */
     private static function usuario(User $u): array
     {
-        return ['name' => $u->name, 'email' => $u->email, 'role' => $u->role];
+        return ['name' => $u->name, 'email' => $u->email, 'role' => $u->role, 'email_verified' => $u->email_verified_at !== null];
     }
 }
