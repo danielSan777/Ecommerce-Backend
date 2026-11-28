@@ -1909,6 +1909,7 @@ final class PedidosTest extends TestCase
         $this->assertSame(0, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());
 
         $this->activarMeta();
+        app(\App\Core\Seguimiento\Aplicacion\AvisoDeCookies::class)->cambiar(true);   // con el aviso encendido se respeta la elección de cada comprador
         $this->pagarComoAdmin($this->pedidoConMeta(['cookie_consent' => ['marketing' => false]]));
         $envio = \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->where('platform', 'meta')->firstOrFail();
         $this->assertSame('skipped', $envio->status);
@@ -1919,6 +1920,36 @@ final class PedidosTest extends TestCase
         $this->pagarComoAdmin($wa);   // pedido de WhatsApp: ni se registra
         $this->assertSame(1, \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->count());
         \Illuminate\Support\Facades\Http::assertNothingSent();
+    }
+
+    public function test_el_interruptor_del_aviso_de_cookies_arranca_apagado_lo_cambia_el_admin_y_la_web_lo_lee(): void
+    {
+        $this->getJson('/api/v1/store/cookie-notice')->assertOk()->assertJsonPath('show_cookie_notice', false);
+
+        $this->putJson('/api/v1/admin/cookie-notice', ['show_cookie_notice' => true])->assertUnauthorized();
+        $this->admin();
+        $this->putJson('/api/v1/admin/cookie-notice', ['show_cookie_notice' => 'quizás'])->assertStatus(422);
+        $this->putJson('/api/v1/admin/cookie-notice', [])->assertStatus(422);
+        $this->putJson('/api/v1/admin/cookie-notice', ['show_cookie_notice' => true])->assertOk()->assertJsonPath('show_cookie_notice', true);
+        $this->getJson('/api/v1/store/cookie-notice')->assertJsonPath('show_cookie_notice', true);
+        $this->getJson('/api/v1/admin/cookie-notice')->assertJsonPath('show_cookie_notice', true);
+        $this->putJson('/api/v1/admin/cookie-notice', ['show_cookie_notice' => false])->assertOk()->assertJsonPath('show_cookie_notice', false);
+    }
+
+    public function test_con_el_aviso_apagado_el_servidor_manda_a_meta_las_compras_de_todos_y_encendido_solo_las_aceptadas(): void
+    {
+        $this->activarMeta();
+        \Illuminate\Support\Facades\Http::fake(['graph.facebook.com/*' => \Illuminate\Support\Facades\Http::response('{"events_received":1}', 200)]);
+        $aviso = app(\App\Core\Seguimiento\Aplicacion\AvisoDeCookies::class);
+
+        // Apagado (por defecto): aunque el navegador haya guardado «no», cuenta como permiso dado
+        $this->pagarComoAdmin($this->pedidoConMeta(['cookie_consent' => ['marketing' => false]]));
+        $this->assertSame('sent', \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->where('platform', 'meta')->firstOrFail()->status);
+
+        // Encendido: vuelve la regla de siempre
+        $aviso->cambiar(true);
+        $this->pagarComoAdmin($this->pedidoConMeta(['cookie_consent' => ['marketing' => false]]));
+        $this->assertSame(['sent', 'skipped'], \App\Core\Seguimiento\Infraestructura\Modelos\EnvioDeSeguimientoModelo::query()->where('platform', 'meta')->orderBy('id')->pluck('status')->all());
     }
 
     public function test_con_ga4_y_meta_activas_cada_plataforma_tiene_su_registro_y_una_compra_de_mas_de_7_dias_no_va_a_meta(): void

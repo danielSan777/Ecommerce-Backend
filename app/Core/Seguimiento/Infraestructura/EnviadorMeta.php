@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Seguimiento\Infraestructura;
 
 use App\Core\Pedidos\Infraestructura\Modelos\PedidoModelo;
+use App\Core\Seguimiento\Aplicacion\AvisoDeCookies;
 use App\Core\Seguimiento\Dominio\EnviadorDeCompra;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
@@ -28,7 +29,7 @@ final class EnviadorMeta implements EnviadorDeCompra
 
     public function omitirPorque(PedidoModelo $pedido): ?string
     {
-        if (($pedido->tracking['cookie_consent']['marketing'] ?? false) !== true) {
+        if (! app(AvisoDeCookies::class)->permiteMarketing($pedido)) {
             return 'La persona no aceptó las cookies de marketing.';
         }
         if ($pedido->paid_at !== null && $pedido->paid_at->lt(now('UTC')->subDays((int) config('seguimiento.meta.max_dias', 7)))) {

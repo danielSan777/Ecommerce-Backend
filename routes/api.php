@@ -27,6 +27,7 @@ use App\Core\Entrega\Presentacion\Controladores\ControladorAdministracionDiasNoH
 use App\Core\Entrega\Presentacion\Controladores\ControladorEntrega;
 use App\Core\Envios\Presentacion\Controladores\ControladorAdministracionEnvios;
 use App\Core\Configuracion\Presentacion\Controladores\ControladorModoDeVenta;
+use App\Core\Configuracion\Presentacion\Controladores\ControladorAvisoDeCookies;
 use App\Core\Envios\Presentacion\Controladores\ControladorUbicaciones;
 use App\Core\Cuentas\Presentacion\Controladores\ControladorCuenta;
 use App\Core\Salud\Presentacion\Controladores\ControladorSalud;
@@ -49,6 +50,7 @@ Route::prefix('v1')->group(function () {
     Route::get('orders/{token}/whatsapp', [ControladorPedidos::class, 'whatsapp'])->name('api.v1.orders.whatsapp');
     Route::get('orders/{token}/preview', [ControladorPedidos::class, 'vistaPrevia'])->name('api.v1.orders.preview');
     Route::get('locations', ControladorUbicaciones::class)->name('api.v1.locations');
+    Route::get('store/cookie-notice', [ControladorAvisoDeCookies::class, 'mostrar'])->name('api.v1.store.cookie-notice');
     Route::get('store/pricing', [ControladorModoDeVenta::class, 'precios'])->name('api.v1.store.pricing');
     Route::get('categories', [ControladorCategorias::class, 'index'])->name('api.v1.categories.index');
     Route::get('categories/{slug}', [ControladorCategorias::class, 'show'])->name('api.v1.categories.show');
@@ -100,6 +102,8 @@ Route::prefix('v1')->group(function () {
         Route::get('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'index'])->name('api.v1.admin.non-working-days.index');
         Route::post('non-working-days', [ControladorAdministracionDiasNoHabiles::class, 'store'])->name('api.v1.admin.non-working-days.store');
         Route::delete('non-working-days/{fecha}', [ControladorAdministracionDiasNoHabiles::class, 'destroy'])->name('api.v1.admin.non-working-days.destroy');
+        Route::get('cookie-notice', [ControladorAvisoDeCookies::class, 'mostrar'])->name('api.v1.admin.cookie-notice.show');
+        Route::put('cookie-notice', [ControladorAvisoDeCookies::class, 'guardar'])->name('api.v1.admin.cookie-notice.update');
         Route::get('sales-mode', [ControladorModoDeVenta::class, 'mostrar'])->name('api.v1.admin.sales-mode.show');
         Route::put('sales-mode', [ControladorModoDeVenta::class, 'guardar'])->name('api.v1.admin.sales-mode.update');
         Route::get('shipping/zones', [ControladorAdministracionEnvios::class, 'zonas'])->name('api.v1.admin.shipping.zones');
